@@ -23,3 +23,7 @@ build
 # other
 eclipse
 run
+
+# log4j output from unit tests. Loading the toolkit's logger initialises log4j, which
+# picks up Minecraft's configuration from the test classpath and writes here.
+logs
