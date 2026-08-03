@@ -3,6 +3,10 @@ package com.mahghuuuls.agenttesttoolkit.logging;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * The single writer for every toolkit record.
  *
@@ -19,6 +23,17 @@ public final class ToolkitLog {
 
     private static final Logger LOGGER = LogManager.getLogger("DevToolkit");
 
+    /**
+     * When non-null, rendered records are captured here instead of being logged.
+     *
+     * <p>Exists because record <i>content</i> was previously untestable. Every component built
+     * its record privately and handed it straight to a static logger, so a full green suite
+     * could still miss a required field going absent. That is not hypothetical: independent
+     * review found {@code side} missing from two event types while 33 tests passed, precisely
+     * because nothing could observe a rendered record.
+     */
+    private static List<String> captureSink;
+
     private ToolkitLog() {
     }
 
@@ -29,7 +44,12 @@ public final class ToolkitLog {
         if (record == null) {
             throw new IllegalArgumentException("record must not be null");
         }
-        LOGGER.info(record.render());
+        String rendered = record.render();
+        if (captureSink != null) {
+            captureSink.add(rendered);
+            return;
+        }
+        LOGGER.info(rendered);
     }
 
     /**
@@ -47,5 +67,26 @@ public final class ToolkitLog {
 
     public static void error(String message) {
         error(message, null);
+    }
+
+    /**
+     * Begins capturing rendered records instead of logging them. Tests only.
+     */
+    public static void startCaptureForTesting() {
+        captureSink = new ArrayList<String>();
+    }
+
+    /**
+     * @return the records captured since {@link #startCaptureForTesting()}, in order.
+     */
+    public static List<String> capturedForTesting() {
+        return captureSink == null ? Collections.<String>emptyList() : new ArrayList<String>(captureSink);
+    }
+
+    /**
+     * Stops capturing and restores normal logging. Tests only.
+     */
+    public static void stopCaptureForTesting() {
+        captureSink = null;
     }
 }

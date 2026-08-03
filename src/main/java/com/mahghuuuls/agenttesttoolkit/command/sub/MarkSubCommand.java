@@ -3,8 +3,9 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
-import com.mahghuuuls.agenttesttoolkit.logging.SideResolver;
+import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
+import com.mahghuuuls.agenttesttoolkit.session.SessionManager;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
@@ -56,13 +57,15 @@ public final class MarkSubCommand implements SubCommand {
             label.append(' ').append(args[i]);
         }
 
-        LogRecord record = LogRecord.of(EventType.MARK)
-                .add("side", SideResolver.of(sender))
-                .add("label", label.toString());
+        // REQ-041 and REQ-043: side and world tick lead every record, in that order.
+        LogRecord record = RecordContext.stamp(LogRecord.of(EventType.MARK), sender);
 
-        // No session field is emitted here. Sessions arrive in IMP-002, and REQ-054 requires
-        // markers to work without one, so an absent session is a normal state rather than a
-        // missing value to be filled with a placeholder.
+        // REQ-053 and REQ-054: the session name and tick are stamped only while a session is
+        // active. With none active both fields are omitted entirely rather than filled with a
+        // placeholder, and the marker still works, which is the point of REQ-054.
+        SessionManager.stamp(record);
+
+        record.add("label", label.toString());
 
         ToolkitLog.write(record);
         sender.sendMessage(new TextComponentString("[DevToolkit] Marker written to log."));

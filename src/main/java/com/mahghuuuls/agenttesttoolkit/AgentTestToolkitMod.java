@@ -4,6 +4,7 @@ import com.mahghuuuls.agenttesttoolkit.command.DevToolCommand;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
+import com.mahghuuuls.agenttesttoolkit.session.SessionTicker;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
@@ -40,7 +41,24 @@ public class AgentTestToolkitMod {
     }
 
     @Mod.EventHandler
+    public void init(net.minecraftforge.fml.common.event.FMLInitializationEvent event) {
+        // Subscribed once and never unsubscribed. See ARC-006: the resting cost is a null
+        // check, and always-registered handlers remove a whole class of lifecycle bug.
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new SessionTicker());
+    }
+
+    @Mod.EventHandler
     public void serverStarting(FMLServerStartingEvent event) {
         event.registerServerCommand(new DevToolCommand());
     }
+
+    // Deliberately absent: any FMLServerStoppedEvent handler that clears ToolkitState.
+    //
+    // ARC-001 and REQ-052. Leaving a single player world stops the integrated server, and
+    // Forge documents that event as the place to reset static state. Doing so here would
+    // destroy the active session and break the disconnect-and-reconnect testing REQ-052
+    // exists to enable. The state is meant to die with the JVM and nothing sooner.
+    //
+    // In-flight bundle executions are the opposite case and must be discarded on server stop,
+    // because they hold a sender and a server reference. That belongs to IMP-014, see ARC-002.
 }
