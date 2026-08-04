@@ -67,19 +67,4 @@ public final class SessionManager {
         }
     }
 
-    /**
-     * Stamps session identity onto a record under construction.
-     *
-     * <p>REQ-053: while a session is active every record carries its name and tick; while none
-     * is active both fields are omitted entirely rather than rendered as placeholders. Markers
-     * in particular must work either way, per REQ-054.
-     */
-    public static LogRecord stamp(LogRecord record) {
-        DiagnosticSession session = ToolkitState.getActiveSession();
-        if (session != null) {
-            record.add("session", session.getName());
-            record.add("sessionTick", session.getTick());
-        }
-        return record;
-    }
 }

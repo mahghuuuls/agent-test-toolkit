@@ -5,7 +5,7 @@ import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
-import com.mahghuuuls.agenttesttoolkit.session.SessionManager;
+import com.mahghuuuls.agenttesttoolkit.state.SessionStamp;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
@@ -63,7 +63,7 @@ public final class MarkSubCommand implements SubCommand {
         // REQ-053 and REQ-054: the session name and tick are stamped only while a session is
         // active. With none active both fields are omitted entirely rather than filled with a
         // placeholder, and the marker still works, which is the point of REQ-054.
-        SessionManager.stamp(record);
+        SessionStamp.apply(record);
 
         record.add("label", label.toString());
 

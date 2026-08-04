@@ -5,6 +5,7 @@ import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.state.DiagnosticSession;
+import com.mahghuuuls.agenttesttoolkit.state.SessionStamp;
 import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -194,7 +195,7 @@ class SessionManagerTest {
         SessionManager.onServerTick();
         SessionManager.onServerTick();
 
-        String out = SessionManager.stamp(LogRecord.of(EventType.MARK)).add("label", "X").render();
+        String out = SessionStamp.apply(LogRecord.of(EventType.MARK)).add("label", "X").render();
         assertEquals("[DevToolkit][MARK] session=spell_damage sessionTick=3 label=X", out);
     }
 
@@ -203,7 +204,7 @@ class SessionManagerTest {
     void stampOmitsFieldsWithoutSession() {
         // REQ-054: a marker must work without a session, and REQ-033 says an absent optional
         // value is omitted rather than rendered as a placeholder.
-        String out = SessionManager.stamp(LogRecord.of(EventType.MARK)).add("label", "X").render();
+        String out = SessionStamp.apply(LogRecord.of(EventType.MARK)).add("label", "X").render();
         assertEquals("[DevToolkit][MARK] label=X", out);
         assertFalse(out.contains("session"));
     }
@@ -212,7 +213,7 @@ class SessionManagerTest {
     @DisplayName("a session name containing whitespace is quoted in records")
     void sessionNameWithWhitespaceIsQuoted() {
         SessionManager.start("spell damage test", IN_WORLD);
-        String out = SessionManager.stamp(LogRecord.of(EventType.MARK)).render();
+        String out = SessionStamp.apply(LogRecord.of(EventType.MARK)).render();
         assertTrue(out.contains("session=\"spell damage test\""), out);
     }
 }

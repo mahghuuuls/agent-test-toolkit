@@ -53,6 +53,8 @@ public class AgentTestToolkitMod {
         // Subscribed once and never unsubscribed. See ARC-006: the resting cost is a null
         // check, and always-registered handlers remove a whole class of lifecycle bug.
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new SessionTicker());
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(
+                new com.mahghuuuls.agenttesttoolkit.observe.BlockPlaceObserver());
     }
 
     @Mod.EventHandler

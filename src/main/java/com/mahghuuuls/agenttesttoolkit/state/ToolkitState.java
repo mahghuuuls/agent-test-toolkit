@@ -1,5 +1,11 @@
 package com.mahghuuuls.agenttesttoolkit.state;
 
+import com.mahghuuuls.agenttesttoolkit.logging.LoggingCategory;
+
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
+
 /**
  * Process-scoped mutable toolkit state: the active diagnostic session, and later the enabled
  * logging categories and their filters.
@@ -39,7 +45,83 @@ public final class ToolkitState {
 
     private static volatile DiagnosticSession activeSession;
 
+    /**
+     * Enabled logging categories.
+     *
+     * <p>Replaced wholesale on every change rather than mutated in place. Reads happen on
+     * every observed game event and must be cheap and safe; writes happen rarely, from a
+     * command. Copy-on-write gives both without a lock, and the volatile reference carries
+     * the same cross-thread visibility guarantee as {@link #activeSession}.
+     *
+     * <p>The check-then-act in {@link #enable} and {@link #disable} is not atomic, which would
+     * matter if two threads mutated concurrently. They do not: console commands are queued and
+     * drained on the server thread, player commands execute on the server thread, and the tick
+     * handler runs there too. All writes therefore happen on the single logical server thread,
+     * the same invariant {@code activeSession} relies on. Reads happen on that thread as well.
+     */
+    private static volatile Set<LoggingCategory> enabledCategories =
+            Collections.unmodifiableSet(EnumSet.noneOf(LoggingCategory.class));
+
     private ToolkitState() {
+    }
+
+    /**
+     * Hot path: consulted at the top of every event handler, per ARC-006. Must stay cheap
+     * enough that an always-registered handler costs nothing worth measuring when its
+     * category is off.
+     */
+    public static boolean isEnabled(LoggingCategory category) {
+        return enabledCategories.contains(category);
+    }
+
+    /** @return true when this call changed the state. */
+    public static boolean enable(LoggingCategory category) {
+        if (enabledCategories.contains(category)) {
+            return false;
+        }
+        Set<LoggingCategory> next = mutableCopy();
+        next.add(category);
+        enabledCategories = Collections.unmodifiableSet(next);
+        return true;
+    }
+
+    /** @return true when this call changed the state. */
+    public static boolean disable(LoggingCategory category) {
+        if (!enabledCategories.contains(category)) {
+            return false;
+        }
+        Set<LoggingCategory> next = mutableCopy();
+        next.remove(category);
+        enabledCategories = Collections.unmodifiableSet(next);
+        return true;
+    }
+
+    /**
+     * Copies the current set into a fresh mutable {@link EnumSet}.
+     *
+     * <p>Built by {@code noneOf} plus {@code addAll} rather than {@code EnumSet.copyOf}.
+     * {@code copyOf} throws {@link IllegalArgumentException} when handed an empty collection
+     * that is not itself an {@code EnumSet}, because it has no element type to infer from.
+     * The field holds an unmodifiable wrapper rather than a bare {@code EnumSet}, so the empty
+     * case is exactly the resting state, and {@code copyOf} would have failed on the very
+     * first enable. Caught by unit tests before it reached a game.
+     */
+    private static Set<LoggingCategory> mutableCopy() {
+        Set<LoggingCategory> copy = EnumSet.noneOf(LoggingCategory.class);
+        copy.addAll(enabledCategories);
+        return copy;
+    }
+
+    /** @return how many categories were disabled. */
+    public static int disableAll() {
+        int count = enabledCategories.size();
+        enabledCategories = Collections.unmodifiableSet(EnumSet.noneOf(LoggingCategory.class));
+        return count;
+    }
+
+    /** @return an immutable view of the enabled categories, in declaration order. */
+    public static Set<LoggingCategory> getEnabledCategories() {
+        return enabledCategories;
     }
 
     /** @return the active session, or null when none is active. */
@@ -69,5 +151,6 @@ public final class ToolkitState {
      */
     public static void resetForTesting() {
         activeSession = null;
+        enabledCategories = Collections.unmodifiableSet(EnumSet.noneOf(LoggingCategory.class));
     }
 }

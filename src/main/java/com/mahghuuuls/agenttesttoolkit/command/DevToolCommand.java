@@ -2,6 +2,7 @@ package com.mahghuuuls.agenttesttoolkit.command;
 
 import com.mahghuuuls.agenttesttoolkit.command.sub.HelpSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.InspectSubCommand;
+import com.mahghuuuls.agenttesttoolkit.command.sub.LogSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.MarkSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.SessionSubCommand;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
@@ -46,6 +47,7 @@ public final class DevToolCommand extends CommandBase {
         register(new MarkSubCommand());
         register(new SessionSubCommand());
         register(new InspectSubCommand());
+        register(new LogSubCommand());
         // Help receives the live map view rather than a copy, so it lists every registered
         // subcommand including itself, and stays correct as later issues add more.
         register(new HelpSubCommand(subCommands.values()));

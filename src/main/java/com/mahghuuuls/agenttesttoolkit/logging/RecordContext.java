@@ -70,6 +70,11 @@ public final class RecordContext {
         return new Snapshot(side(sender), worldTick(sender));
     }
 
+    /** Context for an observed game event, which has a world but no command sender. */
+    public static Snapshot snapshot(World world) {
+        return new Snapshot(side(world), worldTick(world));
+    }
+
     /**
      * An immutable capture of the context fields, taken at the moment of the event.
      *

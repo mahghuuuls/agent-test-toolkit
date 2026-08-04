@@ -6,7 +6,7 @@ import com.mahghuuuls.agenttesttoolkit.inspect.Inspectors;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
-import com.mahghuuuls.agenttesttoolkit.session.SessionManager;
+import com.mahghuuuls.agenttesttoolkit.state.SessionStamp;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
@@ -179,7 +179,7 @@ public final class InspectSubCommand implements SubCommand {
         // which holds either way, and building the identity first keeps the inspector free of
         // command-layer types. Noted so the difference reads as deliberate rather than sloppy.
         RecordContext.stamp(record, sender);
-        SessionManager.stamp(record);
+        SessionStamp.apply(record);
         ToolkitLog.write(record);
         sender.sendMessage(new TextComponentString("[DevToolkit] " + chatConfirmation));
     }
