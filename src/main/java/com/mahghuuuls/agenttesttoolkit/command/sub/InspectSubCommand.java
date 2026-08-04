@@ -3,6 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inspect.EntityTarget;
 import com.mahghuuuls.agenttesttoolkit.inspect.Inspectors;
+import com.mahghuuuls.agenttesttoolkit.inspect.Inventories;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
@@ -31,7 +32,15 @@ import java.util.Locale;
  */
 public final class InspectSubCommand implements SubCommand {
 
-    private static final List<String> TARGETS = Arrays.asList("player", "entity", "block");
+    /**
+     * The inspection targets this build actually accepts.
+     *
+     * <p>Public because the capabilities command reports it. Read from here rather than
+     * restated there, so the two cannot drift: a target added below appears in capabilities
+     * without anyone remembering to update it.
+     */
+    public static final List<String> TARGETS =
+            Collections.unmodifiableList(Arrays.asList("player", "entity", "block", "inventory"));
 
     @Override
     public String getName() {
@@ -71,10 +80,13 @@ public final class InspectSubCommand implements SubCommand {
             inspectEntity(server, sender, rest);
         } else if ("block".equals(target)) {
             inspectBlock(sender, rest);
+        } else if ("inventory".equals(target)) {
+            inspectInventory(server, sender, rest);
         } else {
             ToolkitLog.error("Unknown inspect target", target);
             sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Unknown inspect target: " + target + ". Expected player, entity or block."));
+                    "[DevToolkit] Unknown inspect target: " + target
+                            + ". Expected " + TARGETS + "."));
         }
     }
 
@@ -105,6 +117,44 @@ public final class InspectSubCommand implements SubCommand {
             player = (EntityPlayer) entity;
         }
         emit(Inspectors.player(player), sender, "Player inspection written to log.");
+    }
+
+    /**
+     * REQ-074. Resolves the same way as {@code inspect player}: self when no selector, or the
+     * named player.
+     */
+    private void inspectInventory(MinecraftServer server, ICommandSender sender, String[] args)
+            throws CommandException {
+        EntityPlayer player;
+        if (args.length == 0) {
+            if (!(sender instanceof EntityPlayer)) {
+                ToolkitLog.error("inspect inventory requires a selector when run without a player sender");
+                sender.sendMessage(new TextComponentString(
+                        "[DevToolkit] /devtool inspect inventory requires a selector when run from the console."));
+                return;
+            }
+            player = (EntityPlayer) sender;
+        } else {
+            Entity entity = resolveOrReport(server, sender, args[0]);
+            if (entity == null) {
+                return;
+            }
+            if (!(entity instanceof EntityPlayer)) {
+                ToolkitLog.error("Selector did not match a player", args[0]);
+                sender.sendMessage(new TextComponentString(
+                        "[DevToolkit] Selector matched a non-player entity; only players have inventories here."));
+                return;
+            }
+            player = (EntityPlayer) entity;
+        }
+
+        // One record per occupied slot, so the confirmation is sent once rather than per line.
+        List<LogRecord> records = Inventories.inventory(player);
+        for (LogRecord record : records) {
+            write(record, sender);
+        }
+        sender.sendMessage(new TextComponentString("[DevToolkit] Inventory written to log ("
+                + records.size() + " record" + (records.size() == 1 ? "" : "s") + ")."));
     }
 
     private void inspectEntity(MinecraftServer server, ICommandSender sender, String[] args)
@@ -178,10 +228,15 @@ public final class InspectSubCommand implements SubCommand {
         // MARK and session records. REQ-033 requires order to be consistent per event type,
         // which holds either way, and building the identity first keeps the inspector free of
         // command-layer types. Noted so the difference reads as deliberate rather than sloppy.
+        write(record, sender);
+        sender.sendMessage(new TextComponentString("[DevToolkit] " + chatConfirmation));
+    }
+
+    /** Stamps and writes one record without sending chat, for multi-record inspections. */
+    private void write(LogRecord record, ICommandSender sender) {
         RecordContext.stamp(record, sender);
         SessionStamp.apply(record);
         ToolkitLog.write(record);
-        sender.sendMessage(new TextComponentString("[DevToolkit] " + chatConfirmation));
     }
 
     @Override

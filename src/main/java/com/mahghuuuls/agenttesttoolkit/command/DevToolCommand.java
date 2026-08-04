@@ -1,6 +1,11 @@
 package com.mahghuuuls.agenttesttoolkit.command;
 
 import com.mahghuuuls.agenttesttoolkit.command.sub.BundleSubCommand;
+import com.mahghuuuls.agenttesttoolkit.command.sub.CapabilitiesSubCommand;
+import com.mahghuuuls.agenttesttoolkit.command.sub.EntitiesSubCommand;
+import com.mahghuuuls.agenttesttoolkit.command.sub.EnvironmentSubCommand;
+import com.mahghuuuls.agenttesttoolkit.command.sub.ModsSubCommand;
+import com.mahghuuuls.agenttesttoolkit.command.sub.NbtSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.HelpSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.InspectSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.LogSubCommand;
@@ -54,6 +59,12 @@ public final class DevToolCommand extends CommandBase {
         register(new BundleSubCommand());
         register(new RunSubCommand());
         register(new ReloadSubCommand());
+        register(new NbtSubCommand());
+        register(new EntitiesSubCommand());
+        register(new EnvironmentSubCommand());
+        register(new ModsSubCommand());
+        // Reads the registry it is being added to, so it reports what the build actually has.
+        register(new CapabilitiesSubCommand(subCommands.values()));
         // Help receives the live map view rather than a copy, so it lists every registered
         // subcommand including itself, and stays correct as later issues add more.
         register(new HelpSubCommand(subCommands.values()));
