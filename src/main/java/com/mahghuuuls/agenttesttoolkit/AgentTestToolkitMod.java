@@ -25,6 +25,9 @@ import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 )
 public class AgentTestToolkitMod {
 
+    /** Held so its pending correlations can be discarded when the server stops. */
+    private com.mahghuuuls.agenttesttoolkit.observe.damage.DamageObserver damageObserver;
+
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
 
@@ -55,6 +58,8 @@ public class AgentTestToolkitMod {
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new SessionTicker());
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(
                 new com.mahghuuuls.agenttesttoolkit.observe.BlockPlaceObserver());
+        damageObserver = new com.mahghuuuls.agenttesttoolkit.observe.damage.DamageObserver();
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(damageObserver);
     }
 
     @Mod.EventHandler
@@ -62,13 +67,20 @@ public class AgentTestToolkitMod {
         event.registerServerCommand(new DevToolCommand());
     }
 
-    // Deliberately absent: any FMLServerStoppedEvent handler that clears ToolkitState.
-    //
-    // ARC-001 and REQ-052. Leaving a single player world stops the integrated server, and
-    // Forge documents that event as the place to reset static state. Doing so here would
-    // destroy the active session and break the disconnect-and-reconnect testing REQ-052
-    // exists to enable. The state is meant to die with the JVM and nothing sooner.
-    //
-    // In-flight bundle executions are the opposite case and must be discarded on server stop,
-    // because they hold a sender and a server reference. That belongs to IMP-014, see ARC-002.
+    @Mod.EventHandler
+    public void serverStopped(net.minecraftforge.fml.common.event.FMLServerStoppedEvent event) {
+        // ARC-002: discard in-flight, server-bound transient state. Pending damage
+        // correlations hold entity references from a world that is unloading, and the observer
+        // is registered permanently, so leaving them would leak stale entries into the next
+        // world's first tick.
+        //
+        // ARC-001: this handler must NEVER clear ToolkitState. Leaving a single player world
+        // stops the integrated server, and Forge documents this event as the place to reset
+        // static state. Doing that here would destroy the active session and break the
+        // disconnect-and-reconnect testing REQ-052 exists to enable. Session and logging
+        // category state are meant to die with the JVM and nothing sooner.
+        if (damageObserver != null) {
+            damageObserver.discardPending();
+        }
+    }
 }

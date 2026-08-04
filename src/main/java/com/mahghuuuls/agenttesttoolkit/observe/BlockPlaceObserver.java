@@ -5,7 +5,6 @@ import com.mahghuuuls.agenttesttoolkit.logging.LoggingCategory;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.state.SessionStamp;
-import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
@@ -46,7 +45,7 @@ public final class BlockPlaceObserver {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         World world = event.getWorld();
-        if (!shouldRecord(LoggingCategory.BLOCK_PLACE, world == null || world.isRemote)) {
+        if (!ObserverGate.shouldRecord(LoggingCategory.BLOCK_PLACE, world == null || world.isRemote)) {
             return;
         }
 
@@ -84,24 +83,6 @@ public final class BlockPlaceObserver {
         ToolkitLog.write(record);
     }
 
-    /**
-     * The gate every observer applies before doing any work.
-     *
-     * <p>ARC-006 keeps handlers registered permanently and gates them on a boolean, so this
-     * runs on every matching game event and must stay cheap. Extracted as a pure function so
-     * the rule is unit testable: a Forge event cannot be simulated meaningfully, but the
-     * decision of whether to record one can be checked directly.
-     *
-     * @param isRemote whether the event's world is the client side
-     */
-    public static boolean shouldRecord(LoggingCategory category, boolean isRemote) {
-        if (!ToolkitState.isEnabled(category)) {
-            return false;
-        }
-        // REQ-041: server-authoritative observation only. In single player both logical sides
-        // share a JVM, so without this the same placement would be recorded twice.
-        return !isRemote;
-    }
 
     private static String registryName(IBlockState state) {
         ResourceLocation id = Block.REGISTRY.getNameForObject(state.getBlock());

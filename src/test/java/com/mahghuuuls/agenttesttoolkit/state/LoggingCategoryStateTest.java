@@ -3,7 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.state;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.LoggingCategory;
-import com.mahghuuuls.agenttesttoolkit.observe.BlockPlaceObserver;
+import com.mahghuuuls.agenttesttoolkit.observe.ObserverGate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -149,8 +149,8 @@ class LoggingCategoryStateTest {
     @Test
     @DisplayName("a disabled category is not recorded on either side")
     void disabledCategoryIsNeverRecorded() {
-        assertFalse(BlockPlaceObserver.shouldRecord(LoggingCategory.BLOCK_PLACE, false));
-        assertFalse(BlockPlaceObserver.shouldRecord(LoggingCategory.BLOCK_PLACE, true));
+        assertFalse(ObserverGate.shouldRecord(LoggingCategory.BLOCK_PLACE, false));
+        assertFalse(ObserverGate.shouldRecord(LoggingCategory.BLOCK_PLACE, true));
     }
 
     @Test
@@ -159,16 +159,16 @@ class LoggingCategoryStateTest {
         // REQ-041. In single player both logical sides share a JVM, so without the side check
         // one placement would produce two records.
         ToolkitState.enable(LoggingCategory.BLOCK_PLACE);
-        assertTrue(BlockPlaceObserver.shouldRecord(LoggingCategory.BLOCK_PLACE, false));
-        assertFalse(BlockPlaceObserver.shouldRecord(LoggingCategory.BLOCK_PLACE, true));
+        assertTrue(ObserverGate.shouldRecord(LoggingCategory.BLOCK_PLACE, false));
+        assertFalse(ObserverGate.shouldRecord(LoggingCategory.BLOCK_PLACE, true));
     }
 
     @Test
     @DisplayName("gating is per category, not global")
     void gatingIsPerCategory() {
         ToolkitState.enable(LoggingCategory.BLOCK_PLACE);
-        assertTrue(BlockPlaceObserver.shouldRecord(LoggingCategory.BLOCK_PLACE, false));
-        assertFalse(BlockPlaceObserver.shouldRecord(LoggingCategory.BLOCK_BREAK, false));
+        assertTrue(ObserverGate.shouldRecord(LoggingCategory.BLOCK_PLACE, false));
+        assertFalse(ObserverGate.shouldRecord(LoggingCategory.BLOCK_BREAK, false));
     }
 
     // --- Session stamping -----------------------------------------------------------
