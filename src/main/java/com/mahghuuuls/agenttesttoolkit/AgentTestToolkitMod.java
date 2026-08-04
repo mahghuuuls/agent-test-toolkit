@@ -1,9 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit;
 
 import com.mahghuuuls.agenttesttoolkit.command.DevToolCommand;
-import com.mahghuuuls.agenttesttoolkit.logging.EventType;
-import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
-import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.session.SessionTicker;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
@@ -31,24 +28,19 @@ public class AgentTestToolkitMod {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
 
-        // REQ-111: one concise initialization record. Configuration contents are deliberately
-        // not dumped here; only the summary, plus any load errors as separate records later.
-        //
-        // REQ-111 also calls for the number of bundles loaded. Bundles do not exist until
-        // IMP-012, so that field is absent rather than reported as a misleading zero, per the
-        // omit-rather-than-placeholder rule. IMP-012 adds it. The loggingCategoriesEnabled
-        // field follows the owner specification's startup example and is genuinely zero here,
-        // since REQ-035 requires every category to start disabled.
-        ToolkitLog.write(LogRecord.of(EventType.STARTUP)
-                .add("version", Tags.VERSION)
-                .add("loggingCategoriesEnabled", 0));
+        // Both loaders return their problems rather than logging as they go, so that the one
+        // startup record can be written first and carry the bundle count. ToolkitStartup owns
+        // that ordering rule and is tested directly; see REQ-111.
+        java.util.List<String> configProblems =
+                com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader.load(
+                        event.getModConfigurationDirectory());
 
-        // Configuration loads AFTER the startup record on purpose. REQ-111 requires
-        // configuration and parsing errors to follow the initialization summary as separate
-        // records, so a reader always meets the version and feature summary first and then
-        // any problems, rather than errors from an unidentified build.
-        com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader.load(
-                event.getModConfigurationDirectory());
+        // Bundles load after configuration, since the bundles directory sits inside the
+        // toolkit configuration directory that the loader establishes.
+        com.mahghuuuls.agenttesttoolkit.bundle.BundleRegistry.LoadReport bundles =
+                com.mahghuuuls.agenttesttoolkit.bundle.Bundles.reload();
+
+        ToolkitStartup.announce(Tags.VERSION, bundles, configProblems);
     }
 
     @Mod.EventHandler

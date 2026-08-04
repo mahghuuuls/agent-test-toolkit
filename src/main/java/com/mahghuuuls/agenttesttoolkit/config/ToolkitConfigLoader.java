@@ -4,6 +4,9 @@ import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import net.minecraftforge.common.config.Configuration;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Reads {@link ToolkitConfig} from disk.
@@ -30,6 +33,8 @@ public final class ToolkitConfigLoader {
     // later, potentially from a different thread, with no synchronisation to create an
     // ordering edge. Consistency here is free.
     private static volatile File configDirectory;
+    /** The game config directory passed to the last load, so reload needs no path arithmetic. */
+    private static volatile File gameConfigDir;
 
     private ToolkitConfigLoader() {
     }
@@ -50,28 +55,56 @@ public final class ToolkitConfigLoader {
      *
      * @param gameConfigDirectory the game's config directory, from the preInit event
      */
-    public static void load(File gameConfigDirectory) {
+    public static List<String> load(File gameConfigDirectory) {
+        gameConfigDir = gameConfigDirectory;
+        List<String> problems = new ArrayList<String>();
+
         configDirectory = new File(gameConfigDirectory, CONFIG_DIR_NAME);
         if (!configDirectory.exists() && !configDirectory.mkdirs()) {
-            ToolkitLog.error("Could not create configuration directory",
-                    configDirectory.getAbsolutePath());
+            problems.add("could not create configuration directory "
+                    + configDirectory.getAbsolutePath());
             current = ToolkitConfig.DEFAULTS;
-            return;
+            return problems;
         }
 
         try {
-            current = read(new Configuration(new File(configDirectory, CONFIG_FILE_NAME)));
+            current = read(new Configuration(new File(configDirectory, CONFIG_FILE_NAME)), problems);
         } catch (RuntimeException e) {
             // A malformed configuration must not stop the toolkit loading. A toolkit that
             // refuses to start is useless for diagnosing whatever was actually being tested,
             // so the failure is reported and defaults are used. REQ-110 forbids silence.
-            ToolkitLog.error("Failed to read configuration, using defaults",
-                    e.getClass().getSimpleName() + ": " + e.getMessage());
+            problems.add("failed to read configuration, using defaults: "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
             current = ToolkitConfig.DEFAULTS;
+        }
+        return problems;
+    }
+
+    /**
+     * Reloads from the directory established by the last {@link #load}.
+     *
+     * <p>Exists so callers do not have to reconstruct the game configuration directory by
+     * walking up from {@link #getConfigDirectory()}. That inversion happened to work, but it
+     * silently depended on the toolkit directory being exactly one level deep, which nothing
+     * in this class promises.
+     *
+     * @return problems encountered, for the caller to report
+     */
+    public static List<String> reload() {
+        if (gameConfigDir == null) {
+            return Collections.emptyList();
+        }
+        return load(gameConfigDir);
+    }
+
+    /** Writes each problem as its own record. REQ-110: individually, never summarised away. */
+    public static void reportProblems(List<String> problems) {
+        for (String problem : problems) {
+            ToolkitLog.error("Configuration problem", problem);
         }
     }
 
-    private static ToolkitConfig read(Configuration cfg) {
+    private static ToolkitConfig read(Configuration cfg, List<String> problems) {
         try {
             cfg.load();
 
@@ -113,10 +146,10 @@ public final class ToolkitConfigLoader {
             ToolkitConfig loaded = new ToolkitConfig(width, height, length, block, ceiling,
                     maxDimension, nbtLimit, joinEnabled);
 
-            reportAdjustment("arena.defaultWidth", width, loaded.getDefaultArenaWidth());
-            reportAdjustment("arena.defaultHeight", height, loaded.getDefaultArenaHeight());
-            reportAdjustment("arena.defaultLength", length, loaded.getDefaultArenaLength());
-            reportAdjustment("arena.maxArenaDimension", maxDimension, loaded.getMaxArenaDimension());
+            noteAdjustment(problems, "arena.defaultWidth", width, loaded.getDefaultArenaWidth());
+            noteAdjustment(problems, "arena.defaultHeight", height, loaded.getDefaultArenaHeight());
+            noteAdjustment(problems, "arena.defaultLength", length, loaded.getDefaultArenaLength());
+            noteAdjustment(problems, "arena.maxArenaDimension", maxDimension, loaded.getMaxArenaDimension());
 
             return loaded;
         } finally {
@@ -127,13 +160,14 @@ public final class ToolkitConfigLoader {
     }
 
     /**
-     * Reports a value that was clamped, so an adjustment is never silent even though it is
-     * not fatal.
+     * Notes a value that was clamped, so an adjustment is never silent even though it is not
+     * fatal. Collected rather than logged, so the caller controls ordering.
      */
-    private static void reportAdjustment(String key, int requested, int effective) {
+    private static void noteAdjustment(List<String> problems, String key,
+                                       int requested, int effective) {
         if (ToolkitConfig.wasAdjusted(requested, effective)) {
-            ToolkitLog.error("Configuration value adjusted",
-                    key + " requested=" + requested + " effective=" + effective);
+            problems.add("value adjusted: " + key
+                    + " requested=" + requested + " effective=" + effective);
         }
     }
 }
