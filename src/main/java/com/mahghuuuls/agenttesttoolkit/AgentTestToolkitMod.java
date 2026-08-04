@@ -52,6 +52,8 @@ public class AgentTestToolkitMod {
                 new com.mahghuuuls.agenttesttoolkit.observe.BlockPlaceObserver());
         damageObserver = new com.mahghuuuls.agenttesttoolkit.observe.damage.DamageObserver();
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(damageObserver);
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(
+                new com.mahghuuuls.agenttesttoolkit.bundle.BundleTicker());
     }
 
     @Mod.EventHandler
@@ -74,5 +76,9 @@ public class AgentTestToolkitMod {
         if (damageObserver != null) {
             damageObserver.discardPending();
         }
+        // Same rule, same reason: an in-flight bundle holds a sender from the world that is
+        // unloading, and the scheduler is registered permanently, so an execution left here
+        // would resume against the next world.
+        com.mahghuuuls.agenttesttoolkit.bundle.Bundles.scheduler().discardAll();
     }
 }

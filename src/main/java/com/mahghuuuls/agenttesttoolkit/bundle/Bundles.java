@@ -17,12 +17,17 @@ public final class Bundles {
     public static final String BUNDLES_DIR_NAME = "bundles";
 
     private static final BundleRegistry REGISTRY = new BundleRegistry();
+    private static final BundleScheduler SCHEDULER = new BundleScheduler();
 
     private Bundles() {
     }
 
     public static BundleRegistry registry() {
         return REGISTRY;
+    }
+
+    public static BundleScheduler scheduler() {
+        return SCHEDULER;
     }
 
     /**
