@@ -27,6 +27,7 @@ public class AgentTestToolkitMod {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
+
         // REQ-111: one concise initialization record. Configuration contents are deliberately
         // not dumped here; only the summary, plus any load errors as separate records later.
         //
@@ -38,6 +39,13 @@ public class AgentTestToolkitMod {
         ToolkitLog.write(LogRecord.of(EventType.STARTUP)
                 .add("version", Tags.VERSION)
                 .add("loggingCategoriesEnabled", 0));
+
+        // Configuration loads AFTER the startup record on purpose. REQ-111 requires
+        // configuration and parsing errors to follow the initialization summary as separate
+        // records, so a reader always meets the version and feature summary first and then
+        // any problems, rather than errors from an unidentified build.
+        com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader.load(
+                event.getModConfigurationDirectory());
     }
 
     @Mod.EventHandler

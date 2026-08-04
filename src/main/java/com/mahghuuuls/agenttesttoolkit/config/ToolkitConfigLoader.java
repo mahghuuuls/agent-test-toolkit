@@ -1,0 +1,139 @@
+package com.mahghuuuls.agenttesttoolkit.config;
+
+import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
+import net.minecraftforge.common.config.Configuration;
+
+import java.io.File;
+
+/**
+ * Reads {@link ToolkitConfig} from disk.
+ *
+ * <p>Separated from the values themselves so the validation rules stay unit testable without
+ * Forge. This is the only class here that needs a running mod environment.
+ *
+ * <p>Lives under {@code config/devtool/} rather than the conventional {@code config/<modid>.cfg},
+ * so that the configuration file sits beside the {@code bundles/} directory the same feature
+ * family uses. The directory name follows the root command, matching specification section 15.
+ */
+public final class ToolkitConfigLoader {
+
+    /** Directory name under the game's config folder. Follows the command, not the mod id. */
+    public static final String CONFIG_DIR_NAME = "devtool";
+    private static final String CONFIG_FILE_NAME = "devtool.cfg";
+
+    private static final String CATEGORY_ARENA = "arena";
+    private static final String CATEGORY_DIAGNOSTICS = "diagnostics";
+    private static final String CATEGORY_JOIN = "join";
+
+    private static volatile ToolkitConfig current = ToolkitConfig.DEFAULTS;
+    // Volatile for the same reason as `current`: written once during mod loading and read
+    // later, potentially from a different thread, with no synchronisation to create an
+    // ordering edge. Consistency here is free.
+    private static volatile File configDirectory;
+
+    private ToolkitConfigLoader() {
+    }
+
+    /** @return the configuration in effect. Never null; defaults apply before any load. */
+    public static ToolkitConfig get() {
+        return current;
+    }
+
+    /** @return the toolkit's configuration directory, or null before initialization. */
+    public static File getConfigDirectory() {
+        return configDirectory;
+    }
+
+    /**
+     * Loads configuration from {@code <gameConfigDir>/devtool/devtool.cfg}, creating it with
+     * defaults when absent.
+     *
+     * @param gameConfigDirectory the game's config directory, from the preInit event
+     */
+    public static void load(File gameConfigDirectory) {
+        configDirectory = new File(gameConfigDirectory, CONFIG_DIR_NAME);
+        if (!configDirectory.exists() && !configDirectory.mkdirs()) {
+            ToolkitLog.error("Could not create configuration directory",
+                    configDirectory.getAbsolutePath());
+            current = ToolkitConfig.DEFAULTS;
+            return;
+        }
+
+        try {
+            current = read(new Configuration(new File(configDirectory, CONFIG_FILE_NAME)));
+        } catch (RuntimeException e) {
+            // A malformed configuration must not stop the toolkit loading. A toolkit that
+            // refuses to start is useless for diagnosing whatever was actually being tested,
+            // so the failure is reported and defaults are used. REQ-110 forbids silence.
+            ToolkitLog.error("Failed to read configuration, using defaults",
+                    e.getClass().getSimpleName() + ": " + e.getMessage());
+            current = ToolkitConfig.DEFAULTS;
+        }
+    }
+
+    private static ToolkitConfig read(Configuration cfg) {
+        try {
+            cfg.load();
+
+            ToolkitConfig d = ToolkitConfig.DEFAULTS;
+
+            int maxDimension = cfg.getInt("maxArenaDimension", CATEGORY_ARENA,
+                    d.getMaxArenaDimension(), ToolkitConfig.MIN_ARENA_DIMENSION,
+                    ToolkitConfig.ABSOLUTE_MAX_ARENA_DIMENSION,
+                    "Largest arena edge length accepted by 'arena create'. Exists so a mistyped "
+                            + "dimension cannot stall the server while it places blocks.");
+
+            int width = cfg.getInt("defaultWidth", CATEGORY_ARENA, d.getDefaultArenaWidth(),
+                    ToolkitConfig.MIN_ARENA_DIMENSION, ToolkitConfig.ABSOLUTE_MAX_ARENA_DIMENSION,
+                    "Arena width used when 'arena create' is given no dimensions.");
+            int height = cfg.getInt("defaultHeight", CATEGORY_ARENA, d.getDefaultArenaHeight(),
+                    ToolkitConfig.MIN_ARENA_DIMENSION, ToolkitConfig.ABSOLUTE_MAX_ARENA_DIMENSION,
+                    "Arena height used when 'arena create' is given no dimensions.");
+            int length = cfg.getInt("defaultLength", CATEGORY_ARENA, d.getDefaultArenaLength(),
+                    ToolkitConfig.MIN_ARENA_DIMENSION, ToolkitConfig.ABSOLUTE_MAX_ARENA_DIMENSION,
+                    "Arena length used when 'arena create' is given no dimensions.");
+
+            String block = cfg.getString("constructionBlock", CATEGORY_ARENA,
+                    d.getDefaultArenaBlock(),
+                    "Registry id of the block used for arena floor, walls and ceiling.");
+
+            boolean ceiling = cfg.getBoolean("ceiling", CATEGORY_ARENA, d.hasArenaCeiling(),
+                    "Whether arenas are built with a ceiling.");
+
+            int nbtLimit = cfg.getInt("maxNbtOutputLength", CATEGORY_DIAGNOSTICS,
+                    d.getMaxNbtOutputLength(), 1, Integer.MAX_VALUE,
+                    "Maximum characters of NBT written to the log before truncation. "
+                            + "Truncation is always reported; it is never silent.");
+
+            boolean joinEnabled = cfg.getBoolean("enabled", CATEGORY_JOIN,
+                    d.isJoinExecutionEnabled(),
+                    "Whether configured commands run when an operator joins. Disabled by "
+                            + "default so a leftover configuration cannot surprise anyone.");
+
+            ToolkitConfig loaded = new ToolkitConfig(width, height, length, block, ceiling,
+                    maxDimension, nbtLimit, joinEnabled);
+
+            reportAdjustment("arena.defaultWidth", width, loaded.getDefaultArenaWidth());
+            reportAdjustment("arena.defaultHeight", height, loaded.getDefaultArenaHeight());
+            reportAdjustment("arena.defaultLength", length, loaded.getDefaultArenaLength());
+            reportAdjustment("arena.maxArenaDimension", maxDimension, loaded.getMaxArenaDimension());
+
+            return loaded;
+        } finally {
+            if (cfg.hasChanged()) {
+                cfg.save();
+            }
+        }
+    }
+
+    /**
+     * Reports a value that was clamped, so an adjustment is never silent even though it is
+     * not fatal.
+     */
+    private static void reportAdjustment(String key, int requested, int effective) {
+        if (ToolkitConfig.wasAdjusted(requested, effective)) {
+            ToolkitLog.error("Configuration value adjusted",
+                    key + " requested=" + requested + " effective=" + effective);
+        }
+    }
+}
