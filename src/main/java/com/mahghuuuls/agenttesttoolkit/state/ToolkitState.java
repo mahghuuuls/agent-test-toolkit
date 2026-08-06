@@ -1,6 +1,10 @@
 package com.mahghuuuls.agenttesttoolkit.state;
 
 import com.mahghuuuls.agenttesttoolkit.logging.LoggingCategory;
+import com.mahghuuuls.agenttesttoolkit.logging.filter.Filter;
+
+import java.util.EnumMap;
+import java.util.Map;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -70,6 +74,52 @@ public final class ToolkitState {
      * enough that an always-registered handler costs nothing worth measuring when its
      * category is off.
      */
+    /**
+     * One filter per category, or absent for none. REQ-047 forbids composing filters, so this
+     * is a plain replacement rather than a list.
+     *
+     * <p>Held separately from {@code enabledCategories} rather than as a field on the category,
+     * because a category is an enum constant shared across the JVM. Filters are also
+     * deliberately <b>not</b> cleared by {@code disable}: re-enabling a category re-applies the
+     * filter the operator set, which is what someone toggling a category mid-test expects.
+     */
+    private static volatile Map<LoggingCategory, Filter> filters =
+            Collections.unmodifiableMap(new EnumMap<LoggingCategory, Filter>(LoggingCategory.class));
+
+    /** @return the filter for this category, or null when it records everything. */
+    public static Filter getFilter(LoggingCategory category) {
+        return filters.get(category);
+    }
+
+    /** Replaces any existing filter. Passing null removes it. REQ-047. */
+    public static void setFilter(LoggingCategory category, Filter filter) {
+        Map<LoggingCategory, Filter> next =
+                new EnumMap<LoggingCategory, Filter>(LoggingCategory.class);
+        next.putAll(filters);
+        if (filter == null) {
+            next.remove(category);
+        } else {
+            next.put(category, filter);
+        }
+        filters = Collections.unmodifiableMap(next);
+    }
+
+    /**
+     * Whether an event at this position should be recorded for this category.
+     *
+     * <p>Combines the enabled check and the filter so no caller can accidentally consult one
+     * without the other. An observer that checked only {@code isEnabled} would record filtered
+     * events, and the failure would be invisible except as a log that is larger than asked for.
+     */
+    public static boolean shouldRecord(LoggingCategory category,
+                                       int dimension, double x, double y, double z) {
+        if (!enabledCategories.contains(category)) {
+            return false;
+        }
+        Filter filter = filters.get(category);
+        return filter == null || filter.admits(dimension, x, y, z);
+    }
+
     public static boolean isEnabled(LoggingCategory category) {
         return enabledCategories.contains(category);
     }
@@ -116,6 +166,10 @@ public final class ToolkitState {
     public static int disableAll() {
         int count = enabledCategories.size();
         enabledCategories = Collections.unmodifiableSet(EnumSet.noneOf(LoggingCategory.class));
+        // Filters go too. "all off" means the operator wants a clean slate, and leaving a
+        // filter behind to surprise them on the next enable would defeat that.
+        filters = Collections.unmodifiableMap(
+                new EnumMap<LoggingCategory, Filter>(LoggingCategory.class));
         return count;
     }
 
@@ -152,5 +206,7 @@ public final class ToolkitState {
     public static void resetForTesting() {
         activeSession = null;
         enabledCategories = Collections.unmodifiableSet(EnumSet.noneOf(LoggingCategory.class));
+        filters = Collections.unmodifiableMap(
+                new EnumMap<LoggingCategory, Filter>(LoggingCategory.class));
     }
 }

@@ -1,6 +1,10 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.arena.ArenaBoundsSource;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
+import com.mahghuuuls.agenttesttoolkit.logging.filter.ArenaFilter;
+import com.mahghuuuls.agenttesttoolkit.logging.filter.Filter;
+import com.mahghuuuls.agenttesttoolkit.logging.filter.RadiusFilter;
 import com.mahghuuuls.agenttesttoolkit.logging.LoggingCategory;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
@@ -97,9 +101,28 @@ public final class LogSubCommand implements SubCommand {
 
         String action = args[1].toLowerCase(Locale.ROOT);
         if (ACTION_ON.equals(action)) {
+            // The filter is resolved before the category is enabled, so a rejected filter
+            // leaves the category exactly as it was. REQ-045's acceptance criterion is
+            // explicit that a failed arena filter must not change filter state, and enabling
+            // first would also half-apply the operator's intent.
+            Filter filter;
+            try {
+                filter = parseFilter(server, sender, args);
+            } catch (FilterRejected rejected) {
+                ToolkitLog.error("Filter not applied", rejected.getMessage());
+                sender.sendMessage(new TextComponentString(
+                        "[DevToolkit] " + rejected.getMessage() + " Nothing changed."));
+                return;
+            }
+
             boolean changed = ToolkitState.enable(category);
+            if (args.length > 2) {
+                ToolkitState.setFilter(category, filter);
+            }
+            Filter active = ToolkitState.getFilter(category);
             sender.sendMessage(new TextComponentString("[DevToolkit] " + category.getCategoryName()
-                    + (changed ? " enabled." : " was already enabled.")));
+                    + (changed ? " enabled." : " was already enabled.")
+                    + "  filter=" + (active == null ? "none" : active.describe())));
         } else if (ACTION_OFF.equals(action)) {
             boolean changed = ToolkitState.disable(category);
             sender.sendMessage(new TextComponentString("[DevToolkit] " + category.getCategoryName()
@@ -109,6 +132,69 @@ public final class LogSubCommand implements SubCommand {
             sender.sendMessage(new TextComponentString(
                     "[DevToolkit] Unknown action: " + action + ". Expected on or off."));
         }
+    }
+
+    /** Raised when a filter cannot be applied, so the caller can leave state untouched. */
+    private static final class FilterRejected extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        FilterRejected(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Parses the optional filter after {@code on}.
+     *
+     * <p>{@code log <category> on} with nothing after it leaves any existing filter alone
+     * rather than clearing it. Re-enabling a category the operator narrowed earlier should not
+     * silently widen it back to everything.
+     *
+     * @return the new filter, or null when none was given
+     */
+    private Filter parseFilter(MinecraftServer server, ICommandSender sender, String[] args)
+            throws FilterRejected {
+        if (args.length <= 2) {
+            return null;
+        }
+        String kind = args[2].toLowerCase(Locale.ROOT);
+        int dimension = sender.getEntityWorld().provider.getDimension();
+
+        if ("arena".equals(kind)) {
+            ArenaBoundsSource source = new ArenaBoundsSource(server);
+            if (source.boundsFor(dimension) == null) {
+                // REQ-045. Applying a filter that admits nothing, silently, is the worst
+                // possible outcome for a feature whose whole purpose is making absence
+                // explicable.
+                throw new FilterRejected("No arena in dimension " + dimension
+                        + ", so an arena filter cannot be applied.");
+            }
+            return new ArenaFilter(dimension, source);
+        }
+
+        if ("radius".equals(kind)) {
+            if (args.length < 4) {
+                throw new FilterRejected("radius filter needs a distance, for example 'radius 20'.");
+            }
+            double radius;
+            try {
+                radius = Double.parseDouble(args[3]);
+            } catch (NumberFormatException e) {
+                throw new FilterRejected("'" + args[3] + "' is not a number.");
+            }
+            if (radius < 0) {
+                throw new FilterRejected("radius must not be negative.");
+            }
+            net.minecraft.entity.Entity anchor = sender.getCommandSenderEntity();
+            if (anchor == null) {
+                // REQ-046 anchors to the applying player; the console has no position and
+                // defaulting to the world origin would filter somewhere nobody asked about.
+                throw new FilterRejected("radius filter requires a player sender.");
+            }
+            return new RadiusFilter(dimension, anchor.posX, anchor.posY, anchor.posZ, radius);
+        }
+
+        throw new FilterRejected("Unknown filter '" + kind + "'. Expected arena or radius.");
     }
 
     private void status(ICommandSender sender) {
@@ -123,9 +209,12 @@ public final class LogSubCommand implements SubCommand {
         for (LoggingCategory category : enabled) {
             // "filter=none" is stated rather than omitted. An agent must be able to tell an
             // unfiltered category from one whose filter it forgot about, and an absent field
-            // would leave that ambiguous. Filters land in IMP-011.
-            sender.sendMessage(new TextComponentString(
-                    "  " + category.getCategoryName() + "  filter=none"));
+            // would leave that ambiguous. REQ-038: an excluded event and an event that never
+            // happened look identical in the log, so this line is the only thing that can
+            // distinguish them.
+            Filter filter = ToolkitState.getFilter(category);
+            sender.sendMessage(new TextComponentString("  " + category.getCategoryName()
+                    + "  filter=" + (filter == null ? "none" : filter.describe())));
         }
     }
 

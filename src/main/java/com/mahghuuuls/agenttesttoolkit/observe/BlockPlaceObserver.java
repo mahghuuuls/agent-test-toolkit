@@ -45,7 +45,14 @@ public final class BlockPlaceObserver {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         World world = event.getWorld();
-        if (!ObserverGate.shouldRecord(LoggingCategory.BLOCK_PLACE, world == null || world.isRemote)) {
+        // Filtered on the placed block's own position, not the placer's. An arena filter
+        // should admit a block placed inside it from outside, since the event being observed
+        // is the block appearing, not the arm that swung.
+        net.minecraft.util.math.BlockPos placedAt = event.getPos();
+        if (world == null || placedAt == null
+                || !ObserverGate.shouldRecord(LoggingCategory.BLOCK_PLACE, world.isRemote,
+                world.provider.getDimension(),
+                placedAt.getX() + 0.5D, placedAt.getY() + 0.5D, placedAt.getZ() + 0.5D)) {
             return;
         }
 

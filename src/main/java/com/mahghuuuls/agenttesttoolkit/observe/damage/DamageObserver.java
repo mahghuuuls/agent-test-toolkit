@@ -172,6 +172,10 @@ public final class DamageObserver {
         if (target == null || target.world == null) {
             return false;
         }
-        return ObserverGate.shouldRecord(LoggingCategory.ENTITY_DAMAGE, target.world.isRemote);
+        // Filtered on the victim's position. Damage from a distant source into a filtered
+        // region is still damage happening in that region, which is what an operator narrowing
+        // to an arena is asking about.
+        return ObserverGate.shouldRecord(LoggingCategory.ENTITY_DAMAGE, target.world.isRemote,
+                target.world.provider.getDimension(), target.posX, target.posY, target.posZ);
     }
 }

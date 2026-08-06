@@ -32,4 +32,23 @@ public final class ObserverGate {
         // share a JVM, so without this one action would be recorded twice.
         return !isRemote;
     }
+
+    /**
+     * The position-aware form, which also applies the category's filter.
+     *
+     * <p>REQ-044: evaluated before the record is built, so an excluded event costs a coordinate
+     * comparison rather than the string work of assembling a record that is then discarded.
+     *
+     * <p>Every observer that knows where its event happened should use this one. The
+     * position-free form above remains for events that genuinely have no location; using it
+     * where a position exists would silently ignore the operator's filter, and the only symptom
+     * would be a log larger than the one they asked for.
+     */
+    public static boolean shouldRecord(LoggingCategory category, boolean isRemote,
+                                       int dimension, double x, double y, double z) {
+        if (isRemote) {
+            return false;
+        }
+        return ToolkitState.shouldRecord(category, dimension, x, y, z);
+    }
 }
