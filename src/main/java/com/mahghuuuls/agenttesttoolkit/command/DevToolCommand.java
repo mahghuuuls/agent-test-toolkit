@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command;
 
+import com.mahghuuuls.agenttesttoolkit.command.sub.ArenaSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.BundleSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.CapabilitiesSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.EntitiesSubCommand;
@@ -60,6 +61,7 @@ public final class DevToolCommand extends CommandBase {
         register(new RunSubCommand());
         register(new ReloadSubCommand());
         register(new NbtSubCommand());
+        register(new ArenaSubCommand());
         register(new EntitiesSubCommand());
         register(new EnvironmentSubCommand());
         register(new ModsSubCommand());
