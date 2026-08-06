@@ -143,8 +143,14 @@ public final class ToolkitConfigLoader {
                     "Whether configured commands run when an operator joins. Disabled by "
                             + "default so a leftover configuration cannot surprise anyone.");
 
+            boolean spawnItems = cfg.getBoolean("spawnIncludeItems", CATEGORY_DIAGNOSTICS,
+                    d.isSpawnIncludingItems(),
+                    "Whether entity_spawn records dropped items and experience orbs. Off by "
+                            + "default: one mob death produces a burst of both, which would "
+                            + "bury the spawn actually being investigated.");
+
             ToolkitConfig loaded = new ToolkitConfig(width, height, length, block, ceiling,
-                    maxDimension, nbtLimit, joinEnabled);
+                    maxDimension, nbtLimit, joinEnabled, spawnItems);
 
             noteAdjustment(problems, "arena.defaultWidth", width, loaded.getDefaultArenaWidth());
             noteAdjustment(problems, "arena.defaultHeight", height, loaded.getDefaultArenaHeight());

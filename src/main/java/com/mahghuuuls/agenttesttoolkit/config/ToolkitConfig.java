@@ -30,7 +30,7 @@ public final class ToolkitConfig {
     public static final int ABSOLUTE_MAX_ARENA_DIMENSION = 512;
 
     public static final ToolkitConfig DEFAULTS = new ToolkitConfig(
-            21, 11, 21, "minecraft:quartz_block", true, 64, 8192, false);
+            21, 11, 21, "minecraft:quartz_block", true, 64, 8192, false, false);
 
     private final int defaultArenaWidth;
     private final int defaultArenaHeight;
@@ -40,6 +40,7 @@ public final class ToolkitConfig {
     private final int maxArenaDimension;
     private final int maxNbtOutputLength;
     private final boolean joinExecutionEnabled;
+    private final boolean spawnIncludingItems;
 
     public ToolkitConfig(int defaultArenaWidth,
                          int defaultArenaHeight,
@@ -48,7 +49,9 @@ public final class ToolkitConfig {
                          boolean arenaCeiling,
                          int maxArenaDimension,
                          int maxNbtOutputLength,
-                         boolean joinExecutionEnabled) {
+                         boolean joinExecutionEnabled,
+                         boolean spawnIncludingItems) {
+        this.spawnIncludingItems = spawnIncludingItems;
         this.maxArenaDimension = clampMaxDimension(maxArenaDimension);
         this.defaultArenaWidth = clampDimension(defaultArenaWidth, this.maxArenaDimension);
         this.defaultArenaHeight = clampDimension(defaultArenaHeight, this.maxArenaDimension);
@@ -117,5 +120,17 @@ public final class ToolkitConfig {
 
     public boolean isJoinExecutionEnabled() {
         return joinExecutionEnabled;
+    }
+
+    /**
+     * Whether {@code entity_spawn} records dropped items and experience orbs.
+     *
+     * <p>Off by default. One mob death produces a burst of both, and they are almost never the
+     * subject of a test, so recording them by default would bury the spawn actually being
+     * investigated. The opt-in exists because item-drop timing is occasionally exactly what
+     * someone is testing.
+     */
+    public boolean isSpawnIncludingItems() {
+        return spawnIncludingItems;
     }
 }

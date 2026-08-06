@@ -56,6 +56,8 @@ public class AgentTestToolkitMod {
                 new com.mahghuuuls.agenttesttoolkit.bundle.BundleTicker());
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(
                 new com.mahghuuuls.agenttesttoolkit.observe.DiscreteActionObserver());
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(
+                new com.mahghuuuls.agenttesttoolkit.observe.EntitySpawnObserver());
     }
 
     @Mod.EventHandler
