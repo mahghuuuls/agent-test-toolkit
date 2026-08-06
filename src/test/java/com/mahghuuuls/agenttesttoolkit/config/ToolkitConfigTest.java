@@ -36,7 +36,7 @@ class ToolkitConfigTest {
     @DisplayName("an arena dimension below the minimum is raised to it")
     void tooSmallDimensionIsRaised() {
         // Below three there is no interior at all, since walls consume two of every axis.
-        ToolkitConfig c = new ToolkitConfig(0, 1, 2, "minecraft:stone", true, 64, 8192, false, false);
+        ToolkitConfig c = new ToolkitConfig(0, 1, 2, "minecraft:stone", true, 64, 8192, false, false, true);
         assertEquals(ToolkitConfig.MIN_ARENA_DIMENSION, c.getDefaultArenaWidth());
         assertEquals(ToolkitConfig.MIN_ARENA_DIMENSION, c.getDefaultArenaHeight());
         assertEquals(ToolkitConfig.MIN_ARENA_DIMENSION, c.getDefaultArenaLength());
@@ -45,7 +45,7 @@ class ToolkitConfigTest {
     @Test
     @DisplayName("a default dimension above the configured maximum is clamped to it")
     void oversizeDefaultIsClampedToMax() {
-        ToolkitConfig c = new ToolkitConfig(100, 100, 100, "minecraft:stone", true, 32, 8192, false, false);
+        ToolkitConfig c = new ToolkitConfig(100, 100, 100, "minecraft:stone", true, 32, 8192, false, false, true);
         assertEquals(32, c.getMaxArenaDimension());
         assertEquals(32, c.getDefaultArenaWidth());
         assertEquals(32, c.getDefaultArenaHeight());
@@ -59,14 +59,14 @@ class ToolkitConfigTest {
         // configurable limit would not achieve that, because the mistype could land in the
         // limit itself.
         ToolkitConfig c = new ToolkitConfig(21, 11, 21, "minecraft:stone", true,
-                Integer.MAX_VALUE, 8192, false, false);
+                Integer.MAX_VALUE, 8192, false, false, true);
         assertEquals(ToolkitConfig.ABSOLUTE_MAX_ARENA_DIMENSION, c.getMaxArenaDimension());
     }
 
     @Test
     @DisplayName("the configured maximum cannot fall below the minimum")
     void configuredMaximumCannotFallBelowMinimum() {
-        ToolkitConfig c = new ToolkitConfig(21, 11, 21, "minecraft:stone", true, -5, 8192, false, false);
+        ToolkitConfig c = new ToolkitConfig(21, 11, 21, "minecraft:stone", true, -5, 8192, false, false, true);
         assertEquals(ToolkitConfig.MIN_ARENA_DIMENSION, c.getMaxArenaDimension());
         assertEquals(ToolkitConfig.MIN_ARENA_DIMENSION, c.getDefaultArenaWidth());
     }
@@ -74,17 +74,17 @@ class ToolkitConfigTest {
     @Test
     @DisplayName("a non-positive NBT limit is raised to one")
     void nonPositiveNbtLimitIsRaised() {
-        assertEquals(1, new ToolkitConfig(21, 11, 21, "s", true, 64, 0, false, false).getMaxNbtOutputLength());
-        assertEquals(1, new ToolkitConfig(21, 11, 21, "s", true, 64, -10, false, false).getMaxNbtOutputLength());
+        assertEquals(1, new ToolkitConfig(21, 11, 21, "s", true, 64, 0, false, false, true).getMaxNbtOutputLength());
+        assertEquals(1, new ToolkitConfig(21, 11, 21, "s", true, 64, -10, false, false, true).getMaxNbtOutputLength());
     }
 
     @Test
     @DisplayName("a blank construction block falls back to the default")
     void blankBlockFallsBack() {
         assertEquals("minecraft:quartz_block",
-                new ToolkitConfig(21, 11, 21, "", true, 64, 8192, false, false).getDefaultArenaBlock());
+                new ToolkitConfig(21, 11, 21, "", true, 64, 8192, false, false, true).getDefaultArenaBlock());
         assertEquals("minecraft:quartz_block",
-                new ToolkitConfig(21, 11, 21, null, true, 64, 8192, false, false).getDefaultArenaBlock());
+                new ToolkitConfig(21, 11, 21, null, true, 64, 8192, false, false, true).getDefaultArenaBlock());
     }
 
     @Test
@@ -97,7 +97,7 @@ class ToolkitConfigTest {
     @Test
     @DisplayName("valid values pass through unchanged")
     void validValuesPassThrough() {
-        ToolkitConfig c = new ToolkitConfig(31, 15, 41, "minecraft:glass", false, 64, 4096, true, false);
+        ToolkitConfig c = new ToolkitConfig(31, 15, 41, "minecraft:glass", false, 64, 4096, true, false, true);
         assertEquals(31, c.getDefaultArenaWidth());
         assertEquals(15, c.getDefaultArenaHeight());
         assertEquals(41, c.getDefaultArenaLength());

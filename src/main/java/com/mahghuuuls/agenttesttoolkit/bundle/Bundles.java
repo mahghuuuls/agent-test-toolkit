@@ -41,6 +41,15 @@ public final class Bundles {
             return null;
         }
         File bundlesDir = new File(configDir, BUNDLES_DIR_NAME);
+        boolean firstRun = !bundlesDir.exists();
+        if (firstRun && bundlesDir.mkdirs()) {
+            // REQ-149: seeded once, on a genuine first install, and never touched again. The
+            // absence of the directory is the only signal used, so an operator who deletes
+            // every example gets them back only by deleting the directory too, which is a
+            // deliberate act rather than an accident.
+            ExampleBundles.seed(bundlesDir);
+            return bundlesDir;
+        }
         if (!bundlesDir.exists() && !bundlesDir.mkdirs()) {
             // Reported rather than swallowed. Returning a directory that does not exist would
             // make a permissions failure indistinguishable from "no bundles configured yet",

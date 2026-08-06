@@ -136,10 +136,16 @@ public final class ArenaSubCommand implements SubCommand {
         ArenaGeometry geometry = record.geometry();
         teleport(player, geometry);
 
+        boolean respawnMoved = setRespawn(player, geometry, config);
+
         LogRecord log = RecordContext.stamp(LogRecord.of(EventType.ARENA_CREATE), sender);
         SessionStamp.apply(log);
         addArenaFields(log, world, record);
         log.add("blocksChanged", changed);
+        // REQ-144 requires this stated rather than assumed. Relocating a respawn point is a
+        // real side effect, and an operator who later dies somewhere unexpected should be able
+        // to find out why from the log rather than by guessing.
+        log.add("respawnSet", respawnMoved);
         ToolkitLog.write(log);
 
         sender.sendMessage(new TextComponentString("[DevToolkit] Arena created: "
@@ -262,6 +268,26 @@ public final class ArenaSubCommand implements SubCommand {
         return new AxisAlignedBB(
                 geometry.getMinX(), geometry.getMinY(), geometry.getMinZ(),
                 geometry.getMaxX() + 1.0D, geometry.getMaxY() + 1.0D, geometry.getMaxZ() + 1.0D);
+    }
+
+    /**
+     * Moves the invoking player's respawn to the arena start. REQ-144.
+     *
+     * <p>Forced, so it does not require a bed and is not silently discarded. Only the invoking
+     * player is touched: relocating a bystander's respawn because someone else built an arena
+     * would be a genuinely hostile side effect.
+     *
+     * @return whether the respawn point was actually moved
+     */
+    private boolean setRespawn(EntityPlayer player, ArenaGeometry geometry, ToolkitConfig config) {
+        if (!config.doesArenaSetRespawn() || !(player instanceof EntityPlayerMP)) {
+            return false;
+        }
+        ((EntityPlayerMP) player).setSpawnPoint(
+                new net.minecraft.util.math.BlockPos(
+                        geometry.getStartX(), geometry.getStartY(), geometry.getStartZ()),
+                true);
+        return true;
     }
 
     private void teleport(EntityPlayer player, ArenaGeometry geometry) {

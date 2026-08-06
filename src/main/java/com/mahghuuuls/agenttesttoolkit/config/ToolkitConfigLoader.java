@@ -143,6 +143,12 @@ public final class ToolkitConfigLoader {
                     "Whether configured commands run when an operator joins. Disabled by "
                             + "default so a leftover configuration cannot surprise anyone.");
 
+            boolean setRespawn = cfg.getBoolean("setRespawnPoint", CATEGORY_ARENA,
+                    d.doesArenaSetRespawn(),
+                    "Whether arena create moves your respawn point into the arena. On by "
+                            + "default: dying mid-test and respawning at world spawn is exactly "
+                            + "the repetition the toolkit exists to remove.");
+
             boolean spawnItems = cfg.getBoolean("spawnIncludeItems", CATEGORY_DIAGNOSTICS,
                     d.isSpawnIncludingItems(),
                     "Whether entity_spawn records dropped items and experience orbs. Off by "
@@ -150,7 +156,7 @@ public final class ToolkitConfigLoader {
                             + "bury the spawn actually being investigated.");
 
             ToolkitConfig loaded = new ToolkitConfig(width, height, length, block, ceiling,
-                    maxDimension, nbtLimit, joinEnabled, spawnItems);
+                    maxDimension, nbtLimit, joinEnabled, spawnItems, setRespawn);
 
             noteAdjustment(problems, "arena.defaultWidth", width, loaded.getDefaultArenaWidth());
             noteAdjustment(problems, "arena.defaultHeight", height, loaded.getDefaultArenaHeight());

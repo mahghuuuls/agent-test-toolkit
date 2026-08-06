@@ -30,7 +30,7 @@ public final class ToolkitConfig {
     public static final int ABSOLUTE_MAX_ARENA_DIMENSION = 512;
 
     public static final ToolkitConfig DEFAULTS = new ToolkitConfig(
-            21, 11, 21, "minecraft:quartz_block", true, 64, 8192, false, false);
+            21, 11, 21, "minecraft:quartz_block", true, 64, 8192, false, false, true);
 
     private final int defaultArenaWidth;
     private final int defaultArenaHeight;
@@ -41,6 +41,7 @@ public final class ToolkitConfig {
     private final int maxNbtOutputLength;
     private final boolean joinExecutionEnabled;
     private final boolean spawnIncludingItems;
+    private final boolean arenaSetsRespawn;
 
     public ToolkitConfig(int defaultArenaWidth,
                          int defaultArenaHeight,
@@ -50,7 +51,9 @@ public final class ToolkitConfig {
                          int maxArenaDimension,
                          int maxNbtOutputLength,
                          boolean joinExecutionEnabled,
-                         boolean spawnIncludingItems) {
+                         boolean spawnIncludingItems,
+                         boolean arenaSetsRespawn) {
+        this.arenaSetsRespawn = arenaSetsRespawn;
         this.spawnIncludingItems = spawnIncludingItems;
         this.maxArenaDimension = clampMaxDimension(maxArenaDimension);
         this.defaultArenaWidth = clampDimension(defaultArenaWidth, this.maxArenaDimension);
@@ -132,5 +135,17 @@ public final class ToolkitConfig {
      */
     public boolean isSpawnIncludingItems() {
         return spawnIncludingItems;
+    }
+
+    /**
+     * Whether {@code arena create} moves the invoking player's respawn point into the arena.
+     *
+     * <p>REQ-144, on by default. Dying mid-test and respawning at the world spawn is the
+     * repetitive friction the toolkit exists to remove. Configurable rather than unconditional
+     * because relocating someone's respawn is a real side effect, and the record states when it
+     * happened so it is never silent.
+     */
+    public boolean doesArenaSetRespawn() {
+        return arenaSetsRespawn;
     }
 }
