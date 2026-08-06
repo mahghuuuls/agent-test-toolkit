@@ -29,8 +29,7 @@ public final class ToolkitConfig {
      */
     public static final int ABSOLUTE_MAX_ARENA_DIMENSION = 512;
 
-    public static final ToolkitConfig DEFAULTS = new ToolkitConfig(
-            21, 11, 21, "minecraft:quartz_block", true, 64, 8192, false, false, true);
+    public static final ToolkitConfig DEFAULTS = builder().build();
 
     private final int defaultArenaWidth;
     private final int defaultArenaHeight;
@@ -42,17 +41,102 @@ public final class ToolkitConfig {
     private final boolean joinExecutionEnabled;
     private final boolean spawnIncludingItems;
     private final boolean arenaSetsRespawn;
+    private final String joinBundleName;
 
-    public ToolkitConfig(int defaultArenaWidth,
-                         int defaultArenaHeight,
-                         int defaultArenaLength,
-                         String defaultArenaBlock,
-                         boolean arenaCeiling,
-                         int maxArenaDimension,
-                         int maxNbtOutputLength,
-                         boolean joinExecutionEnabled,
-                         boolean spawnIncludingItems,
-                         boolean arenaSetsRespawn) {
+    /**
+     * A named-setter builder, because the positional constructor stopped being readable.
+     *
+     * <p>It grew from eight parameters to ten across three issues, ending as
+     * {@code new ToolkitConfig(21, 11, 21, "...", true, 64, 8192, false, false, true)} where the
+     * final three booleans are join execution, spawn item inclusion and arena respawn. Nothing
+     * at the call site said so, and transposing two of them would compile silently and change
+     * behaviour. Adding an eleventh value was the point to fix that rather than continue.
+     *
+     * <p>Every value keeps its default when not set, so a caller states only what it cares
+     * about. Validation stays in the constructor, which the builder calls.
+     */
+    public static final class Builder {
+        private int width = 21;
+        private int height = 11;
+        private int length = 21;
+        private String block = "minecraft:quartz_block";
+        private boolean ceiling = true;
+        private int maxDimension = 64;
+        private int nbtLimit = 8192;
+        private boolean joinEnabled;
+        private boolean spawnItems;
+        private boolean setsRespawn = true;
+        private String joinBundle = "";
+
+        public Builder arenaSize(int w, int h, int l) {
+            this.width = w;
+            this.height = h;
+            this.length = l;
+            return this;
+        }
+
+        public Builder arenaBlock(String value) {
+            this.block = value;
+            return this;
+        }
+
+        public Builder arenaCeiling(boolean value) {
+            this.ceiling = value;
+            return this;
+        }
+
+        public Builder maxArenaDimension(int value) {
+            this.maxDimension = value;
+            return this;
+        }
+
+        public Builder maxNbtOutputLength(int value) {
+            this.nbtLimit = value;
+            return this;
+        }
+
+        public Builder joinExecutionEnabled(boolean value) {
+            this.joinEnabled = value;
+            return this;
+        }
+
+        public Builder joinBundleName(String value) {
+            this.joinBundle = value == null ? "" : value.trim();
+            return this;
+        }
+
+        public Builder spawnIncludingItems(boolean value) {
+            this.spawnItems = value;
+            return this;
+        }
+
+        public Builder arenaSetsRespawn(boolean value) {
+            this.setsRespawn = value;
+            return this;
+        }
+
+        public ToolkitConfig build() {
+            return new ToolkitConfig(width, height, length, block, ceiling, maxDimension,
+                    nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle);
+        }
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    ToolkitConfig(int defaultArenaWidth,
+                  int defaultArenaHeight,
+                  int defaultArenaLength,
+                  String defaultArenaBlock,
+                  boolean arenaCeiling,
+                  int maxArenaDimension,
+                  int maxNbtOutputLength,
+                  boolean joinExecutionEnabled,
+                  boolean spawnIncludingItems,
+                  boolean arenaSetsRespawn,
+                  String joinBundleName) {
+        this.joinBundleName = joinBundleName == null ? "" : joinBundleName.trim();
         this.arenaSetsRespawn = arenaSetsRespawn;
         this.spawnIncludingItems = spawnIncludingItems;
         this.maxArenaDimension = clampMaxDimension(maxArenaDimension);
@@ -147,5 +231,17 @@ public final class ToolkitConfig {
      */
     public boolean doesArenaSetRespawn() {
         return arenaSetsRespawn;
+    }
+
+    /**
+     * The bundle run when an operator joins, or empty for none.
+     *
+     * <p>Empty by default, and separately gated by {@link #isJoinExecutionEnabled()}. Two gates
+     * rather than one, because installing the toolkit must change nothing until it is asked to
+     * act: seeding example bundles and defaulting a join hook to one of them would combine into
+     * "installing this alters your world on first login", which neither feature intends alone.
+     */
+    public String getJoinBundleName() {
+        return joinBundleName;
     }
 }

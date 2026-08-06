@@ -138,6 +138,11 @@ public final class ToolkitConfigLoader {
                     "Maximum characters of NBT written to the log before truncation. "
                             + "Truncation is always reported; it is never silent.");
 
+            String joinBundle = cfg.getString("bundle", CATEGORY_JOIN, d.getJoinBundleName(),
+                    "Bundle to run when an operator joins. Empty by default: a join hook that "
+                            + "fires on installation would mean installing the toolkit changes "
+                            + "your world before you ask it to.");
+
             boolean joinEnabled = cfg.getBoolean("enabled", CATEGORY_JOIN,
                     d.isJoinExecutionEnabled(),
                     "Whether configured commands run when an operator joins. Disabled by "
@@ -155,8 +160,17 @@ public final class ToolkitConfigLoader {
                             + "default: one mob death produces a burst of both, which would "
                             + "bury the spawn actually being investigated.");
 
-            ToolkitConfig loaded = new ToolkitConfig(width, height, length, block, ceiling,
-                    maxDimension, nbtLimit, joinEnabled, spawnItems, setRespawn);
+            ToolkitConfig loaded = ToolkitConfig.builder()
+                    .arenaSize(width, height, length)
+                    .arenaBlock(block)
+                    .arenaCeiling(ceiling)
+                    .maxArenaDimension(maxDimension)
+                    .maxNbtOutputLength(nbtLimit)
+                    .joinExecutionEnabled(joinEnabled)
+                    .joinBundleName(joinBundle)
+                    .spawnIncludingItems(spawnItems)
+                    .arenaSetsRespawn(setRespawn)
+                    .build();
 
             noteAdjustment(problems, "arena.defaultWidth", width, loaded.getDefaultArenaWidth());
             noteAdjustment(problems, "arena.defaultHeight", height, loaded.getDefaultArenaHeight());
