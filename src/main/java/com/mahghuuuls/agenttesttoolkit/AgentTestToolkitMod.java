@@ -54,6 +54,8 @@ public class AgentTestToolkitMod {
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(damageObserver);
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(
                 new com.mahghuuuls.agenttesttoolkit.bundle.BundleTicker());
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(
+                new com.mahghuuuls.agenttesttoolkit.observe.DiscreteActionObserver());
     }
 
     @Mod.EventHandler
