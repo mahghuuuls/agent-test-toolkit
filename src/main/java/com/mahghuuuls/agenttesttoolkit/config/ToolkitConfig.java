@@ -42,6 +42,9 @@ public final class ToolkitConfig {
     private final boolean spawnIncludingItems;
     private final boolean arenaSetsRespawn;
     private final String joinBundleName;
+    private final boolean clientDefaultsEnabled;
+    private final float clientBrightness;
+    private final float clientMusicVolume;
 
     /**
      * A named-setter builder, because the positional constructor stopped being readable.
@@ -67,6 +70,9 @@ public final class ToolkitConfig {
         private boolean spawnItems;
         private boolean setsRespawn = true;
         private String joinBundle = "";
+        private boolean clientDefaults;
+        private float brightness = 1.0F;
+        private float musicVolume;
 
         public Builder arenaSize(int w, int h, int l) {
             this.width = w;
@@ -105,6 +111,21 @@ public final class ToolkitConfig {
             return this;
         }
 
+        public Builder clientDefaultsEnabled(boolean value) {
+            this.clientDefaults = value;
+            return this;
+        }
+
+        public Builder clientBrightness(float value) {
+            this.brightness = value;
+            return this;
+        }
+
+        public Builder clientMusicVolume(float value) {
+            this.musicVolume = value;
+            return this;
+        }
+
         public Builder spawnIncludingItems(boolean value) {
             this.spawnItems = value;
             return this;
@@ -117,7 +138,8 @@ public final class ToolkitConfig {
 
         public ToolkitConfig build() {
             return new ToolkitConfig(width, height, length, block, ceiling, maxDimension,
-                    nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle);
+                    nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle,
+                    clientDefaults, brightness, musicVolume);
         }
     }
 
@@ -135,7 +157,14 @@ public final class ToolkitConfig {
                   boolean joinExecutionEnabled,
                   boolean spawnIncludingItems,
                   boolean arenaSetsRespawn,
-                  String joinBundleName) {
+                  String joinBundleName,
+                  boolean clientDefaultsEnabled,
+                  float clientBrightness,
+                  float clientMusicVolume) {
+        this.clientDefaultsEnabled = clientDefaultsEnabled;
+        // Clamped rather than rejected: a bad value must not stop the toolkit loading.
+        this.clientBrightness = clamp01(clientBrightness);
+        this.clientMusicVolume = clamp01(clientMusicVolume);
         this.joinBundleName = joinBundleName == null ? "" : joinBundleName.trim();
         this.arenaSetsRespawn = arenaSetsRespawn;
         this.spawnIncludingItems = spawnIncludingItems;
@@ -243,5 +272,32 @@ public final class ToolkitConfig {
      */
     public String getJoinBundleName() {
         return joinBundleName;
+    }
+
+    static float clamp01(float v) {
+        if (v < 0.0F) {
+            return 0.0F;
+        }
+        return v > 1.0F ? 1.0F : v;
+    }
+
+    /**
+     * Whether the client applies display and audio defaults on joining a world. REQ-146.
+     *
+     * <p>Off by default. These are the operator own application settings rather than game
+     * state, and a diagnostic tool rewriting them unasked would be surprising.
+     */
+    public boolean isClientDefaultsEnabled() {
+        return clientDefaultsEnabled;
+    }
+
+    /** Gamma, 0 to 1. One is the brightest vanilla allows without a shader. */
+    public float getClientBrightness() {
+        return clientBrightness;
+    }
+
+    /** Music volume, 0 to 1. Zero is silent. */
+    public float getClientMusicVolume() {
+        return clientMusicVolume;
     }
 }

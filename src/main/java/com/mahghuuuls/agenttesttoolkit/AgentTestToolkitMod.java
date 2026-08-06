@@ -22,6 +22,15 @@ import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 )
 public class AgentTestToolkitMod {
 
+    /**
+     * REQ-147. The client class is named as a string, never referenced as a type from common
+     * code, so a dedicated server never attempts to load it.
+     */
+    @net.minecraftforge.fml.common.SidedProxy(
+            clientSide = "com.mahghuuuls.agenttesttoolkit.proxy.ClientProxy",
+            serverSide = "com.mahghuuuls.agenttesttoolkit.proxy.CommonProxy")
+    public static com.mahghuuuls.agenttesttoolkit.proxy.CommonProxy proxy;
+
     /** Held so its pending correlations can be discarded when the server stops. */
     private com.mahghuuuls.agenttesttoolkit.observe.damage.DamageObserver damageObserver;
 
@@ -60,6 +69,8 @@ public class AgentTestToolkitMod {
                 new com.mahghuuuls.agenttesttoolkit.observe.EntitySpawnObserver());
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(
                 new com.mahghuuuls.agenttesttoolkit.command.JoinAutomation());
+        // No-op on a server. The client implementation registers its own handler.
+        proxy.applyClientDefaults();
     }
 
     @Mod.EventHandler

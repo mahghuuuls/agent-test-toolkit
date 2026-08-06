@@ -27,6 +27,7 @@ public final class ToolkitConfigLoader {
     private static final String CATEGORY_ARENA = "arena";
     private static final String CATEGORY_DIAGNOSTICS = "diagnostics";
     private static final String CATEGORY_JOIN = "join";
+    private static final String CATEGORY_CLIENT = "client";
 
     private static volatile ToolkitConfig current = ToolkitConfig.DEFAULTS;
     // Volatile for the same reason as `current`: written once during mod loading and read
@@ -138,6 +139,21 @@ public final class ToolkitConfigLoader {
                     "Maximum characters of NBT written to the log before truncation. "
                             + "Truncation is always reported; it is never silent.");
 
+            boolean clientDefaults = cfg.getBoolean("applyOnJoin", CATEGORY_CLIENT,
+                    d.isClientDefaultsEnabled(),
+                    "Whether the client sets brightness and music volume when joining a world. "
+                            + "Off by default: these are your own application settings, not game "
+                            + "state, and a diagnostic tool should not rewrite them unasked. "
+                            + "Ignored on a dedicated server.");
+
+            float brightness = (float) cfg.get(CATEGORY_CLIENT, "brightness",
+                    d.getClientBrightness(),
+                    "Gamma applied when applyOnJoin is enabled. 0 to 1.").getDouble();
+
+            float musicVolume = (float) cfg.get(CATEGORY_CLIENT, "musicVolume",
+                    d.getClientMusicVolume(),
+                    "Music volume applied when applyOnJoin is enabled. 0 to 1.").getDouble();
+
             String joinBundle = cfg.getString("bundle", CATEGORY_JOIN, d.getJoinBundleName(),
                     "Bundle to run when an operator joins. Empty by default: a join hook that "
                             + "fires on installation would mean installing the toolkit changes "
@@ -170,6 +186,9 @@ public final class ToolkitConfigLoader {
                     .joinBundleName(joinBundle)
                     .spawnIncludingItems(spawnItems)
                     .arenaSetsRespawn(setRespawn)
+                    .clientDefaultsEnabled(clientDefaults)
+                    .clientBrightness(brightness)
+                    .clientMusicVolume(musicVolume)
                     .build();
 
             noteAdjustment(problems, "arena.defaultWidth", width, loaded.getDefaultArenaWidth());
