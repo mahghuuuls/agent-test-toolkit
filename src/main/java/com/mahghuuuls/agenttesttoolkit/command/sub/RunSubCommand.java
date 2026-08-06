@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.BundleCallStack;
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleDefinition;
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleExecution;
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleRecorder;
@@ -69,14 +70,41 @@ public final class RunSubCommand implements SubCommand {
             return;
         }
 
+        // Non-null only when this command was dispatched by a bundle that is mid-advance,
+        // which is the only way to tell a nested run from one the operator typed.
+        BundleExecution parent = Bundles.scheduler().getCurrentExecution();
+
+        BundleCallStack stack;
+        if (parent == null) {
+            stack = BundleCallStack.root(bundle.getName());
+        } else {
+            String rejection = parent.getCallStack().rejectionReason(bundle.getName());
+            if (rejection != null) {
+                // Thrown rather than reported quietly, so the command manager registers a
+                // failure and the parent counts it as a failed command. REQ-018 and REQ-019:
+                // a cycle or an over-deep chain must fail explicitly, and nothing may recurse.
+                ToolkitLog.error("Nested bundle refused", rejection);
+                throw new CommandException(rejection);
+            }
+            stack = parent.getCallStack().push(bundle.getName());
+        }
+
         BundleExecution execution = new BundleExecution(bundle,
                 new ServerCommandDispatcher(server, sender),
                 new SenderContextSource(sender));
+        execution.setCallStack(stack);
 
         // Written before the first command dispatches, so events caused by the bundle fall
         // inside the boundary rather than before it.
         BundleRecorder.recordStart(execution);
         Bundles.scheduler().submit(execution);
+
+        if (parent != null) {
+            // The parent parks here. A child may itself contain delays, so it cannot be run to
+            // completion inside this call; folding its outcome in when it finishes is what
+            // makes a child's failure count as one failed command in the parent.
+            parent.awaitChild(execution);
+        }
 
         sender.sendMessage(new TextComponentString("[DevToolkit] Running bundle '"
                 + bundle.getName() + "' (" + bundle.size()

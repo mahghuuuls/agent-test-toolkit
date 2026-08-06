@@ -30,6 +30,24 @@ public final class BundleScheduler {
 
     private boolean ticking;
 
+    /**
+     * The execution currently being advanced, or null outside a tick.
+     *
+     * <p>This is how a nested {@code devtool run} is recognised. The command travels the
+     * ordinary path, through the command manager and the run subcommand, and by the time it
+     * arrives nothing in the arguments says it came from a bundle. The scheduler is the only
+     * component that knows, because it is the one that called dispatch.
+     *
+     * <p>Server thread only, and cleared in a finally block, so a command that throws cannot
+     * leave a stale parent behind for the next unrelated invocation to inherit.
+     */
+    private BundleExecution current;
+
+    /** @return the execution being advanced, or null if not inside a bundle's dispatch. */
+    public BundleExecution getCurrentExecution() {
+        return current;
+    }
+
     public void submit(BundleExecution execution) {
         if (execution == null) {
             throw new IllegalArgumentException("execution must not be null");
@@ -47,7 +65,12 @@ public final class BundleScheduler {
             for (Iterator<BundleExecution> it = active.iterator(); it.hasNext(); ) {
                 BundleExecution execution = it.next();
                 execution.onTick();
-                execution.advance(listener);
+                current = execution;
+                try {
+                    execution.advance(listener);
+                } finally {
+                    current = null;
+                }
                 if (execution.isFinished()) {
                     it.remove();
                 }
@@ -66,9 +89,15 @@ public final class BundleScheduler {
      * holds a sender from a world that is unloading, and the scheduler is registered
      * permanently, so keeping them would leak stale executions into the next world's first tick.
      */
-    public void discardAll() {
+    public List<BundleExecution> discardAll() {
+        List<BundleExecution> discarded = new ArrayList<BundleExecution>(active);
+        discarded.addAll(pending);
         active.clear();
         pending.clear();
+        // Returned rather than silently dropped. A bundle that stops because the world is
+        // shutting down looks identical in the log to one that finished, unless something
+        // says otherwise, and REQ-110 forbids a failure with no report.
+        return discarded;
     }
 
     public int activeCount() {

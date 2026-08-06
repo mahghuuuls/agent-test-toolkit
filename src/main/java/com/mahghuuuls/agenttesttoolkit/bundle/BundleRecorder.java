@@ -46,6 +46,29 @@ public final class BundleRecorder implements BundleExecution.Listener {
         ToolkitLog.write(record);
     }
 
+    /**
+     * Reports a bundle abandoned because the server stopped.
+     *
+     * <p>ARC-002 discards in-flight executions on shutdown. Doing so silently would leave a
+     * {@code BUNDLE_START} with no matching end, which is exactly the unpaired boundary the
+     * empty-bundle case was fixed to avoid, and an agent reading the log would be left
+     * wondering whether the bundle hung.
+     */
+    public static void recordDiscarded(BundleExecution execution) {
+        LogRecord record = RecordContext.stamp(
+                LogRecord.of(EventType.BUNDLE_END), execution.getContext());
+        SessionStamp.apply(record);
+        record.add("bundle", execution.getBundleName());
+        record.add("executed", execution.getExecuted());
+        record.add("failed", execution.getFailed());
+        record.add("total", execution.getTotal());
+        record.add("stoppedEarly", true);
+        record.add("discardedOnServerStop", true);
+        record.add("durationTicks", execution.getDurationTicks());
+        ToolkitLog.write(record);
+        ToolkitLog.error("Bundle abandoned, server stopping", execution.getBundleName());
+    }
+
     @Override
     public void onFinished(BundleExecution execution) {
         LogRecord record = RecordContext.stamp(
@@ -60,6 +83,16 @@ public final class BundleRecorder implements BundleExecution.Listener {
         record.add("total", execution.getTotal());
         record.add("stoppedEarly", execution.isStoppedEarly());
         record.add("durationTicks", execution.getDurationTicks());
+        if (execution.isSenderLost()) {
+            // REQ-112 requires this to be stated, not inferred. A bundle that stops with no
+            // failure record and no remaining commands would otherwise look like a clean run
+            // that happened to be short.
+            record.add("senderLost", true);
+        }
         ToolkitLog.write(record);
+        if (execution.isSenderLost()) {
+            ToolkitLog.error("Bundle terminated, caller no longer available",
+                    execution.getBundleName());
+        }
     }
 }

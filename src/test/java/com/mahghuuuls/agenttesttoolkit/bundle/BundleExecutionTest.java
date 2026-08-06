@@ -258,6 +258,54 @@ class BundleExecutionTest {
     }
 
     @Test
+    @DisplayName("a bundle whose caller has gone stops without running anything")
+    void senderLostStopsExecution() {
+        // REQ-112. A bundle with delays spans ticks, so the player who started it can leave
+        // between them. Running the remainder against nobody would apply half a setup routine
+        // with no one to see it.
+        CommandDispatcher gone = new CommandDispatcher() {
+            @Override
+            public CommandOutcome dispatch(String command) {
+                throw new AssertionError("must not dispatch when the caller has gone");
+            }
+
+            @Override
+            public boolean isSenderAvailable() {
+                return false;
+            }
+        };
+        StubListener listener = new StubListener();
+        BundleExecution execution =
+                new BundleExecution(bundle(true, "one", "two"), gone, CONTEXT);
+
+        execution.advance(listener);
+
+        assertTrue(execution.isSenderLost());
+        assertTrue(execution.isStoppedEarly());
+        assertTrue(execution.isFinished());
+        assertEquals(0, execution.getExecuted());
+        assertEquals(1, listener.finishedCount, "it must still report an end");
+    }
+
+    @Test
+    @DisplayName("a lost sender is distinguishable from a failed command")
+    void senderLostIsNotAFailure() {
+        // Both leave the bundle unfinished, but "a command failed" and "the player left" call
+        // for different responses, and an agent should not have to infer which from the
+        // absence of a failure record.
+        StubDispatcher dispatcher = new StubDispatcher();
+        dispatcher.fail("boom", "no such command");
+        StubListener listener = new StubListener();
+        BundleExecution execution = execution(dispatcher, bundle(true, "boom"));
+
+        execution.advance(listener);
+
+        assertTrue(execution.isStoppedEarly());
+        assertFalse(execution.isSenderLost());
+        assertEquals(1, execution.getFailed());
+    }
+
+    @Test
     @DisplayName("the constructor rejects missing collaborators rather than failing later")
     void constructorValidates() {
         assertThrows(IllegalArgumentException.class,

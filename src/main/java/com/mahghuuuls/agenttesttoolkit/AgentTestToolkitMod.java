@@ -83,6 +83,9 @@ public class AgentTestToolkitMod {
         // Same rule, same reason: an in-flight bundle holds a sender from the world that is
         // unloading, and the scheduler is registered permanently, so an execution left here
         // would resume against the next world.
-        com.mahghuuuls.agenttesttoolkit.bundle.Bundles.scheduler().discardAll();
+        for (com.mahghuuuls.agenttesttoolkit.bundle.BundleExecution abandoned
+                : com.mahghuuuls.agenttesttoolkit.bundle.Bundles.scheduler().discardAll()) {
+            com.mahghuuuls.agenttesttoolkit.bundle.BundleRecorder.recordDiscarded(abandoned);
+        }
     }
 }

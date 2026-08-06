@@ -19,4 +19,24 @@ public interface CommandDispatcher {
      * @return the outcome; never null
      */
     CommandOutcome dispatch(String command);
+
+    /**
+     * Whether the original caller can still be reached.
+     *
+     * <p>REQ-112. Asked before every batch of commands rather than assumed once, because a
+     * bundle with delays spans ticks and the player who started it can disconnect between them.
+     *
+     * <p>ARC-004 requires the sender to be re-resolved rather than held. That is what makes
+     * this a normal check on the ordinary path instead of a special case: a lost caller is
+     * simply a dispatcher that reports unavailable, and execution ends the same way it ends for
+     * any other reason.
+     */
+    /**
+     * <p>Defaulted to true because that is the correct answer for every caller that cannot
+     * disconnect: the console, a command block, and every test stub. Only a player-backed
+     * dispatcher has a real answer to give, and it overrides this.
+     */
+    default boolean isSenderAvailable() {
+        return true;
+    }
 }
