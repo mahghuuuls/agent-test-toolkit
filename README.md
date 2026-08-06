@@ -1,95 +1,154 @@
 # Agent Test Toolkit
 
-A Minecraft Forge 1.12.2 utility mod that prepares test environments and records what happens as structured text in `latest.log`, so an AI coding agent can diagnose a manual test without screenshots.
+A development tool for Minecraft mod authors. **This is not a gameplay mod.** It adds no items, no blocks, no recipes, and nothing to find in a world.
 
-A human plays. The toolkit sets up, observes, and reports.
+It is for someone developing a Minecraft mod. It works on its own, as a way to set up a test scenario without typing the same eight commands every time. But its main purpose is to help an AI coding assistant stop relying on you to describe what happened on screen, by writing what the game actually did into `latest.log` in a form a program can read.
+
+You still play. The toolkit sets the world up, watches, and writes it down.
+
+## Where to read what
+
+| If you are | Read |
+| --- | --- |
+| An AI assistant using the toolkit | [AGENTS.md](AGENTS.md) |
+| Looking for a command | [docs/commands.md](docs/commands.md) |
+| Writing a bundle file | [docs/bundles.md](docs/bundles.md) |
+| Parsing the log | [docs/logging.md](docs/logging.md) |
+| Deciding whether to install it | [MOD-PAGE.md](MOD-PAGE.md) |
+
+`AGENTS.md` is the one that matters most. It covers the traps that waste a test run: why an absent record is ambiguous, why `entity_spawn` floods, and why `latest.log` may not be the file you think it is.
+
+## Features
+
+### Test arenas
+
+```
+/devtool arena create 20 10 20
+```
+
+A sealed, lit, empty box, centred on you, floor level with your feet. The numbers are the **interior**, so you get twenty blocks of usable space and the walls sit outside that.
+
+Lighting is embedded in the floor rather than the ceiling, so it works at any height. Nothing spawns inside.
+
+One arena per dimension, stored in the world save, so it survives a restart. Creating one moves your respawn point inside it.
+
+```
+/devtool arena reset
+```
+
+Rebuilds the shell, clears every non-player entity and dropped item, and returns you to the start position. **Idempotent**: running it twice leaves the same state as running it once, which is what makes it safe at the top of every test.
+
+### Command bundles
+
+Named lists of commands in JSON, under `config/devtool/bundles/`, scanned recursively.
+
+```json
+{
+  "damage_setup": {
+    "description": "Prepare one target for manual damage testing",
+    "commands": [
+      "devtool arena reset",
+      "gamerule doMobSpawning false",
+      "summon minecraft:zombie ~3 ~ ~ {CustomName:\"target\",NoAI:1}",
+      "devtool log entity_damage on arena",
+      { "command": "devtool mark READY", "delayTicks": 20 }
+    ]
+  }
+}
+```
+
+- **Per command tick delays**, measured from the previous command finishing, so inserting a command shifts what follows rather than compressing the gaps.
+- **Stop on failure**, on by default. A failure means the game raised a command error; a command that runs and changes nothing has succeeded, so a `kill` matching nothing does not halt a teardown.
+- **Nesting.** A bundle can run another. The parent waits, and the child's failure counts as one failed command. Cycles are refused by name before anything runs.
+- **`BUNDLE_START` and `BUNDLE_END`** in the log, so events your setup caused can be told apart from events of the test that followed.
+
+They live outside the world save, so they survive making a fresh test world. They are deliberately **not** a scripting language: no variables, no conditionals, no loops.
+
+### Event logging
+
+Eight categories, all off by default:
+
+`block_place`, `block_break`, `entity_spawn`, `entity_death`, `entity_damage`, `player_interaction`, `entity_interaction`, `item_use`
+
+```
+/devtool log entity_damage on arena
+/devtool log block_place on radius 32
+/devtool log status
+```
+
+Each can be narrowed to the dimension's arena or to a radius anchored where you stood when you applied it. One filter per category.
+
+`log status` matters more than it looks. An excluded event and an event that never happened are identical in the log, so it is the only thing that can tell you which you are looking at.
+
+### Inspection
+
+```
+/devtool inspect player
+/devtool inspect entity @e[name=target]
+/devtool inspect block ~ ~-1 ~
+/devtool inspect inventory
+/devtool entities nearby 20
+/devtool nbt held
+```
+
+Structured records rather than chat output. A selector matching more than one entity is an error rather than an invitation to pick one, so name your fixtures and select on the name.
+
+NBT goes to the log, bounded by a configurable limit, and truncation is always reported along with the original length.
+
+### Sessions and marks
+
+```
+/devtool session start damage_test
+/devtool mark ABOUT_TO_HIT
+```
+
+A session stamps every record with its name and a tick counter from its start. A mark is a labelled bookmark carrying no verdict.
+
+Put a mark before each step you ask a human to perform. Then a missing record means something: you can tell "the action produced nothing" from "they never got that far".
+
+### Self reporting
+
+```
+/devtool capabilities
+/devtool environment
+/devtool mods
+```
+
+`capabilities` reads the live command registry and the logging category enum, so it reports what the running build supports rather than what a document claims. It cannot drift from the jar.
+
+## Configuration
+
+`config/devtool/devtool.cfg`. Arena defaults and construction block, the NBT truncation limit, whether a bundle runs when an operator joins, whether spawn logging includes dropped items, and optional client brightness and music defaults.
+
+Everything that could change your world or your settings without being asked is off until you turn it on.
 
 ## Warning: use a disposable world
 
 **This mod modifies the world irreversibly and without confirmation.**
 
-`arena create` replaces every block in its volume. `arena reset` and `arena clear` delete every non player entity inside the arena bounds, dropped items included. Nothing prompts, and nothing can be undone.
+`arena create` replaces every block in its volume. `arena reset` and `arena clear` delete every non-player entity inside the bounds, dropped items included. Nothing prompts, and nothing can be undone.
 
-That is a deliberate design choice, not an oversight. A confirmation prompt would make these commands unusable from a bundle, and resetting the arena is the most common first step of a setup bundle. The size limit on arena creation is the only guard.
+That is deliberate. A confirmation prompt would make these commands unusable from a bundle, and resetting the arena is the most common first step of a setup routine. The size limit on creation is the only guard.
 
-Commands can also run from a command block, so a bundle can be triggered by redstone with no human involved.
+Commands can also run from a command block, so a redstone circuit can trigger them with nobody watching.
 
 Use a world you are willing to lose.
 
-## What it does
-
-The core of it is evidence discipline:
-
-- **Command bundles.** Named lists of commands in JSON, run with one command, with per command tick delays and stop on failure. They live outside the world save and mark their own start and end in the log.
-- **Test arenas.** An enclosed, lit, empty box with deterministic bounds, one per dimension, persisted in the world save. Resetting is idempotent, so it is safe at the start of every run.
-- **Sessions and marks.** A session names and timestamps a run of records. A mark is a bookmark placed before the action under test, which is what lets you tell "the action produced nothing" from "the human never got that far".
-- **Self reporting.** What the running build actually supports, read from the live registry rather than from documentation.
-
-On top of that sits observation:
-
-- **Event logging.** Eight categories of generic game event, off by default, each narrowable to an arena or a radius.
-- **Inspection.** Player, entity, block, inventory and raw NBT reported as structured records.
-
-Everything writes single line, key value records into `latest.log`, alongside Forge output and the output of the mod under test.
-
-**That ordering is deliberate.** The event categories observe the game's exterior. Most of what you need to establish about your own mod is a decision your mod made, and only your mod can record that. The categories corroborate; they are not the oracle. A long generic log is easy to mistake for discriminating evidence, and a test designed around the facts this toolkit happens to record will produce plenty of output and settle nothing.
-
 ## How this differs from what you already have
 
-Two parts of this toolkit overlap things that already exist. The honest comparison matters more than a feature list.
+Two parts of this overlap things that exist. The honest comparison matters more than a feature list.
 
-### Bundles compared with vanilla functions
+**Bundles against vanilla functions.** Minecraft 1.12 has functions, which are also ordered command lists. Bundles are not a capability vanilla lacks. They differ in that they live outside the world save and survive a fresh test world, support per command delays and stop on failure, and mark their own boundaries in the log. If none of that matters to you, use functions.
 
-Minecraft 1.12 has functions, and they are also ordered lists of commands. Bundles are not a capability vanilla lacks. The differences are specific:
-
-- Bundles live in `config/devtool/bundles/`, outside any world save, so they survive making a fresh test world. A function lives in a datapack inside the save and has to be recreated for every new world, which is exactly the repetitive work this toolkit exists to remove.
-- Bundles support per command tick delays. Functions cannot express a delay.
-- Bundles support stop on failure. Functions run every line regardless.
-- Bundles emit `BUNDLE_START` and `BUNDLE_END` into the log, so the events a setup routine caused can be separated from the events of the test that followed.
-
-If none of those matter to you, use functions.
-
-### Inspection and entity listing compared with TellMe
-
-TellMe covers comparable ground and does it well for a human audience. This toolkit is not filling a gap. The differences are:
-
-- Output goes to `latest.log` alongside Forge and target mod output, rather than to separate timestamped dump files. One timeline instead of several files to correlate.
-- Targeting is by deterministic selector rather than interactive right click, so an agent can ask a human to run an exact command instead of describing what to point at.
-- The format is stable single line key value records intended for parsing, rather than formatted tables intended for reading.
-
-If you are a human reading output yourself, TellMe is likely the better tool.
-
-### Portals, gamerules, and other setup
-
-There is no portal command, and there is no world defaults feature, because neither needs one. A lit nether portal is an obsidian frame and one fire block, which is six lines in a bundle. Gamerules are gamerules. The shipped example bundles include both, partly as conveniences and partly to show that reaching for a new command is usually the wrong instinct here.
+**Inspection against TellMe.** TellMe covers comparable ground and does it well for a human audience. This is not filling a gap. Output lands in `latest.log` next to Forge and your own mod's output rather than in separate dump files, targeting is by deterministic selector rather than interactive right click, and the format is meant for parsing rather than reading. If you are reading it yourself, TellMe is likely the better tool.
 
 ## Requirements
 
-- Minecraft 1.12.2
-- Minecraft Forge 14.23.5.2847 or compatible
+Minecraft 1.12.2 with Forge. Required on the server; optional on the client, and a client without it can still connect.
 
-Required on the server. Installation on the client is optional, and a client without it can still connect.
+Commands need permission level 2. Start with `/devtool help`.
 
-## Getting started
-
-Drop the jar in `mods/`, start the game, and run:
-
-```
-/devtool help
-```
-
-Example bundles are written to `config/devtool/bundles/` on first run. They are seeded once and never overwritten, so edit them freely.
-
-For the agent facing guide, including how to avoid flooding your own log, see [AGENTS.md](AGENTS.md).
-
-## Documentation
-
-The repository is the authoritative documentation.
-
-- [AGENTS.md](AGENTS.md), the guide for an AI agent using the toolkit
-- [docs/commands.md](docs/commands.md), the command reference
-- [docs/bundles.md](docs/bundles.md), the bundle file format
-- [docs/logging.md](docs/logging.md), record formats and categories
+Example bundles are written to `config/devtool/bundles/` on first run and never overwritten, so edit them freely.
 
 ## Licence
 
