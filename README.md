@@ -18,13 +18,21 @@ Use a world you are willing to lose.
 
 ## What it does
 
-- **Command bundles.** Named lists of commands in JSON, run with one command, with per command tick delays and stop on failure.
-- **Test arenas.** An enclosed, lit, empty box with deterministic bounds, one per dimension, persisted in the world save.
-- **Event logging.** Eight categories of generic game event, off by default, each narrowable to an arena or a radius.
-- **Inspection.** Player, entity, block, inventory and raw NBT reported as structured records.
+The core of it is evidence discipline:
+
+- **Command bundles.** Named lists of commands in JSON, run with one command, with per command tick delays and stop on failure. They live outside the world save and mark their own start and end in the log.
+- **Test arenas.** An enclosed, lit, empty box with deterministic bounds, one per dimension, persisted in the world save. Resetting is idempotent, so it is safe at the start of every run.
+- **Sessions and marks.** A session names and timestamps a run of records. A mark is a bookmark placed before the action under test, which is what lets you tell "the action produced nothing" from "the human never got that far".
 - **Self reporting.** What the running build actually supports, read from the live registry rather than from documentation.
 
+On top of that sits observation:
+
+- **Event logging.** Eight categories of generic game event, off by default, each narrowable to an arena or a radius.
+- **Inspection.** Player, entity, block, inventory and raw NBT reported as structured records.
+
 Everything writes single line, key value records into `latest.log`, alongside Forge output and the output of the mod under test.
+
+**That ordering is deliberate.** The event categories observe the game's exterior. Most of what you need to establish about your own mod is a decision your mod made, and only your mod can record that. The categories corroborate; they are not the oracle. A long generic log is easy to mistake for discriminating evidence, and a test designed around the facts this toolkit happens to record will produce plenty of output and settle nothing.
 
 ## How this differs from what you already have
 
