@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inspect.EntityTarget;
 import com.mahghuuuls.agenttesttoolkit.inspect.Inspectors;
@@ -94,7 +95,7 @@ public final class InspectSubCommand implements SubCommand {
             throws CommandException {
         EntityPlayer player;
         if (args.length == 0) {
-            if (!(sender instanceof EntityPlayer)) {
+            if (!Senders.isPlayer(sender)) {
                 // REQ-005: fail explicitly rather than obscurely. A console caller has no
                 // implicit self to inspect.
                 ToolkitLog.error("inspect player requires a selector when run without a player sender");
@@ -102,7 +103,7 @@ public final class InspectSubCommand implements SubCommand {
                         "[DevToolkit] /devtool inspect player requires a selector when run from the console."));
                 return;
             }
-            player = (EntityPlayer) sender;
+            player = Senders.asPlayer(sender);
         } else {
             Entity entity = resolveOrReport(server, sender, args[0]);
             if (entity == null) {
@@ -127,13 +128,13 @@ public final class InspectSubCommand implements SubCommand {
             throws CommandException {
         EntityPlayer player;
         if (args.length == 0) {
-            if (!(sender instanceof EntityPlayer)) {
+            if (!Senders.isPlayer(sender)) {
                 ToolkitLog.error("inspect inventory requires a selector when run without a player sender");
                 sender.sendMessage(new TextComponentString(
                         "[DevToolkit] /devtool inspect inventory requires a selector when run from the console."));
                 return;
             }
-            player = (EntityPlayer) sender;
+            player = Senders.asPlayer(sender);
         } else {
             Entity entity = resolveOrReport(server, sender, args[0]);
             if (entity == null) {

@@ -4,6 +4,7 @@ import com.mahghuuuls.agenttesttoolkit.arena.ArenaBuilder;
 import com.mahghuuuls.agenttesttoolkit.arena.ArenaGeometry;
 import com.mahghuuuls.agenttesttoolkit.arena.ArenaRecord;
 import com.mahghuuuls.agenttesttoolkit.arena.ArenaStorage;
+import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfig;
 import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader;
@@ -205,8 +206,8 @@ public final class ArenaSubCommand implements SubCommand {
 
         int otherPlayers = countOtherPlayers(world, geometry, sender);
 
-        if (rebuild && sender instanceof EntityPlayer) {
-            teleport((EntityPlayer) sender, geometry);
+        if (rebuild && Senders.asPlayer(sender) != null) {
+            teleport(Senders.asPlayer(sender), geometry);
         }
 
         LogRecord log = RecordContext.stamp(
@@ -304,8 +305,9 @@ public final class ArenaSubCommand implements SubCommand {
     }
 
     private EntityPlayer requirePlayer(ICommandSender sender, String action) {
-        if (sender instanceof EntityPlayer) {
-            return (EntityPlayer) sender;
+        EntityPlayer resolved = Senders.asPlayer(sender);
+        if (resolved != null) {
+            return resolved;
         }
         // REQ-005: fail explicitly. The arena is positioned relative to the caller, and
         // defaulting to the world origin would build it somewhere nobody asked for.

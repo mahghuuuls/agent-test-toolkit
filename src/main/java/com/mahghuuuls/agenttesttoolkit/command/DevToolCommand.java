@@ -113,7 +113,7 @@ public final class DevToolCommand extends CommandBase {
         }
 
         // REQ-005: fail explicitly rather than obscurely when a player sender is required.
-        if (sub.requiresPlayer() && !(sender instanceof EntityPlayer)) {
+        if (sub.requiresPlayer() && !Senders.isPlayer(sender)) {
             ToolkitLog.error("Subcommand requires a player sender", sub.getName());
             sender.sendMessage(new TextComponentString(
                     "[DevToolkit] /devtool " + sub.getName() + " requires a player sender."));

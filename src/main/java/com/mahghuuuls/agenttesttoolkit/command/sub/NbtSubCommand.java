@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader;
 import com.mahghuuuls.agenttesttoolkit.inspect.EntityTarget;
@@ -130,7 +131,11 @@ public final class NbtSubCommand implements SubCommand {
     }
 
     private void held(ICommandSender sender) throws CommandException {
-        EntityPlayer player = CommandBase.getCommandSenderAsPlayer(sender);
+        EntityPlayer player = Senders.asPlayer(sender);
+        if (player == null) {
+            throw new net.minecraft.command.CommandException(
+                    "This command must be run by a player, or by a bundle a player started.");
+        }
         ItemStack stack = player.getHeldItemMainhand();
 
         LogRecord record = begin(sender, "held");

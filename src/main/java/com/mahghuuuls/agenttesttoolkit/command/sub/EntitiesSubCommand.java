@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inspect.RadiusFilter;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
@@ -70,7 +71,11 @@ public final class EntitiesSubCommand implements SubCommand {
             throw new WrongUsageException("/devtool " + getUsage());
         }
 
-        EntityPlayer player = CommandBase.getCommandSenderAsPlayer(sender);
+        EntityPlayer player = Senders.asPlayer(sender);
+        if (player == null) {
+            throw new net.minecraft.command.CommandException(
+                    "This command must be run by a player, or by a bundle a player started.");
+        }
         double radius = CommandBase.parseDouble(args[1], 0.0D, MAX_RADIUS);
 
         AxisAlignedBB box = new AxisAlignedBB(
