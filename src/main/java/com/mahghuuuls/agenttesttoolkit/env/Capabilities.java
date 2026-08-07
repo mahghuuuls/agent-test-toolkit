@@ -32,9 +32,8 @@ public final class Capabilities {
      * Fills a record the caller has already stamped with context.
      *
      * <p>Takes the record rather than creating one so that {@code side} and {@code worldTick}
-     * still lead the output without this class needing to know about command senders.
-     * Keeping it free of Minecraft types is what lets the
-     * no-drift property be tested at all.
+     * still lead the output without this class needing to know about command senders. Keeping
+     * it free of Minecraft types is what lets the no-drift property be tested at all.
      *
      * @param record           a record of type {@link EventType#CAPABILITIES}, already stamped
      * @param toolkitVersion   the running build's version

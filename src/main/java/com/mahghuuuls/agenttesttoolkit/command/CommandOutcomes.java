@@ -19,14 +19,13 @@ import com.mahghuuuls.agenttesttoolkit.bundle.CommandOutcome;
  *
  * <p>Three keys mean a selector matched nothing. Those count as <b>success</b>: a command that
  * runs and affects nothing has still run. Without this a teardown bundle ending in
- * {@code kill @e[name=...]} would halt on
- * its second run, since {@code stopOnFailure} defaults to true; the toolkit exists to remove
- * exactly that kind of repeated manual fiddling.
+ * {@code kill @e[name=...]} would halt on its second run, since {@code stopOnFailure} defaults
+ * to true; the toolkit exists to remove exactly that kind of repeated manual fiddling.
  *
  * <p>Everything else returning zero is a failure: unknown command, missing permission, and bad
- * syntax all count. Note that
- * {@code commands.generic.notFound} means "no such command" and is <b>not</b> in the tolerated
- * set despite the similar name, so the keys are compared exactly rather than by prefix.
+ * syntax all count. Note that {@code commands.generic.notFound} means "no such command" and is
+ * <b>not</b> in the tolerated set despite the similar name, so the keys are compared exactly
+ * rather than by prefix.
  */
 public final class CommandOutcomes {
 

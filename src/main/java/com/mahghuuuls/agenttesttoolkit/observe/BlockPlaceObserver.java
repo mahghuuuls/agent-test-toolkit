@@ -27,10 +27,10 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
  * with {@code EntityMultiPlaceEvent} a fourth sibling, so subscribing at the base type receives
  * all of them.
  *
- * <p>Exactly one record per placement action is not an assumption:
- * {@code ForgeHooks} posts a multi-place event when the snapshot list has more than one entry
- * and a single-place event otherwise, in mutually exclusive branches. Placing a door or a bed
- * therefore produces one record, not two.
+ * <p>Exactly one record per placement action is not an assumption: {@code ForgeHooks} posts a
+ * multi-place event when the snapshot list has more than one entry and a single-place event
+ * otherwise, in mutually exclusive branches. Placing a door or a bed therefore produces one
+ * record, not two.
  *
  * <h2>Why lowest priority</h2>
  *
