@@ -84,10 +84,11 @@ public final class InspectSubCommand implements SubCommand {
         } else if ("inventory".equals(target)) {
             inspectInventory(server, sender, rest);
         } else {
+            // Thrown rather than reported and returned. A command that returns normally counts
+            // as a success, so from inside a bundle a typo here would be invisible.
             ToolkitLog.error("Unknown inspect target", target);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Unknown inspect target: " + target
-                            + ". Expected " + TARGETS + "."));
+            throw new CommandException("Unknown inspect target: " + target
+                    + ". Expected " + TARGETS + ".");
         }
     }
 
@@ -99,9 +100,8 @@ public final class InspectSubCommand implements SubCommand {
                 // REQ-005: fail explicitly rather than obscurely. A console caller has no
                 // implicit self to inspect.
                 ToolkitLog.error("inspect player requires a selector when run without a player sender");
-                sender.sendMessage(new TextComponentString(
-                        "[DevToolkit] /devtool inspect player requires a selector when run from the console."));
-                return;
+                throw new CommandException(
+                        "inspect player requires a selector when run from the console.");
             }
             player = Senders.asPlayer(sender);
         } else {
@@ -111,9 +111,8 @@ public final class InspectSubCommand implements SubCommand {
             }
             if (!(entity instanceof EntityPlayer)) {
                 ToolkitLog.error("Selector did not match a player", args[0]);
-                sender.sendMessage(new TextComponentString(
-                        "[DevToolkit] Selector matched a non-player entity. Use /devtool inspect entity."));
-                return;
+                throw new CommandException(
+                        "Selector matched a non-player entity. Use /devtool inspect entity.");
             }
             player = (EntityPlayer) entity;
         }
@@ -130,9 +129,8 @@ public final class InspectSubCommand implements SubCommand {
         if (args.length == 0) {
             if (!Senders.isPlayer(sender)) {
                 ToolkitLog.error("inspect inventory requires a selector when run without a player sender");
-                sender.sendMessage(new TextComponentString(
-                        "[DevToolkit] /devtool inspect inventory requires a selector when run from the console."));
-                return;
+                throw new CommandException(
+                        "inspect inventory requires a selector when run from the console.");
             }
             player = Senders.asPlayer(sender);
         } else {
@@ -142,9 +140,8 @@ public final class InspectSubCommand implements SubCommand {
             }
             if (!(entity instanceof EntityPlayer)) {
                 ToolkitLog.error("Selector did not match a player", args[0]);
-                sender.sendMessage(new TextComponentString(
-                        "[DevToolkit] Selector matched a non-player entity; only players have inventories here."));
-                return;
+                throw new CommandException(
+                        "Selector matched a non-player entity; only players have inventories here.");
             }
             player = (EntityPlayer) entity;
         }
@@ -184,9 +181,8 @@ public final class InspectSubCommand implements SubCommand {
         if (isRelative(args) && sender.getCommandSenderEntity() == null) {
             ToolkitLog.error("Relative coordinates require an entity sender",
                     "x=" + args[0] + " y=" + args[1] + " z=" + args[2]);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Relative coordinates need a player sender. Use absolute coordinates."));
-            return;
+            throw new CommandException(
+                    "Relative coordinates need a player sender. Use absolute coordinates.");
         }
 
         BlockPos pos = CommandBase.parseBlockPos(sender, args, 0, false);
@@ -218,9 +214,13 @@ public final class InspectSubCommand implements SubCommand {
         try {
             return EntityTarget.requireExactlyOne(server, sender, selector);
         } catch (EntityTarget.CardinalityException e) {
+            // Logged for the explicit counts REQ-070 requires, then rethrown rather than
+            // swallowed into a null return. This is the likeliest failure of all in a setup
+            // bundle, since a selector matching nothing is the commonest mistake, and
+            // returning normally made the bundle report success for an inspection that never
+            // happened.
             ToolkitLog.error(e.getMessage(), "selector=" + selector);
-            sender.sendMessage(new TextComponentString("[DevToolkit] " + e.getMessage()));
-            return null;
+            throw e;
         }
     }
 

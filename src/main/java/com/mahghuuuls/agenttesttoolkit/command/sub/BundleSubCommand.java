@@ -64,9 +64,11 @@ public final class BundleSubCommand implements SubCommand {
             }
             show(sender, args[1]);
         } else {
+            // Thrown rather than reported and returned. A command that returns normally counts
+            // as a success, so from inside a bundle this would be invisible.
             ToolkitLog.error("Unknown bundle action", action);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Unknown bundle action: " + action + ". Expected list or show."));
+            throw new CommandException(
+                    "Unknown bundle action: " + action + ". Expected list or show.");
         }
     }
 
@@ -96,12 +98,11 @@ public final class BundleSubCommand implements SubCommand {
         }
     }
 
-    private void show(ICommandSender sender, String name) {
+    private void show(ICommandSender sender, String name) throws CommandException {
         BundleDefinition bundle = Bundles.registry().get(name);
         if (bundle == null) {
             ToolkitLog.error("Bundle not found", name);
-            sender.sendMessage(new TextComponentString("[DevToolkit] Bundle not found: " + name));
-            return;
+            throw new CommandException("Bundle not found: " + name);
         }
 
         sender.sendMessage(new TextComponentString("[DevToolkit] " + bundle.getName()

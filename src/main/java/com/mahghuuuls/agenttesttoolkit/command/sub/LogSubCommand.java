@@ -89,10 +89,12 @@ public final class LogSubCommand implements SubCommand {
 
         LoggingCategory category = LoggingCategory.byName(first);
         if (category == null) {
+            // Thrown so a bundle counts it. A mistyped category name is the likeliest error in
+            // a real setup bundle, and returning normally would report failed=0 while the
+            // category the test depends on was never enabled.
             ToolkitLog.error("Unknown logging category", first);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Unknown logging category: " + first + ". Try /devtool log status"));
-            return;
+            throw new CommandException("Unknown logging category: " + first
+                    + ". Try /devtool log status");
         }
 
         if (args.length < 2) {
@@ -110,9 +112,9 @@ public final class LogSubCommand implements SubCommand {
                 filter = parseFilter(server, sender, args);
             } catch (FilterRejected rejected) {
                 ToolkitLog.error("Filter not applied", rejected.getMessage());
-                sender.sendMessage(new TextComponentString(
-                        "[DevToolkit] " + rejected.getMessage() + " Nothing changed."));
-                return;
+                // Nothing changed, so this must not read as success. A bundle narrowing a
+                // category to an arena that does not exist would otherwise record everything.
+                throw new CommandException(rejected.getMessage() + " Nothing changed.");
             }
 
             boolean changed = ToolkitState.enable(category);
@@ -128,9 +130,9 @@ public final class LogSubCommand implements SubCommand {
             sender.sendMessage(new TextComponentString("[DevToolkit] " + category.getCategoryName()
                     + (changed ? " disabled." : " was already disabled.")));
         } else {
+            // Thrown for the same reason as an unknown category: nothing was changed.
             ToolkitLog.error("Unknown logging action", action);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Unknown action: " + action + ". Expected on or off."));
+            throw new CommandException("Unknown action: " + action + ". Expected on or off.");
         }
     }
 

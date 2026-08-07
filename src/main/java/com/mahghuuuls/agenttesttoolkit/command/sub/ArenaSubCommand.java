@@ -111,8 +111,9 @@ public final class ArenaSubCommand implements SubCommand {
                     + " exceeds the maximum of " + maximum + " per dimension. No blocks changed.";
             ToolkitLog.error("Arena size exceeds maximum",
                     width + "x" + height + "x" + length + " max=" + maximum);
-            sender.sendMessage(new TextComponentString(message));
-            return;
+            // Thrown so a bundle counts it as a failure. Nothing was built, and a setup
+            // routine that continues past this prepares nothing.
+            throw new CommandException(message);
         }
 
         if (!ArenaBuilder.isKnownBlock(blockId)) {
@@ -192,10 +193,10 @@ public final class ArenaSubCommand implements SubCommand {
         if (record == null) {
             ToolkitLog.error("No arena in this dimension",
                     "dimension=" + world.provider.getDimension());
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] No arena in dimension " + world.provider.getDimension()
-                            + ". Create one first."));
-            return;
+            // Thrown for the same reason: a bundle opening with `arena reset` must not
+            // report success when there is no arena to reset.
+            throw new CommandException("No arena in dimension "
+                    + world.provider.getDimension() + ". Create one first.");
         }
 
         ArenaGeometry geometry = record.geometry();

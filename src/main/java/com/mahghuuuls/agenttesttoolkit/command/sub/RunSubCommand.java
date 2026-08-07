@@ -65,9 +65,11 @@ public final class RunSubCommand implements SubCommand {
         String name = args[0];
         BundleDefinition bundle = Bundles.registry().get(name);
         if (bundle == null) {
+            // Thrown, not reported and returned. A command that returns normally counts as a
+            // success, so a bundle naming a bundle that does not exist would report failed=0
+            // and carry on with a world that was never prepared.
             ToolkitLog.error("Bundle not found", name);
-            sender.sendMessage(new TextComponentString("[DevToolkit] Bundle not found: " + name));
-            return;
+            throw new CommandException("Bundle not found: " + name);
         }
 
         // Non-null only when this command was dispatched by a bundle that is mid-advance,
