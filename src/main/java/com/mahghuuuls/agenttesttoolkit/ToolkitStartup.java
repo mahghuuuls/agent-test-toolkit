@@ -9,14 +9,14 @@ import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import java.util.List;
 
 /**
- * Emits the startup output, in the order REQ-111 requires.
+ * Emits the startup output, in a fixed order.
  *
  * <p>Separated from {@link AgentTestToolkitMod} for one reason: the ordering rule is the thing
  * most likely to be broken by a later edit, and inside a Forge lifecycle handler nothing can
  * observe it. An earlier version wrote two STARTUP records, one before loading and one after,
  * and a full green suite had nothing to say about it. Independent review caught it instead.
  *
- * <p>The rule has two halves that pull against each other. The startup record must be a single
+ * <p>The ordering has two halves that pull against each other. The startup record must be a single
  * record carrying the bundle count, so it cannot be written until loading has finished; and
  * configuration and parsing errors must appear as their own records after it, so loading must
  * not report as it goes. Both loaders therefore return their problems and stay silent, and this
@@ -37,8 +37,8 @@ public final class ToolkitStartup {
     public static void announce(String version, BundleRegistry.LoadReport bundles,
                                 List<String> configProblems) {
         // Configuration contents are deliberately not dumped, only the summary.
-        // loggingCategoriesEnabled is genuinely zero rather than a placeholder: REQ-035
-        // requires every category to start disabled.
+        // loggingCategoriesEnabled is genuinely zero rather than a placeholder, because every
+        // category starts disabled.
         ToolkitLog.write(LogRecord.of(EventType.STARTUP)
                 .add("version", version)
                 .add("bundlesLoaded", bundles.getLoaded().size())

@@ -22,7 +22,7 @@ import java.util.Set;
  * <p>Bundles live in the toolkit's configuration directory, not inside a world save. That is
  * the concrete difference from vanilla functions and the reason the feature exists: a setup
  * routine stored in a world has to be recreated for every fresh test world, which is precisely
- * the repetitive work the toolkit is meant to remove. REQ-010.
+ * the repetitive work the toolkit is meant to remove.
  *
  * <p>Merging is separated from file access so the conflict and partial-loading rules can be
  * exercised without a filesystem.
@@ -84,7 +84,7 @@ public final class BundleRegistry {
     /**
      * Merges parsed files into a single namespace.
      *
-     * <p>REQ-012: a name defined in more than one file loads from <b>neither</b>. Picking a
+     * <p>A name defined in more than one file loads from <b>neither</b>. Picking a
      * winner by file order would be deterministic but wrong, because the two definitions differ
      * and running either is a coin flip on which the author meant. Refusing both makes the
      * mistake visible at the point of use rather than producing surprising behaviour later.
@@ -130,11 +130,11 @@ public final class BundleRegistry {
     /**
      * Rebuilds from a directory, replacing whatever was loaded before.
      *
-     * <p>REQ-020: one malformed file must not prevent the others from loading. Partial success
+     * <p>One malformed file must not prevent the others from loading. Partial success
      * is deliberately preferred, because a toolkit that refuses to load anything over a single
      * typo is useless for diagnosing whatever was actually being tested.
      *
-     * <p>REQ-102: this touches only bundle definitions. The active session and enabled logging
+     * <p>This touches only bundle definitions. The active session and enabled logging
      * categories are untouched, so reloading mid-test does not silently discard diagnostic
      * state.
      */
@@ -175,16 +175,16 @@ public final class BundleRegistry {
                 new LinkedHashMap<String, BundleDefinition>(merged.getLoaded()), allProblems);
         this.current = report;
 
-        // Problems are returned, not logged here. REQ-111 requires the startup summary to
-        // carry the bundle count and to precede any error records, which is only possible if
-        // the caller decides when to emit them. Callers must report; see reportProblems.
+        // Problems are returned, not logged here. The startup summary has to carry the bundle
+        // count and to precede any error records, which is only possible if the caller decides
+        // when to emit them. Callers must report; see reportProblems.
         return report;
     }
 
     /**
      * Writes each problem as its own record.
      *
-     * <p>REQ-110: individually, never summarised away. Separated from loading so a caller can
+     * <p>One record each, never summarised away. Separated from loading so a caller can
      * control ordering relative to other startup output.
      */
     public static void reportProblems(LoadReport report) {
@@ -193,7 +193,7 @@ public final class BundleRegistry {
         }
     }
 
-    /** Recursive, so bundles can be organised into subdirectories. REQ-010. */
+    /** Recursive, so bundles can be organised into subdirectories. */
     private static void collectJsonFiles(File directory, List<File> into) {
         File[] entries = directory.listFiles();
         if (entries == null) {

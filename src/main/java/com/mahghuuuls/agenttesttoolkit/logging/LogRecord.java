@@ -6,8 +6,8 @@ import java.util.Map;
 /**
  * Builds one structured toolkit record.
  *
- * <p>This class owns every formatting rule in REQ-033, which is why nothing else in the
- * project is permitted to format a record by hand. The rules are:
+ * <p>This class owns every formatting rule, which is why nothing else in the project is
+ * permitted to format a record by hand. The rules are:
  *
  * <ul>
  *   <li>Field names are camelCase.</li>
@@ -19,8 +19,8 @@ import java.util.Map;
  *   <li>Block coordinates render as integers, entity positions to two decimal places.</li>
  * </ul>
  *
- * <p>The rendered form is <code>[DevToolkit][EVENT_TYPE] key=value key=value</code> on a
- * single line, per REQ-031 and REQ-032.
+ * <p>The rendered form is <code>[DevToolkit][EVENT_TYPE] key=value key=value</code>, always on
+ * a single line.
  *
  * <p>Deliberately free of any Minecraft type so the formatting rules can be unit tested
  * without a running game. This matters more than usual here: the owner runs every build
@@ -63,7 +63,7 @@ public final class LogRecord {
     }
 
     /**
-     * REQ-033 requires camelCase field names. Centralising the check here keeps the rule
+     * Field names are camelCase. Centralising the check here keeps the rule
      * enforceable rather than conventional, which is the whole justification for routing
      * every record through this class. Keys are internal literals, so a violation is a
      * programming error and failing fast is correct.
@@ -91,16 +91,16 @@ public final class LogRecord {
     }
 
     /**
-     * Adds a floating point value rendered to two decimal places, the convention REQ-033
-     * fixes for entity positions and damage amounts.
+     * Adds a floating point value rendered to two decimal places, the convention this format
+     * uses for entity positions and damage amounts.
      */
     public LogRecord addDecimal(String key, double value) {
         return add(key, formatDecimal(value));
     }
 
     /**
-     * Adds a block position as three integer fields. Block coordinates are integers by
-     * REQ-033, so they must not go through {@link #addDecimal}.
+     * Adds a block position as three integer fields. Block coordinates always render as
+     * integers, so they must not go through {@link #addDecimal}.
      */
     public LogRecord addBlockPos(String prefix, int x, int y, int z) {
         add(prefix + "X", x);
@@ -156,8 +156,8 @@ public final class LogRecord {
      * Escapes one character into the quoted form.
      *
      * <p>Control characters must never be emitted literally. A raw newline would split the
-     * record across two physical lines, breaking the one-event-one-line guarantee in REQ-032
-     * and the greppability the whole log format depends on. Quoting alone does not prevent
+     * record across two physical lines, breaking the one-event-one-line guarantee and the
+     * greppability the whole log format depends on. Quoting alone does not prevent
      * that, because a quoted newline is still a newline.
      *
      * <p>This is reachable without a malicious user: command blocks, RCON, and bundle files

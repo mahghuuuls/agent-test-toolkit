@@ -40,7 +40,7 @@ public final class SpawnClassification {
     /**
      * Whether an entity type is excluded by default.
      *
-     * <p>REQ: items and experience orbs are excluded unless explicitly opted in, because one
+     * <p>Items and experience orbs are excluded unless explicitly opted in, because one
      * mob death produces a burst of both and they are almost never the subject of a test. The
      * check is on the type only, so an excluded spawn costs a comparison rather than the string
      * work of building a record that is then discarded.

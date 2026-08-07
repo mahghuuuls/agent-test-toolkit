@@ -15,7 +15,7 @@ import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 /**
- * Applies display and audio defaults on a physical client. REQ-146.
+ * Applies display and audio defaults on a physical client.
  *
  * <p>Loaded only on a client. Nothing in common code references this class as a type; Forge
  * resolves it from the class name string in {@code @SidedProxy}. See {@link CommonProxy} for
@@ -62,9 +62,9 @@ public class ClientProxy extends CommonProxy {
         settings.setSoundLevel(SoundCategory.MUSIC, config.getClientMusicVolume());
         settings.saveOptions();
 
-        // REQ-148: an operator whose brightness changed must be able to find out why from the
-        // log rather than by guessing. Both the old and new values are recorded so the change
-        // can be undone by hand.
+        // An operator whose brightness changed must be able to find out why from the log rather
+        // than by guessing. Both the old and new values are recorded so the change can be
+        // undone by hand.
         ToolkitLog.write(LogRecord.of(EventType.ENVIRONMENT)
                 .add("side", "CLIENT")
                 .add("clientDefaultsApplied", true)
