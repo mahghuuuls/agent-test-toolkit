@@ -19,6 +19,48 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 
 `worldTick` comes from the dimension in which the event occurred. Dimensions keep independent tick counts, so records from different dimensions are not comparable on this field.
 
+## Every record type
+
+27 in total. The name in brackets is the whole vocabulary: nothing else appears, and these names do not change.
+
+**Written only when their category is enabled.** These are the observed game events, and they are the only ones you can turn off.
+
+| Record | Written when |
+| --- | --- |
+| `BLOCK_PLACE` | A block is placed |
+| `BLOCK_BREAK` | A block is broken |
+| `ENTITY_SPAWN` | An entity genuinely spawns. Chunk loading does not count |
+| `ENTITY_DEATH` | An entity dies |
+| `ENTITY_DAMAGE` | One damage attempt, with all three stages correlated into a single record |
+| `PLAYER_INTERACT` | A block is right or left clicked |
+| `ENTITY_INTERACT` | An entity is right clicked |
+| `ITEM_USE` | An item is used while targeting nothing |
+
+**Written whenever the command runs.** No category gates these; if you ran the command, the record exists.
+
+| Record | Written when |
+| --- | --- |
+| `SESSION_START` / `SESSION_STOP` | `devtool session start` / `stop` |
+| `MARK` | `devtool mark` |
+| `BUNDLE_START` / `BUNDLE_END` | A bundle begins and finishes. `BUNDLE_END` carries `executed`, `failed`, `total`, `stoppedEarly`, `durationTicks`, and `senderLost` when the caller disconnected |
+| `ARENA_CREATE` / `ARENA_RESET` / `ARENA_CLEAR` | The corresponding `devtool arena` action |
+| `PLAYER_INSPECT` | `devtool inspect player` |
+| `ENTITY_INSPECT` | `devtool inspect entity` |
+| `BLOCK_INSPECT` | `devtool inspect block` |
+| `INVENTORY_INSPECT` | `devtool inspect inventory`. One record per occupied slot, plus `occupiedSlots` even when zero |
+| `NBT` | `devtool nbt`. Carries `truncated` always, not only when true |
+| `ENTITY_LIST` | `devtool entities nearby`, including when nothing matched |
+| `ENVIRONMENT` | `devtool environment` |
+| `CAPABILITIES` | `devtool capabilities`, and one per mod for `devtool mods` |
+| `LOG_CONFIG` | Any change to the enabled categories, and `devtool log status` |
+
+**Written by the toolkit itself.**
+
+| Record | Written when |
+| --- | --- |
+| `STARTUP` | Once per launch. Carries the version and the bundle load result |
+| `ERROR` | Anything that failed. Never silent, always with enough context to identify the cause |
+
 ## Categories
 
 All off by default.

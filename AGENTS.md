@@ -154,6 +154,10 @@ Format is one line per record:
 
 Field names are camelCase, order is stable per event type, values containing whitespace are quoted, and an absent optional value is omitted rather than filled with a placeholder. An empty field never appears, so `field=` is not something you need to parse for.
 
+**There are 27 record types and no others.** The vocabulary is closed: no near synonyms, no renames between versions. Eight of them are the observed game events and appear only while their category is enabled; the rest are written whenever the command that produces them runs. The full table, with what each one is written for, is in [docs/logging.md](docs/logging.md#every-record-type).
+
+Worth knowing before you parse: `ENTITY_DAMAGE` collapses three separate game events into one record, so one hit is one line carrying `amountRaw`, `amountPreMitigation` and `amountFinal`. `INVENTORY_INSPECT` emits one record per occupied slot and still reports `occupiedSlots=0` for an empty inventory. `devtool mods` emits one `CAPABILITIES` record per mod rather than a type of its own.
+
 ## Details that are easy to get wrong
 
 **Commands need permission level 2.** In chat they take a leading slash, `/devtool ...`. In a server console they do not, `devtool ...`. Inside a bundle file they do not.
