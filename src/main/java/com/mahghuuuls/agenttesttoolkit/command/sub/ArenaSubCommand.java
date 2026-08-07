@@ -33,11 +33,11 @@ import java.util.Locale;
 /**
  * Creates, describes, resets and clears the dimension's arena.
  *
- * <p>REQ-061: exactly one arena per dimension. Creating a new one replaces the record without
+ * <p>Exactly one arena per dimension. Creating a new one replaces the record without
  * restoring the previous terrain, which is intended: the arena is disposable and so is the
  * world it lives in.
  *
- * <p>No confirmation prompt anywhere, per decision D3. That is not carelessness, it is a
+ * <p>No confirmation prompt anywhere. That is not carelessness, it is a
  * requirement: {@code arena reset} is the most-used command in a setup bundle, and a prompt
  * would make it unusable from one. The size limit is the only guard.
  */
@@ -103,7 +103,7 @@ public final class ArenaSubCommand implements SubCommand {
         int length = args.length > 3 ? CommandBase.parseInt(args[3], 1) : config.getDefaultArenaLength();
         String blockId = args.length > 4 ? args[4] : config.getDefaultArenaBlock();
 
-        // REQ-063: checked before anything is placed. A partial build followed by an error
+        // Checked before anything is placed. A partial build followed by an error
         // would leave the world in a state neither the operator nor the toolkit can describe.
         int maximum = config.getMaxArenaDimension();
         if (!ArenaGeometry.withinLimit(width, height, length, maximum)) {
@@ -144,7 +144,7 @@ public final class ArenaSubCommand implements SubCommand {
         SessionStamp.apply(log);
         addArenaFields(log, world, record);
         log.add("blocksChanged", changed);
-        // REQ-144 requires this stated rather than assumed. Relocating a respawn point is a
+        // Stated rather than assumed. Relocating a respawn point is a
         // real side effect, and an operator who later dies somewhere unexpected should be able
         // to find out why from the log rather than by guessing.
         log.add("respawnSet", respawnMoved);
@@ -184,8 +184,8 @@ public final class ArenaSubCommand implements SubCommand {
      * Reset rebuilds the shell and lighting; clear only empties the interior.
      *
      * <p>Both remove non-player entities inside the bounds, and both are idempotent: running
-     * either twice leaves the same state, which REQ-069 requires because a setup bundle may
-     * run reset every time it executes.
+     * either twice leaves the same state, which matters because a setup bundle may run reset
+     * every time it executes.
      */
     private void resetOrClear(ICommandSender sender, boolean rebuild) throws CommandException {
         World world = sender.getEntityWorld();
@@ -273,7 +273,7 @@ public final class ArenaSubCommand implements SubCommand {
     }
 
     /**
-     * Moves the invoking player's respawn to the arena start. REQ-144.
+     * Moves the invoking player's respawn to the arena start.
      *
      * <p>Forced, so it does not require a bed and is not silently discarded. Only the invoking
      * player is touched: relocating a bystander's respawn because someone else built an arena
@@ -310,7 +310,7 @@ public final class ArenaSubCommand implements SubCommand {
         if (resolved != null) {
             return resolved;
         }
-        // REQ-005: fail explicitly. The arena is positioned relative to the caller, and
+        // Fail explicitly. The arena is positioned relative to the caller, and
         // defaulting to the world origin would build it somewhere nobody asked for.
         ToolkitLog.error("arena " + action + " requires a player sender");
         sender.sendMessage(new TextComponentString(

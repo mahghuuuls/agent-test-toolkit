@@ -10,14 +10,14 @@ import java.util.List;
 /**
  * The single writer for every toolkit record.
  *
- * <p>ARC-005: no other class in this project may call a logger directly. Routing everything
- * through one place is what makes the format rules in REQ-033 and the closed vocabulary in
- * REQ-034 enforceable rather than merely documented. Format consistency is a functional
- * requirement here, not a style preference, because an agent parses the output.
+ * <p>No other class in this project may call a logger directly. Routing everything through one
+ * place is what makes the field format and the closed set of event types enforceable rather
+ * than merely documented. Format consistency is a functional requirement here, not a style
+ * preference, because an agent parses the output.
  *
  * <p>Records go to the normal Forge logging system so they land in {@code latest.log}
- * alongside Forge output and target mod output, per REQ-030. The toolkit deliberately does
- * not create a log file of its own: the combined context is the point.
+ * alongside Forge output and target mod output. The toolkit deliberately does not create a
+ * log file of its own: the combined context is the point.
  */
 public final class ToolkitLog {
 
@@ -53,8 +53,8 @@ public final class ToolkitLog {
     }
 
     /**
-     * Writes an error record. Errors are never silently swallowed, per REQ-110, and they
-     * carry enough context to identify the cause.
+     * Writes an error record. Errors are never silently swallowed, and they carry enough
+     * context to identify the cause.
      *
      * @param message a short human and machine readable description
      * @param detail  optional additional context, omitted when absent

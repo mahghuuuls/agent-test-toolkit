@@ -7,9 +7,11 @@ import java.util.List;
 /**
  * Advances active bundle executions once per server tick.
  *
- * <p><b>ARC-004.</b> Today every execution finishes in its first advance, because per-command
- * delays are IMP-014's. The scheduler exists anyway so that adding delays extends this rather
- * than replacing a loop written inside the command handler.
+ * <p>A scheduled state machine rather than a loop. An execution can span ticks: a command
+ * carrying a delay parks its execution until the delay elapses, and a nested bundle parks its
+ * parent until the child finishes. Both were added after this class existed, and both extended
+ * it rather than replacing it, which is the reason it was written this way before either was
+ * needed.
  *
  * <p>Server thread only. Both submission, which happens while a command runs, and ticking
  * occur there, so no synchronisation is needed and none is implied.
@@ -22,9 +24,9 @@ public final class BundleScheduler {
      * Executions submitted while a tick is in progress.
      *
      * <p>A bundle command can be {@code devtool run}, which submits during {@link #tick}.
-     * Nesting proper is IMP-014's, but nothing stops an owner writing that line today, and
-     * adding to the list being iterated would throw inside the server tick. Buffered instead,
-     * so the worst case is an ordinary one-tick delay rather than a crash.
+     * Adding to the list being iterated would throw inside the server tick, so submissions are
+     * buffered here and picked up on the next pass. The worst case is an ordinary one-tick
+     * delay rather than a crash.
      */
     private final List<BundleExecution> pending = new ArrayList<BundleExecution>();
 
@@ -85,7 +87,7 @@ public final class BundleScheduler {
     /**
      * Drops everything in flight.
      *
-     * <p>ARC-002: server-bound transient state is discarded when the server stops. An execution
+     * <p>Server-bound transient state is discarded when the server stops. An execution
      * holds a sender from a world that is unloading, and the scheduler is registered
      * permanently, so keeping them would leak stale executions into the next world's first tick.
      */
@@ -96,7 +98,7 @@ public final class BundleScheduler {
         pending.clear();
         // Returned rather than silently dropped. A bundle that stops because the world is
         // shutting down looks identical in the log to one that finished, unless something
-        // says otherwise, and REQ-110 forbids a failure with no report.
+        // says otherwise, and this project does not let a failure go unreported.
         return discarded;
     }
 

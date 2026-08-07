@@ -27,10 +27,10 @@ import java.util.List;
 /**
  * Entry point.
  *
- * <p>{@code acceptableRemoteVersions = "*"} implements concept decision D4: the toolkit is
- * required on the server and optional on the client, and a client without it must still be
- * able to connect. Without this attribute Forge would refuse such a client, which would make
- * the toolkit unusable for testing against a dedicated server.
+ * <p>{@code acceptableRemoteVersions = "*"} is deliberate: the toolkit is required on the
+ * server and optional on the client, and a client without it must still be able to connect.
+ * Without this attribute Forge would refuse such a client, which would make the toolkit
+ * unusable for testing against a dedicated server.
  */
 @Mod(
         modid = Tags.MOD_ID,
@@ -60,7 +60,7 @@ public class AgentTestToolkitMod {
     public void preInit(FMLPreInitializationEvent event) {
         // Both loaders return their problems rather than logging as they go, so that the one
         // startup record can be written first and carry the bundle count. ToolkitStartup owns
-        // that ordering rule and is tested directly; see REQ-111.
+        // that ordering and is tested directly.
         List<String> configProblems =
                 ToolkitConfigLoader.load(event.getModConfigurationDirectory());
 
@@ -73,8 +73,8 @@ public class AgentTestToolkitMod {
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
-        // Subscribed once and never unsubscribed. See ARC-006: the resting cost is a null
-        // check, and always-registered handlers remove a whole class of lifecycle bug.
+        // Subscribed once and never unsubscribed. The resting cost is a null check, and
+        // always-registered handlers remove a whole class of lifecycle bug.
         damageObserver = new DamageObserver();
 
         MinecraftForge.EVENT_BUS.register(new SessionTicker());
@@ -96,16 +96,16 @@ public class AgentTestToolkitMod {
 
     @Mod.EventHandler
     public void serverStopped(FMLServerStoppedEvent event) {
-        // ARC-002: discard in-flight, server-bound transient state. Pending damage
+        // Discard in-flight, server-bound transient state. Pending damage
         // correlations hold entity references from a world that is unloading, and the observer
         // is registered permanently, so leaving them would leak stale entries into the next
         // world's first tick.
         //
-        // ARC-001: this handler must NEVER clear ToolkitState. Leaving a single player world
-        // stops the integrated server, and Forge documents this event as the place to reset
-        // static state. Doing that here would destroy the active session and break the
-        // disconnect-and-reconnect testing REQ-052 exists to enable. Session and logging
-        // category state are meant to die with the JVM and nothing sooner.
+        // This handler must NEVER clear ToolkitState. Leaving a single player world stops the
+        // integrated server, and Forge documents this event as the place to reset static
+        // state. Doing that here would destroy the active session and break testing a
+        // disconnect and reconnect inside one session. Session and logging category state are
+        // meant to die with the JVM and nothing sooner.
         if (damageObserver != null) {
             damageObserver.discardPending();
         }
