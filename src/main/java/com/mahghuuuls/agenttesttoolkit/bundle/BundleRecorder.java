@@ -32,9 +32,9 @@ public final class BundleRecorder implements BundleExecution.Listener {
     @Override
     public void onCommandFailed(BundleExecution execution, int index, String command,
                                 String detail) {
-        // REQ-110 and the acceptance criteria: the bundle, the command text, and the position
-        // must all be identifiable. A bundle can contain the same command twice, so the index
-        // is not redundant with the text.
+        // The bundle, the command text, and the position must all be identifiable from the
+        // record alone. A bundle can contain the same command twice, so the index is not
+        // redundant with the text.
         LogRecord record = RecordContext.stamp(
                 LogRecord.of(EventType.ERROR), execution.getContext());
         SessionStamp.apply(record);

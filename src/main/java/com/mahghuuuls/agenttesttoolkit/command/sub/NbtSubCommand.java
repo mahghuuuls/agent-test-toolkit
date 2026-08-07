@@ -31,7 +31,7 @@ import java.util.Locale;
 /**
  * Writes raw NBT to the log, literally and without interpretation.
  *
- * <p>REQ-075 forbids comparing, diffing or judging NBT, and that is an identity decision rather
+ * <p>NBT is never compared, diffed or judged, and that is an identity decision rather
  * than a simplification: the toolkit reports facts, and deciding whether a tag is "correct"
  * requires knowing what the mod under test intended.
  *
@@ -89,8 +89,7 @@ public final class NbtSubCommand implements SubCommand {
         if (args.length < 2) {
             throw new WrongUsageException("/devtool nbt entity <selector>");
         }
-        // REQ-070 applies here: a selector matching two entities is an error, not an
-        // invitation to pick one.
+        // A selector matching two entities is an error, not an invitation to pick one.
         Entity entity = EntityTarget.requireExactlyOne(server, sender, args[1]);
         NBTTagCompound tag = new NBTTagCompound();
         entity.writeToNBT(tag);
@@ -172,7 +171,7 @@ public final class NbtSubCommand implements SubCommand {
 
         record.add("nbtLength", bounded.getOriginalLength());
         record.add("outputLength", bounded.getOutputLength());
-        // REQ-076: never silent. The flag is always emitted, not only when true, so its
+        // Never silent. The flag is always emitted, not only when true, so its
         // absence can never be mistaken for "not truncated".
         record.add("truncated", bounded.isTruncated());
         if (bounded.isTruncated()) {

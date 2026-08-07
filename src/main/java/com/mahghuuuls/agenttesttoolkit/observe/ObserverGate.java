@@ -9,8 +9,8 @@ import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
  * <p>Shared rather than duplicated per observer, so the two conditions that every category
  * depends on cannot drift apart as categories are added.
  *
- * <p>ARC-006 keeps handlers registered permanently and gates them on a boolean, so this runs
- * on every matching game event and must stay cheap: one volatile read and a set lookup.
+ * <p>Handlers stay registered permanently and are gated on a boolean, so this runs on every
+ * matching game event and must stay cheap: one volatile read and a set lookup.
  *
  * <p>Pure by design. A Forge event cannot be simulated meaningfully, but the decision of
  * whether to record one can be checked directly, which is where the rule's real risk lives.
@@ -28,7 +28,7 @@ public final class ObserverGate {
         if (!ToolkitState.isEnabled(category)) {
             return false;
         }
-        // REQ-041: server-authoritative observation only. In single player both logical sides
+        // Server-authoritative observation only. In single player both logical sides
         // share a JVM, so without this one action would be recorded twice.
         return !isRemote;
     }
@@ -36,7 +36,7 @@ public final class ObserverGate {
     /**
      * The position-aware form, which also applies the category's filter.
      *
-     * <p>REQ-044: evaluated before the record is built, so an excluded event costs a coordinate
+     * <p>Evaluated before the record is built, so an excluded event costs a coordinate
      * comparison rather than the string work of assembling a record that is then discarded.
      *
      * <p>Every observer that knows where its event happened should use this one. The

@@ -19,8 +19,8 @@ import java.util.Set;
  * <p>Parsed element by element rather than bound to a POJO, for two reasons. The command list
  * is polymorphic, since an entry may be a bare string or an object carrying a delay, which
  * automatic binding handles badly. And error messages matter here: a malformed bundle file must
- * say which bundle and which entry is wrong, because REQ-020 keeps the other files loading and
- * an agent needs to fix the one that failed.
+ * say which bundle and which entry is wrong, because the other files keep loading and an agent
+ * needs to fix the one that failed.
  *
  * <p>Pure. No file access, no Minecraft. The file walking lives in {@link BundleRegistry}.
  */
@@ -32,7 +32,7 @@ public final class BundleParser {
     private static final String KEY_COMMAND = "command";
     private static final String KEY_DELAY_TICKS = "delayTicks";
 
-    /** REQ-017: enabled unless the file says otherwise. */
+    /** Enabled unless the file says otherwise. */
     private static final boolean DEFAULT_STOP_ON_FAILURE = true;
 
     /**
@@ -63,8 +63,8 @@ public final class BundleParser {
         // Must run before Gson sees the text. Gson's object model is map-backed, so a name
         // repeated at the top level is silently collapsed to the last one and the earlier
         // definition disappears without trace. Copy a bundle block and forget to rename it,
-        // and one of them quietly stops existing. REQ-012 refuses that across files; the same
-        // mistake inside one file deserves the same treatment.
+        // and one of them quietly stops existing. A name defined in two files is refused
+        // outright; the same mistake inside one file deserves the same treatment.
         rejectDuplicateBundleNames(json);
 
         JsonElement root;
@@ -195,8 +195,8 @@ public final class BundleParser {
      * <p>Some Windows editors write one, the JSON parser does not skip it, and {@code trim()}
      * will not remove it either because it sits above the space character. The resulting error
      * points at an invisible character on line one. This project has already lost time to a
-     * BOM once, in a Java source file during IMP-001, and bundle files are hand edited far
-     * more often than source is.
+     * BOM once, in a Java source file, and bundle files are hand edited far more often than
+     * source is.
      */
     private static String stripByteOrderMark(String json) {
         return (!json.isEmpty() && json.charAt(0) == BYTE_ORDER_MARK) ? json.substring(1) : json;

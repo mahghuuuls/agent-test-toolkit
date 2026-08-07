@@ -21,13 +21,13 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
  *
  * <h2>Why this event</h2>
  *
- * <p>{@code BlockEvent.EntityPlaceEvent} rather than {@code PlaceEvent}, settled by IMP-004 by
- * reading the Forge 1.12.2 source. {@code PlaceEvent} is annotated deprecated for removal in
+ * <p>{@code BlockEvent.EntityPlaceEvent} rather than {@code PlaceEvent}, settled by reading
+ * the Forge 1.12.2 source. {@code PlaceEvent} is annotated deprecated for removal in
  * 1.13. The hierarchy is {@code MultiPlaceEvent extends PlaceEvent extends EntityPlaceEvent},
  * with {@code EntityMultiPlaceEvent} a fourth sibling, so subscribing at the base type receives
  * all of them.
  *
- * <p>Exactly one event per placement action, which REQ-040 requires, is not an assumption:
+ * <p>Exactly one record per placement action is not an assumption:
  * {@code ForgeHooks} posts a multi-place event when the snapshot list has more than one entry
  * and a single-place event otherwise, in mutually exclusive branches. Placing a door or a bed
  * therefore produces one record, not two.
@@ -65,7 +65,7 @@ public final class BlockPlaceObserver {
         SessionStamp.apply(record);
 
         // Field order matches BLOCK_INSPECT, which describes the same physical concept.
-        // REQ-033 only requires consistency within an event type, but two record types that
+        // Field order only has to be consistent within an event type, but two record types that
         // both describe a block should read the same way when an agent compares them, which
         // is exactly what the corroboration check does.
         record.add("block", registryName(placed));
@@ -75,7 +75,7 @@ public final class BlockPlaceObserver {
         record.add("blockState", placed.toString());
 
         // Nullable: a block can be placed by something that is not an entity, for example a
-        // dispenser. Omitted rather than reported as "none", per REQ-033.
+        // dispenser. Omitted rather than reported as "none", like every absent field.
         Entity placer = event.getEntity();
         if (placer != null) {
             ResourceLocation placerId = EntityList.getKey(placer);

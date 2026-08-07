@@ -18,11 +18,11 @@ import java.util.List;
 /**
  * Reports what the toolkit is running inside.
  *
- * <p>REQ-080. The mod list is deliberately <b>not</b> part of the environment summary: the
- * runtimes this toolkit targets carry 350 to 389 mods, and folding that into one record would
- * make the summary unreadable for the case it exists to serve. It gets its own command.
+ * <p>The mod list is deliberately <b>not</b> part of the environment summary: the runtimes
+ * this toolkit targets carry 350 to 389 mods, and folding that into one record would make the
+ * summary unreadable for the case it exists to serve. It gets its own command.
  *
- * <p>REQ-080 also forbids dumping the startup log. This reports named values only.
+ * <p>The startup log is never dumped either. This reports named values only.
  */
 public final class Environment {
 
@@ -30,8 +30,8 @@ public final class Environment {
     }
 
     public static LogRecord environment(MinecraftServer server, ICommandSender sender) {
-        // Stamped here rather than by the caller so side and worldTick lead the record. REQ-033
-        // fixes field order, and adding them afterwards would put them at the end.
+        // Stamped here rather than by the caller so side and worldTick lead the record. Field
+        // order is insertion order, and adding them afterwards would put them at the end.
         LogRecord record = RecordContext.stamp(LogRecord.of(EventType.ENVIRONMENT), sender);
         SessionStamp.apply(record);
         record.add("minecraftVersion", ForgeVersion.mcVersion)
@@ -87,7 +87,7 @@ public final class Environment {
         return records;
     }
 
-    /** Side and world tick lead every record, per REQ-033's stable field order. */
+    /** Side and world tick lead every record. */
     private static LogRecord stamped(ICommandSender sender) {
         LogRecord record = RecordContext.stamp(LogRecord.of(EventType.CAPABILITIES), sender);
         SessionStamp.apply(record);

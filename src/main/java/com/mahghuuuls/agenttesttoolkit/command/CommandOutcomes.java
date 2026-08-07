@@ -24,7 +24,7 @@ import com.mahghuuuls.agenttesttoolkit.bundle.CommandOutcome;
  * exactly that kind of repeated manual fiddling.
  *
  * <p>Everything else returning zero is a failure: unknown command, missing permission, and bad
- * syntax all count, which is what the acceptance criteria require. Note that
+ * syntax all count. Note that
  * {@code commands.generic.notFound} means "no such command" and is <b>not</b> in the tolerated
  * set despite the similar name, so the keys are compared exactly rather than by prefix.
  */

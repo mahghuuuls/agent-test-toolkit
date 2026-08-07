@@ -3,8 +3,8 @@ package com.mahghuuuls.agenttesttoolkit.config;
 /**
  * Toolkit configuration values.
  *
- * <p>Supplies defaults only. REQ-101 forbids configuration from carrying diagnostic state:
- * there is deliberately no setting here that enables a logging category, applies a filter, or
+ * <p>Supplies defaults only. Configuration deliberately carries no diagnostic state:
+ * there is no setting here that enables a logging category, applies a filter, or
  * starts a session. That closes off a whole failure mode, where a stale file left behind by an
  * earlier test silently turns diagnostics on in a later one.
  *
@@ -23,7 +23,7 @@ public final class ToolkitConfig {
     /**
      * Hard ceiling on the configurable maximum, independent of what the file asks for.
      *
-     * <p>REQ-063 requires a maximum so a mistyped dimension cannot stall the server. A
+     * <p>A maximum exists so a mistyped dimension cannot stall the server. A
      * configurable limit alone would not achieve that, since the mistype could just as easily
      * land in the limit itself. 512 cubed is already far past any plausible test arena.
      */
@@ -253,7 +253,7 @@ public final class ToolkitConfig {
     /**
      * Whether {@code arena create} moves the invoking player's respawn point into the arena.
      *
-     * <p>REQ-144, on by default. Dying mid-test and respawning at the world spawn is the
+     * <p>On by default. Dying mid-test and respawning at the world spawn is the
      * repetitive friction the toolkit exists to remove. Configurable rather than unconditional
      * because relocating someone's respawn is a real side effect, and the record states when it
      * happened so it is never silent.
@@ -282,7 +282,7 @@ public final class ToolkitConfig {
     }
 
     /**
-     * Whether the client applies display and audio defaults on joining a world. REQ-146.
+     * Whether the client applies display and audio defaults on joining a world.
      *
      * <p>Off by default. These are the operator own application settings rather than game
      * state, and a diagnostic tool rewriting them unasked would be surprising.

@@ -29,8 +29,7 @@ import net.minecraft.world.World;
  * decision 2, that information belongs in the mod under test, not here.
  *
  * <p>Fields that do not apply to a given target are omitted rather than reported as zero or
- * empty, per REQ-033 and REQ-072. An inspection must not fail merely because a target has no
- * health.
+ * empty. An inspection must not fail merely because a target has no health.
  */
 public final class Inspectors {
 
@@ -48,8 +47,8 @@ public final class Inspectors {
 
         record.add("hunger", player.getFoodStats().getFoodLevel());
         record.addDecimal("saturation", player.getFoodStats().getSaturationLevel());
-        // REQ-071 asks for "experience". Level alone would answer a narrower question than
-        // the requirement poses, so the cumulative total is reported alongside it.
+        // "Experience" is ambiguous, and level alone answers the narrower question, so the
+        // cumulative total is reported alongside it.
         record.add("experienceLevel", player.experienceLevel);
         record.add("experienceTotal", player.experienceTotal);
 
@@ -80,10 +79,10 @@ public final class Inspectors {
         addPosition(record, entity);
         record.addEntityPos("motion", entity.motionX, entity.motionY, entity.motionZ);
 
-        // REQ-072 asks for fire ticks. Minecraft 1.12.2 keeps the remaining tick count in a
-        // protected field with no public accessor; reaching it would need an access
-        // transformer, which Feasibility Research established this project does not require
-        // and should not introduce for one optional field. Burning state is reported instead,
+        // The remaining fire tick count would be the more useful field, but Minecraft 1.12.2
+        // keeps it in a protected field with no public accessor; reaching it would need an
+        // access transformer, which this project deliberately does without and should not
+        // introduce for one optional field. Burning state is reported instead,
         // and only when true, so the field is absent rather than misleading.
         if (entity.isBurning()) {
             record.add("burning", true);

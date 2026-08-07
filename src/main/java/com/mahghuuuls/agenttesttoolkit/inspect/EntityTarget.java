@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * Resolves a selector to exactly one entity, or fails explicitly.
  *
- * <p>REQ-070 forbids choosing among multiple matches. Determinism beats convenience here:
+ * <p>Choosing among multiple matches is never allowed. Determinism beats convenience here:
  * an agent that wrote a selector matching two entities has a bug in its setup, and silently
  * inspecting whichever one happened to be first would hide it behind plausible-looking output.
  * Zero matches and several matches are both errors, and they are distinguishable errors.
@@ -43,7 +43,7 @@ public final class EntityTarget {
     /**
      * Decides what a match count means, separately from performing the match.
      *
-     * <p>Extracted so the REQ-070 rule is testable without a live selector engine. The
+     * <p>Extracted so the rule is testable without a live selector engine. The
      * matching itself needs Minecraft; the decision does not.
      *
      * @return null when the count is acceptable, otherwise the error to report
@@ -64,7 +64,7 @@ public final class EntityTarget {
      * selector engine; anything else is treated as a player name.
      *
      * <p>The player-name path can never return more than one entity, because usernames are
-     * unique among connected players. REQ-070's never-choose-among-matches concern therefore
+     * unique among connected players. The ambiguity this class exists to catch therefore
      * cannot arise there, which is safe by construction rather than by a check.
      */
     public static List<Entity> matchAll(MinecraftServer server, ICommandSender sender, String selector)
