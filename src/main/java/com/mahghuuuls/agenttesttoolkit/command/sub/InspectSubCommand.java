@@ -120,7 +120,7 @@ public final class InspectSubCommand implements SubCommand {
     }
 
     /**
-     * REQ-074. Resolves the same way as {@code inspect player}: self when no selector, or the
+     * Resolves the same way as {@code inspect player}: self when no selector, or the
      * named player.
      */
     private void inspectInventory(MinecraftServer server, ICommandSender sender, String[] args)

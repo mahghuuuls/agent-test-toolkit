@@ -165,7 +165,7 @@ public final class LogSubCommand implements SubCommand {
         if ("arena".equals(kind)) {
             ArenaBoundsSource source = new ArenaBoundsSource(server);
             if (source.boundsFor(dimension) == null) {
-                // REQ-045. Applying a filter that admits nothing, silently, is the worst
+                // Applying a filter that admits nothing, silently, is the worst
                 // possible outcome for a feature whose whole purpose is making absence
                 // explicable.
                 throw new FilterRejected("No arena in dimension " + dimension

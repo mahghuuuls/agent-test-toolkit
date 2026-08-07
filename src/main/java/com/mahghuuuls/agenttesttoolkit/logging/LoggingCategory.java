@@ -9,7 +9,7 @@ import java.util.Map;
  * The closed set of generic event categories the toolkit can observe.
  *
  * <p>Every category is disabled by default and never persists across a process restart, per
- * REQ-035. That is deliberate: a stale diagnostic setting producing unexplained log volume in
+ * That is deliberate: a stale diagnostic setting producing unexplained log volume in
  * a later test is worse than having to enable it again.
  *
  * <p>The category name and the event type name differ in two cases, {@code player_interaction}

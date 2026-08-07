@@ -41,7 +41,7 @@ import java.util.List;
 public class AgentTestToolkitMod {
 
     /**
-     * REQ-147. The client class is named as a string, never referenced as a type from common
+     * The client class is named as a string, never referenced as a type from common
      * code, so a dedicated server never attempts to load it.
      *
      * <p>{@link CommonProxy} is imported because it is common. {@code ClientProxy} deliberately

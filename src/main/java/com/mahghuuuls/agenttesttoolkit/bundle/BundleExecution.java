@@ -7,11 +7,10 @@ import java.util.List;
 /**
  * One bundle being run: where it is, what has happened, and what remains.
  *
- * <p><b>ARC-004</b> requires a scheduled state machine rather than a loop. The position is
- * explicit state that survives between advances, so IMP-014 can add per-command tick delays by
- * gating {@link #advance} rather than by rewriting execution. A loop would have had to be
- * thrown away at that point, and the interesting parts, the counters and the stop rule, would
- * have been rewritten with it.
+ * <p>A scheduled state machine rather than a loop. The position is explicit state that survives
+ * between advances, which is what lets per-command tick delays gate {@link #advance} instead of
+ * requiring execution to be rewritten. A loop would have had to be thrown away when delays were
+ * added, taking the counters and the stop rule with it.
  *
  * <p>Free of Minecraft types on purpose. Command dispatch arrives through
  * {@link CommandDispatcher}, so ordering, failure classification, the stop rule and counter
@@ -23,8 +22,8 @@ public final class BundleExecution {
     /** Receives what happened, so record emission stays out of the state machine. */
     public interface Listener {
 
-        /** REQ-016: called only for a genuine command failure, never for a command that ran
-         * and changed nothing. */
+        /** Called only for a genuine command failure, never for a command that ran and
+         * changed nothing. */
         void onCommandFailed(BundleExecution execution, int index, String command, String detail);
 
         void onFinished(BundleExecution execution);
@@ -94,9 +93,8 @@ public final class BundleExecution {
     /**
      * Runs the commands that are due now.
      *
-     * <p>Every remaining command is due, because per-command delays do not exist yet; they are
-     * IMP-014's, and this is the method they will gate. The structure is deliberate even though
-     * today it means a bundle completes in a single advance.
+     * <p>A command with no delay runs immediately, so an undelayed bundle completes in a single
+     * advance. A delayed one parks here and resumes on a later tick.
      */
     public void advance(Listener listener) {
         if (listener == null) {
@@ -106,10 +104,10 @@ public final class BundleExecution {
             return;
         }
 
-        // REQ-112. Checked before any command runs, so a bundle whose caller disconnected
-        // stops rather than executing the remainder against nobody. Falls out of the normal
-        // path because the dispatcher re-resolves the sender instead of holding a reference;
-        // see ARC-004.
+        // Checked before any command runs, so a bundle whose caller disconnected stops rather
+        // than executing the remainder against nobody. This falls out of the normal path
+        // because the dispatcher re-resolves the sender each time instead of holding a
+        // reference to it.
         if (!dispatcher.isSenderAvailable()) {
             senderLost = true;
             stoppedEarly = true;
@@ -146,9 +144,9 @@ public final class BundleExecution {
         }
 
         while (position < commands.size()) {
-            // REQ-015. Not yet due, so the execution stays active and unfinished. Returning
-            // here rather than falling through is what keeps BUNDLE_END after the last
-            // delayed command instead of before it, per REQ-022.
+            // Not yet due, so the execution stays active and unfinished. Returning here rather
+            // than falling through is what keeps BUNDLE_END after the last delayed command
+            // instead of before it.
             if (ticksElapsed < dueTick) {
                 return;
             }
@@ -161,9 +159,9 @@ public final class BundleExecution {
             CommandOutcome outcome = dispatcher.dispatch(command.getCommand());
 
             // The next command's delay is measured from *now*, the completion of this one,
-            // rather than from the bundle's start. REQ-015 is explicit about that, and it is
-            // the behaviour someone editing a list expects: inserting a command shifts
-            // everything after it rather than silently compressing the gaps.
+            // rather than from the bundle's start. That is the behaviour someone editing a
+            // list expects: inserting a command shifts everything after it rather than
+            // silently compressing the gaps.
             if (position < commands.size()) {
                 dueTick = ticksElapsed + commands.get(position).getDelayTicks();
             }
