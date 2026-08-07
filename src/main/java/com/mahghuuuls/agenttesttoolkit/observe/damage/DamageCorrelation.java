@@ -15,7 +15,7 @@ package com.mahghuuuls.agenttesttoolkit.observe.damage;
  * <p>The gaps between them carry the diagnostic value. If a mod intended 8.0 and health only
  * dropped 4.0, comparing the stages says immediately whether the mod computed the wrong number
  * or armour absorbed half of it. One event alone cannot distinguish those, which is why
- * concept decision D8 requires capturing all three while REQ-039 requires emitting one record.
+ * all three stages are captured but only one record is emitted.
  *
  * <p>Deliberately free of Minecraft types. The assembly rule is the part most likely to be
  * wrong and the part hardest to exercise in a game, so it is kept unit testable.

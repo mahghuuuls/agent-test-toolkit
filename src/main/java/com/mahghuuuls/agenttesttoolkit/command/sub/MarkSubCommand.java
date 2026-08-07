@@ -17,8 +17,8 @@ import net.minecraft.util.text.TextComponentString;
  *
  * <p>Markers are navigation aids: a human or an agent drops one immediately before the
  * action under test so the interesting region of {@code latest.log} can be found later.
- * They assert nothing and carry no verdict, per REQ-054 and the project's facts-not-conclusions
- * boundary.
+ * They assert nothing and carry no verdict: the toolkit records facts and leaves conclusions
+ * to the reader.
  */
 public final class MarkSubCommand implements SubCommand {
 
@@ -51,18 +51,18 @@ public final class MarkSubCommand implements SubCommand {
         }
 
         // Join rather than take args[0], so a multi word label is preserved. The record
-        // builder quotes it when it contains whitespace, per REQ-033.
+        // builder quotes it when it contains whitespace.
         StringBuilder label = new StringBuilder(args[0]);
         for (int i = 1; i < args.length; i++) {
             label.append(' ').append(args[i]);
         }
 
-        // REQ-041 and REQ-043: side and world tick lead every record, in that order.
+        // Side and world tick lead every record, in that order.
         LogRecord record = RecordContext.stamp(LogRecord.of(EventType.MARK), sender);
 
-        // REQ-053 and REQ-054: the session name and tick are stamped only while a session is
-        // active. With none active both fields are omitted entirely rather than filled with a
-        // placeholder, and the marker still works, which is the point of REQ-054.
+        // The session name and tick are stamped only while a session is active. With none
+        // active both fields are omitted entirely rather than filled with a placeholder, and
+        // the marker still works, which is the point: a marker must never depend on a session.
         SessionStamp.apply(record);
 
         record.add("label", label.toString());

@@ -24,9 +24,9 @@ import java.util.List;
 /**
  * Produces exactly one {@code ENTITY_DAMAGE} record per logical damage attempt.
  *
- * <p>Implements ARC-003 and REQ-039. See {@link DamageCorrelation} for why three Forge events
- * are stages rather than duplicates, and {@link DamageCorrelationBuffer} for why entries are
- * held until a tick boundary instead of being emitted at the final stage.
+ * <p>See {@link DamageCorrelation} for why three Forge events are stages rather than
+ * duplicates, and {@link DamageCorrelationBuffer} for why entries are held until a tick
+ * boundary instead of being emitted at the final stage.
  *
  * <h2>Cancellation, and why two handlers opt in to receiving cancelled events</h2>
  *
@@ -36,9 +36,10 @@ import java.util.List;
  *
  * <p>For the attack stage that default is actively wrong. If another mod cancels the attack,
  * the handler never runs, no correlation is opened, and the hit disappears from the log
- * completely. That is the precise failure ARC-003 exists to prevent, and the not-applied
- * default cannot save it because nothing was created to default. So {@code onLivingAttack}
- * opts in: it must observe every attempt, including ones another mod refuses.
+ * completely. A cancelled hit that leaves no trace is the precise failure this observer exists
+ * to prevent, and the not-applied default cannot save it because nothing was created to
+ * default. So {@code onLivingAttack} opts in: it must observe every attempt, including ones
+ * another mod refuses.
  *
  * <p>{@code onLivingHurt} opts in for accuracy rather than existence. A hurt stage cancelled by
  * another mod did happen, and skipping it would report {@code stoppedAt=ATTACK} for something
@@ -157,12 +158,12 @@ public final class DamageObserver {
     /**
      * Discards pending correlations when the server stops.
      *
-     * <p>ARC-002's precedent: in-flight, server-bound state must not survive the server it is
-     * bound to. Entries hold entity references from a world about to unload, and this observer
+     * <p>In-flight, server-bound state must not survive the server it is bound to.
+     * Entries hold entity references from a world about to unload, and this observer
      * is registered permanently, so a crash between the attack stage and the tick-end flush
      * would otherwise leak them into the next world's first tick.
      *
-     * <p>Distinct from {@code ToolkitState}, which ARC-001 requires to survive server stop.
+     * <p>Distinct from {@code ToolkitState}, which deliberately survives a server stop.
      */
     public int discardPending() {
         return buffer.discardPending();

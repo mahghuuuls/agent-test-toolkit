@@ -27,7 +27,7 @@ import java.util.Locale;
 /**
  * Reports current generic state for a player, entity, or block.
  *
- * <p>Detail goes to the log and chat receives a short confirmation, per REQ-078. The log is
+ * <p>Detail goes to the log and chat receives a short confirmation. The log is
  * the evidence channel an agent reads; flooding chat with dozens of fields would help nobody
  * and would push the useful part off screen.
  */
@@ -97,7 +97,7 @@ public final class InspectSubCommand implements SubCommand {
         EntityPlayer player;
         if (args.length == 0) {
             if (!Senders.isPlayer(sender)) {
-                // REQ-005: fail explicitly rather than obscurely. A console caller has no
+                // Fail explicitly rather than obscurely. A console caller has no
                 // implicit self to inspect.
                 ToolkitLog.error("inspect player requires a selector when run without a player sender");
                 throw new CommandException(
@@ -207,14 +207,14 @@ public final class InspectSubCommand implements SubCommand {
 
     /**
      * Resolves exactly one entity, reporting a cardinality failure rather than throwing it as
-     * a usage error, so the explicit counts required by REQ-070 reach both the log and chat.
+     * a usage error, so the explicit match count reaches both the log and chat.
      */
     private Entity resolveOrReport(MinecraftServer server, ICommandSender sender, String selector)
             throws CommandException {
         try {
             return EntityTarget.requireExactlyOne(server, sender, selector);
         } catch (EntityTarget.CardinalityException e) {
-            // Logged for the explicit counts REQ-070 requires, then rethrown rather than
+            // Logged with the match count, then rethrown rather than
             // swallowed into a null return. This is the likeliest failure of all in a setup
             // bundle, since a selector matching nothing is the commonest mistake, and
             // returning normally made the bundle report success for an inspection that never
@@ -226,8 +226,8 @@ public final class InspectSubCommand implements SubCommand {
 
     private void emit(LogRecord record, ICommandSender sender, String chatConfirmation) {
         // Context fields trail the identity fields on inspection records, where they lead on
-        // MARK and session records. REQ-033 requires order to be consistent per event type,
-        // which holds either way, and building the identity first keeps the inspector free of
+        // MARK and session records. Field order has to be consistent per event type, which
+        // holds either way, and building the identity first keeps the inspector free of
         // command-layer types. Noted so the difference reads as deliberate rather than sloppy.
         write(record, sender);
         sender.sendMessage(new TextComponentString("[DevToolkit] " + chatConfirmation));

@@ -23,15 +23,12 @@ import java.util.Locale;
 /**
  * Enables, disables and reports generic event logging.
  *
- * <p>Status reports every enabled category together with any filter applied to it. Filters
- * arrive in IMP-011, so today every enabled category reports as unfiltered, but the output
- * shape is settled now so that adding filters does not change what an agent has already
- * learned to read.
+ * <p>Status reports every enabled category together with any filter applied to it.
  *
- * <p>REQ-038 exists because silence is ambiguous. An agent that enables a category, asks for
- * an action, and sees nothing needs to distinguish "the event did not occur" from "a filter
- * excluded it" from "the category was never actually on". Status answers the third directly
- * and, once filters exist, the second.
+ * <p>It exists because silence is ambiguous. An agent that enables a category, asks for an
+ * action, and sees nothing needs to distinguish "the event did not occur" from "a filter
+ * excluded it" from "the category was never actually on". Status answers the last two
+ * directly, which leaves only the first.
  */
 public final class LogSubCommand implements SubCommand {
 
@@ -104,9 +101,8 @@ public final class LogSubCommand implements SubCommand {
         String action = args[1].toLowerCase(Locale.ROOT);
         if (ACTION_ON.equals(action)) {
             // The filter is resolved before the category is enabled, so a rejected filter
-            // leaves the category exactly as it was. REQ-045's acceptance criterion is
-            // explicit that a failed arena filter must not change filter state, and enabling
-            // first would also half-apply the operator's intent.
+            // leaves the category exactly as it was. A failed arena filter must not change
+            // filter state, and enabling first would also half-apply the operator's intent.
             Filter filter;
             try {
                 filter = parseFilter(server, sender, args);
@@ -189,7 +185,7 @@ public final class LogSubCommand implements SubCommand {
             }
             net.minecraft.entity.Entity anchor = sender.getCommandSenderEntity();
             if (anchor == null) {
-                // REQ-046 anchors to the applying player; the console has no position and
+                // The radius anchors to the applying player; the console has no position and
                 // defaulting to the world origin would filter somewhere nobody asked about.
                 throw new FilterRejected("radius filter requires a player sender.");
             }
@@ -211,7 +207,7 @@ public final class LogSubCommand implements SubCommand {
         for (LoggingCategory category : enabled) {
             // "filter=none" is stated rather than omitted. An agent must be able to tell an
             // unfiltered category from one whose filter it forgot about, and an absent field
-            // would leave that ambiguous. REQ-038: an excluded event and an event that never
+            // would leave that ambiguous. An excluded event and an event that never
             // happened look identical in the log, so this line is the only thing that can
             // distinguish them.
             Filter filter = ToolkitState.getFilter(category);
