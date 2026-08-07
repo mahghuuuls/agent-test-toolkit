@@ -58,7 +58,15 @@ Applying an arena filter in a dimension with no arena fails, and changes nothing
 
 ### Filters and silence
 
-An excluded event and an event that never happened are identical in the log. `devtool log status` reports the active filter for every enabled category, and it exists for exactly this reason. Check it before concluding the game did not do something.
+An excluded event and an event that never happened are identical in the log. Before concluding the game did not do something, check what was actually being watched.
+
+The log answers that on its own. Every change to the enabled set writes a `LOG_CONFIG` record, and so does `devtool log status`:
+
+```
+[DevToolkit][LOG_CONFIG] side=SERVER worldTick=1204 action=enable category=entity_spawn filter=radius(32.00) enabledCount=2 enabledCategories=block_place,entity_spawn filters=entity_spawn:radius(32.00)
+```
+
+The full enabled set is repeated on every one of these, so any single line tells you what was being recorded at that moment. You do not have to accumulate state across the file, and you do not need chat.
 
 ## entity_spawn will flood if you let it
 

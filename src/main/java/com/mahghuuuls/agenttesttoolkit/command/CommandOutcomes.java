@@ -36,6 +36,16 @@ public final class CommandOutcomes {
     /** Thrown by {@code CommandBase.getPlayer} and friends. */
     public static final String KEY_PLAYER_NOT_FOUND = "commands.generic.player.notFound";
 
+    /**
+     * Vanilla's "nothing was cleared".
+     *
+     * <p>Not a selector problem, but the same kind of outcome: the command ran and the
+     * inventory was already empty. Added after a teardown bundle containing {@code clear @p}
+     * was seen halting on its second run, which is the exact friction the tolerated set exists
+     * to remove.
+     */
+    public static final String KEY_CLEAR_NOTHING = "commands.clear.failure";
+
     /** Vanilla's "no such command". Similar name, opposite meaning; must stay a failure. */
     public static final String KEY_COMMAND_NOT_FOUND = "commands.generic.notFound";
     public static final String KEY_NO_PERMISSION = "commands.generic.permission";
@@ -56,6 +66,11 @@ public final class CommandOutcomes {
             // Recorded as a note rather than discarded. An agent looking at a bundle that
             // "worked" but changed nothing needs to see that the selector was empty.
             return CommandOutcome.success("selector matched nothing");
+        }
+        if (KEY_CLEAR_NOTHING.equals(translationKey)) {
+            // Kept separate from the selector cases so the note stays accurate: nothing was
+            // cleared, which is not the same as a selector matching nobody.
+            return CommandOutcome.success("nothing to clear");
         }
         return CommandOutcome.failure(describe(translationKey));
     }

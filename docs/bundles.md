@@ -47,6 +47,19 @@ Picking a winner by file order would be deterministic but wrong: the two definit
 
 Names shipped with the toolkit are prefixed `example_` so they can never collide with yours.
 
+## What counts as a failure
+
+A command fails when it raises an error: an unknown command, bad syntax, a missing permission, a selector that cannot be parsed.
+
+A command that runs and changes nothing has **succeeded**. That distinction matters most in teardown bundles, which are meant to be re-runnable:
+
+```
+kill @e[name=test_dummy]
+clear @p
+```
+
+Neither halts a bundle on its second run when there is nothing left to kill or clear. Both are recorded with a note saying so, rather than passing silently, so a bundle that "worked" but changed nothing is still visible in the log.
+
 ## Nesting
 
 A bundle command may be `devtool run other_bundle`. The parent waits for the child to finish, then counts the child's outcome as the result of that single command. A child that fails contributes exactly one failure to its parent.

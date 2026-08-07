@@ -42,6 +42,17 @@ public enum EventType {
 
     ENVIRONMENT,
     CAPABILITIES,
+
+    /**
+     * A change to which categories are recorded, or a report of the current set.
+     *
+     * <p>Added because the log could not answer its own most important question. Enabling a
+     * category left no trace, so a reader could not tell whether an absent event did not happen
+     * or was never being watched for. {@code log status} answered that to chat, where the
+     * reader of a log file cannot see it.
+     */
+    LOG_CONFIG,
+
     STARTUP,
     ERROR
 }

@@ -5,8 +5,12 @@ import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.logging.filter.ArenaFilter;
 import com.mahghuuuls.agenttesttoolkit.logging.filter.Filter;
 import com.mahghuuuls.agenttesttoolkit.logging.filter.RadiusFilter;
+import com.mahghuuuls.agenttesttoolkit.logging.EventType;
+import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.LoggingCategory;
+import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
+import com.mahghuuuls.agenttesttoolkit.state.SessionStamp;
 import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
@@ -67,6 +71,7 @@ public final class LogSubCommand implements SubCommand {
         String first = args[0].toLowerCase(Locale.ROOT);
 
         if ("status".equals(first)) {
+            recordState(sender, "status", null);
             status(sender);
             return;
         }
@@ -79,6 +84,7 @@ public final class LogSubCommand implements SubCommand {
                 throw new WrongUsageException("/devtool log all off");
             }
             int disabled = ToolkitState.disableAll();
+            recordState(sender, "disableAll", null);
             sender.sendMessage(new TextComponentString(
                     "[DevToolkit] Disabled " + disabled + " logging categor" + (disabled == 1 ? "y" : "ies") + "."));
             return;
@@ -118,11 +124,13 @@ public final class LogSubCommand implements SubCommand {
                 ToolkitState.setFilter(category, filter);
             }
             Filter active = ToolkitState.getFilter(category);
+            recordState(sender, "enable", category);
             sender.sendMessage(new TextComponentString("[DevToolkit] " + category.getCategoryName()
                     + (changed ? " enabled." : " was already enabled.")
                     + "  filter=" + (active == null ? "none" : active.describe())));
         } else if (ACTION_OFF.equals(action)) {
             boolean changed = ToolkitState.disable(category);
+            recordState(sender, "disable", category);
             sender.sendMessage(new TextComponentString("[DevToolkit] " + category.getCategoryName()
                     + (changed ? " disabled." : " was already disabled.")));
         } else {
@@ -130,6 +138,59 @@ public final class LogSubCommand implements SubCommand {
             ToolkitLog.error("Unknown logging action", action);
             throw new CommandException("Unknown action: " + action + ". Expected on or off.");
         }
+    }
+
+    /**
+     * Writes the enabled set to the log after every change, and on request.
+     *
+     * <p>Without this the log cannot answer its own most important question. A reader who sees
+     * no {@code BLOCK_PLACE} records has to distinguish "no block was placed" from "the
+     * category was never on", and until this record existed the only thing that could tell them
+     * apart was {@code log status}, which writes to chat. Chat is exactly what a log file
+     * reader does not have.
+     *
+     * <p>Written on changes rather than only on request, so the whole timeline is recoverable
+     * from the file. A status-only record would say what was true at the moments somebody
+     * happened to ask, which is not the same thing.
+     *
+     * <p>The full enabled set is repeated on every record rather than just the category that
+     * changed. It costs a short string and means no reader has to accumulate state across lines
+     * to answer "what was on at this point".
+     */
+    private void recordState(ICommandSender sender, String action, LoggingCategory category) {
+        LogRecord record = RecordContext.stamp(LogRecord.of(EventType.LOG_CONFIG), sender);
+        SessionStamp.apply(record);
+        record.add("action", action);
+        if (category != null) {
+            record.add("category", category.getCategoryName());
+            Filter own = ToolkitState.getFilter(category);
+            record.add("filter", own == null ? null : own.describe());
+        }
+
+        java.util.Set<LoggingCategory> enabled = ToolkitState.getEnabledCategories();
+        record.add("enabledCount", enabled.size());
+
+        StringBuilder names = new StringBuilder();
+        StringBuilder filters = new StringBuilder();
+        for (LoggingCategory each : enabled) {
+            if (names.length() > 0) {
+                names.append(',');
+            }
+            names.append(each.getCategoryName());
+
+            Filter active = ToolkitState.getFilter(each);
+            if (active != null) {
+                if (filters.length() > 0) {
+                    filters.append(',');
+                }
+                filters.append(each.getCategoryName()).append(':').append(active.describe());
+            }
+        }
+        // Both omitted when empty rather than rendered as a placeholder, so an absent field
+        // means "none" consistently with every other record.
+        record.add("enabledCategories", names.toString());
+        record.add("filters", filters.toString());
+        ToolkitLog.write(record);
     }
 
     /** Raised when a filter cannot be applied, so the caller can leave state untouched. */
