@@ -11,7 +11,7 @@ It does that by:
 - recording what happens in the world into the log
 - reporting the state of players, entities and blocks on demand
 
-Needed on the server, optional on the client, and a client without it can still join a server that has it. Commands need operator permission; `/devtool help` lists them.
+Everything it records happens on the server, so that is where it goes. In singleplayer, that just means installing it. Commands need operator permission; `/devtool help` lists them.
 
 If you are working with an AI assistant, point it at `AGENTS.md`. That file tells it what the toolkit can do, how to keep the log readable, and the traps worth knowing about before it wastes a test run.
 

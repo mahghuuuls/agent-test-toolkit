@@ -144,7 +144,7 @@ Two parts of this overlap things that exist. The honest comparison matters more 
 
 ## Requirements
 
-Minecraft 1.12.2 with Forge. Required on the server; optional on the client, and a client without it can still connect.
+Minecraft 1.12.2 with Forge. Everything the toolkit records happens on the server, so that is where it needs to be installed. In singleplayer that means installing it normally. The optional brightness and music defaults are the only part that acts on a client, and they need it installed there too.
 
 Commands need permission level 2. Start with `/devtool help`.
 
