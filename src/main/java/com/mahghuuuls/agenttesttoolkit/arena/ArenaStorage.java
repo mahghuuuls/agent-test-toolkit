@@ -9,8 +9,8 @@ import net.minecraft.world.storage.WorldSavedData;
  * Persists the arena for one dimension, inside the world save.
  *
  * <p>Uses {@code World#getPerWorldStorage()} rather than the global map storage, which is what
- * makes REQ-067 work: each dimension keeps its own arena, and an arena in the Nether does not
- * overwrite the one in the Overworld. Feasibility FQ7 established this as the mechanism.
+ * makes per-dimension arenas work: each dimension keeps its own, and an arena in the Nether
+ * does not overwrite the one in the Overworld.
  *
  * <p>Storing inside the world save, rather than beside the toolkit's configuration, is the
  * opposite choice from bundles and is right for the opposite reason. A bundle is a reusable
@@ -67,8 +67,8 @@ public final class ArenaStorage extends WorldSavedData {
      * Replaces the stored arena.
      *
      * <p>{@code markDirty()} is not optional. Without it the change lives only in memory and is
-     * lost on shutdown, which would fail REQ-066 in the one way that is invisible until someone
-     * restarts and finds their arena gone.
+     * lost on shutdown. That fails in the one way that is invisible until someone restarts and
+     * finds their arena gone.
      */
     public void setArena(ArenaRecord record) {
         this.arena = record;

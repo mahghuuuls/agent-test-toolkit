@@ -10,13 +10,13 @@ import net.minecraft.world.World;
 /**
  * Places the blocks an arena is made of.
  *
- * <p>ARC-007: the arena knows nothing about logging. This builds geometry into a world and
- * returns; recording is the caller's job.
+ * <p>The arena knows nothing about logging. This builds geometry into a world and returns;
+ * recording is the caller's job.
  *
  * <h2>Illumination</h2>
  *
- * <p>REQ-064 states illumination as an outcome, light sufficient to prevent hostile spawning
- * throughout the interior, not as a mechanism. Light sources are embedded in the <b>floor</b> on
+ * <p>The goal is an outcome, light sufficient to prevent hostile spawning throughout the
+ * interior, rather than a particular mechanism. Light sources are embedded in the <b>floor</b> on
  * a fixed grid rather than in the ceiling, because ceiling lighting fails in exactly the case
  * that matters: Minecraft's light level falls by one per block, so in a ten block tall arena a
  * ceiling light leaves the floor at light 5, and hostile mobs spawn at 7 or below. Floor
@@ -105,7 +105,7 @@ public final class ArenaBuilder {
     }
 
     /**
-     * Clears the interior to air, leaving the shell intact. REQ-069, used by reset and clear.
+     * Clears the interior to air, leaving the shell intact. Used by reset and clear.
      *
      * @return the number of blocks changed
      */

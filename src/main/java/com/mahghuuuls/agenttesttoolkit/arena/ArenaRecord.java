@@ -13,7 +13,7 @@ package com.mahghuuuls.agenttesttoolkit.arena;
  * metadata creation wrote, so it can only be trusted if there is nothing for it to be
  * inconsistent with.
  *
- * <p>Immutable. Replacing an arena replaces the whole record, which matches REQ-061's rule of
+ * <p>Immutable. Replacing an arena replaces the whole record, which matches the rule of
  * exactly one arena per dimension.
  */
 public final class ArenaRecord {

@@ -15,14 +15,13 @@ package com.mahghuuuls.agenttesttoolkit.arena;
  * asking for a size and then measuring the inside agrees with what was asked for.
  *
  * <p>The floor sits one block <b>below</b> the origin, so the walkable surface is exactly at the
- * player's feet and creating an arena does not shift them vertically. REQ-060 calls for the
- * floor at foot level, and the alternative, placing floor blocks at the origin itself, would
- * push the player up a block every time.
+ * player's feet and creating an arena does not shift them vertically. The alternative, placing
+ * floor blocks at the origin itself, would push the player up a block every time.
  *
  * <p>Horizontal centering uses {@code (size - 1) / 2}, which puts the origin at the exact centre
  * for odd sizes and one block toward the lower coordinate for even ones. Deterministic either
- * way, which is what REQ-062 asks for; the alternative of rounding the other way is equally
- * valid and the choice only has to be stable.
+ * way, which is all that matters; the alternative of rounding the other way is equally valid
+ * and the choice only has to be stable.
  */
 public final class ArenaGeometry {
 
@@ -182,7 +181,7 @@ public final class ArenaGeometry {
     /**
      * Whether every dimension is within the configured maximum.
      *
-     * <p>Checked before any block is modified, per REQ-063. A partial build followed by an error
+     * <p>Checked before any block is modified. A partial build followed by an error
      * would leave the world in a state neither the operator nor the toolkit can describe.
      */
     public static boolean withinLimit(int width, int height, int length, int maximum) {

@@ -10,7 +10,7 @@ import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
 /**
  * Session lifecycle: start, stop, and the tick counter.
  *
- * <p>Owns the REQ-051 replace rule. Starting a session while one is active stops the previous
+ * <p>Owns the replace rule. Starting a session while one is active stops the previous
  * one first, emitting its stop record, rather than erroring. An agent re-running a setup
  * bundle should not have to know whether a session is already open, and a silently nested or
  * silently discarded session would make the {@code session} field on later records ambiguous.

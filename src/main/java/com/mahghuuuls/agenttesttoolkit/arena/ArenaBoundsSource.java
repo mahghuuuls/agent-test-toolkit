@@ -7,8 +7,8 @@ import net.minecraft.world.World;
 /**
  * The live arena lookup filters use.
  *
- * <p>Lives in {@code arena} rather than in {@code logging/filter} on purpose. ARC-007 permits
- * filters to query the arena and forbids the reverse, and the filter package only knows the
+ * <p>Lives in {@code arena} rather than in {@code logging/filter} on purpose. Filters may
+ * query the arena but never the reverse, and the filter package only knows the
  * {@link ArenaBounds} interface. Putting the Minecraft-aware implementation here keeps
  * {@code logging} free of world lookups, which is what lets filter evaluation stay unit
  * testable.
