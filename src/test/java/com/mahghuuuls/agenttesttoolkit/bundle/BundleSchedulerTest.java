@@ -14,10 +14,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The tick-driven scheduler.
  *
- * <p>ARC-004 requires this structure even though nothing needs several ticks yet, so that
- * IMP-014's per-command delays extend it rather than replace a loop. These cases pin down the
- * parts that are easy to get wrong later: executions leaving the active set when they finish,
- * in-flight state being dropped on server stop, and submission from inside a tick.
+ * <p>A scheduled state machine rather than a loop, which is what let per-command delays and
+ * nested bundles extend it later instead of replacing it. These cases pin down the parts that
+ * are easy to get wrong: executions leaving the active set when they finish, in-flight state
+ * being dropped on server stop, and submission from inside a tick.
  */
 class BundleSchedulerTest {
 
@@ -102,8 +102,8 @@ class BundleSchedulerTest {
     @DisplayName("submitting from inside a tick does not disturb the tick in progress")
     void submitDuringTickIsDeferred() {
         // A bundle command can be `devtool run`, which submits while the scheduler is
-        // iterating. Nesting proper is IMP-014's, but nothing stops that line being written
-        // today, and adding to the list under iteration would throw inside the server tick.
+        // iterating, and adding to the list under iteration would throw inside the server
+        // tick. Buffered instead, so the worst case is a one-tick delay rather than a crash.
         final BundleScheduler scheduler = new BundleScheduler();
         final Recorder nested = new Recorder();
 
@@ -129,7 +129,7 @@ class BundleSchedulerTest {
     @Test
     @DisplayName("stopping the server discards everything in flight")
     void discardAllClears() {
-        // ARC-002. An execution holds a sender from a world that is unloading, and the ticker
+        // An execution holds a sender from a world that is unloading, and the ticker
         // is registered permanently, so anything left here would resume against the next world.
         BundleScheduler scheduler = new BundleScheduler();
         Recorder recorder = new Recorder();
@@ -150,7 +150,7 @@ class BundleSchedulerTest {
     @Test
     @DisplayName("an in-flight execution keeps its own commands, so reload cannot change them")
     void reloadCannotChangeAnInFlightBundle() {
-        // REQ-103. True by construction rather than by a guard: the execution holds the command
+        // True by construction rather than by a guard: the execution holds the command
         // list it was created with, and reload replaces registry entries with new objects
         // rather than mutating the old ones. Asserted so a later change to either side, such as
         // caching definitions by name and re-reading them per tick, fails here instead of

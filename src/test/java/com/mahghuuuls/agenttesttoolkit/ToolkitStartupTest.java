@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The startup output contract, REQ-111.
+ * The startup output contract.
  *
  * <p>These exist because of a specific miss. An earlier implementation wrote a STARTUP record
  * before loading and another one after it, so an agent parsing the log would have seen two
@@ -122,7 +122,7 @@ class ToolkitStartupTest {
         assertTrue(startup.contains("version=9.9.9"), startup);
         assertTrue(startup.contains("bundlesLoaded=2"), startup);
         assertTrue(startup.contains("bundleProblems=1"), startup);
-        // REQ-035: every logging category starts disabled, so this is a real zero.
+        // Every logging category starts disabled, so this is a real zero.
         assertTrue(startup.contains("loggingCategoriesEnabled=0"), startup);
     }
 
@@ -135,7 +135,7 @@ class ToolkitStartupTest {
 
         ToolkitStartup.announce("1.0.0", bundles, Arrays.asList("config a", "config b"));
 
-        // REQ-110. Two bundle problems and two configuration problems, each its own record.
+        // Two bundle problems and two configuration problems, each its own record.
         assertEquals(5, ToolkitLog.capturedForTesting().size(),
                 ToolkitLog.capturedForTesting().toString());
     }

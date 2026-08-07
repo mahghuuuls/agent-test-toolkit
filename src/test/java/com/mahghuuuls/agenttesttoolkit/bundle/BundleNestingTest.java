@@ -170,7 +170,7 @@ class BundleNestingTest {
     @Test
     @DisplayName("a child stopping on failure does not force the parent to stop")
     void childStopOnFailureIsIndependent() {
-        // The acceptance criterion: a parent with stopOnFailure false invoking a child with
+        // A parent with stopOnFailure false invoking a child with
         // stopOnFailure true means the child stops and the parent continues. Per bundle, never
         // inherited.
         BundleScheduler scheduler = new BundleScheduler();

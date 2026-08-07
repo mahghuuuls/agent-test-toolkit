@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for the REQ-033 formatting rules.
+ * Tests for the record formatting rules.
  *
  * <p>These matter more than usual on this project. The agent cannot run Gradle or launch the
  * game, so logic reachable without a running Minecraft is the only evidence available that
@@ -169,7 +169,7 @@ class LogRecordTest {
 
     // --- Control character handling -------------------------------------------------
     // Covers the defect found in independent review: a value containing a newline was quoted
-    // but not escaped, so it split the record across two physical lines and broke REQ-032's
+    // but not escaped, so it split the record across two physical lines and broke the
     // one-event-one-line guarantee. Quoting alone does not help, because a quoted newline is
     // still a newline. Reachable from command blocks, RCON, and bundle files.
 

@@ -36,7 +36,7 @@ class ArenaGeometryTest {
     @Test
     @DisplayName("the walkable surface is level with the origin, so the player is not shifted")
     void floorIsAtFootLevel() {
-        // REQ-060. Placing floor blocks at the origin itself would push the player up one
+        // Placing floor blocks at the origin itself would push the player up one
         // block on every creation, which compounds if an arena is made inside an arena.
         ArenaGeometry arena = at(0, 64, 0, 9, 5, 9);
         assertEquals(64, arena.getMinY(), "interior starts at foot level");
@@ -68,7 +68,7 @@ class ArenaGeometryTest {
     @Test
     @DisplayName("an even size is centred deterministically rather than rounding at random")
     void evenSizeIsDeterministic() {
-        // REQ-062 requires determinism, not a particular rounding direction. Pinned so the
+        // What matters is determinism, not a particular rounding direction. Pinned so the
         // choice cannot drift silently between versions.
         ArenaGeometry arena = at(0, 64, 0, 20, 5, 20);
         assertEquals(-9, arena.getMinX());
@@ -144,7 +144,7 @@ class ArenaGeometryTest {
     @Test
     @DisplayName("the size limit is checked on every dimension independently")
     void limitCheckedPerDimension() {
-        // REQ-063. Checked before any block is placed, so a rejected arena leaves the world
+        // Checked before any block is placed, so a rejected arena leaves the world
         // untouched rather than half built.
         assertTrue(ArenaGeometry.withinLimit(64, 64, 64, 64));
         assertFalse(ArenaGeometry.withinLimit(65, 10, 10, 64));
@@ -156,7 +156,7 @@ class ArenaGeometryTest {
     @Test
     @DisplayName("containment covers the whole of the outermost block, not just its corner")
     void containmentCoversWholeBlocks() {
-        // The trap IMP-010 asks about. Block maxima are inclusive, but positions are
+        // The easy trap here. Block maxima are inclusive, but positions are
         // continuous: a mob standing on the last block row sits anywhere from maxX to maxX+1.
         // Comparing against maxX alone would leave the outer ring of the arena un-cleared by
         // reset, which reads as a stray mob rather than a bounds bug.

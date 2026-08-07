@@ -63,7 +63,7 @@ class FilterStateTest {
     @Test
     @DisplayName("applying a filter replaces the previous one rather than combining")
     void filterReplaces() {
-        // REQ-047 forbids composition. Accumulating filters would make "why is this event
+        // Filters do not compose. Accumulating them would make "why is this event
         // missing?" require reasoning about an expression, which is the question the toolkit
         // exists to make easy.
         Filter first = radius(5);

@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Logging category state transitions and the category vocabulary.
  *
- * <p>These are the parts of IMP-005 reachable without a running game. The handler itself needs
+ * <p>These are the parts reachable without a running game. The handler itself needs
  * Forge to fire an event, so its verification is manual, but everything the handler consults
  * before doing any work is covered here.
  */
@@ -36,7 +36,7 @@ class LoggingCategoryStateTest {
     @Test
     @DisplayName("no category is enabled in a fresh process")
     void freshProcessHasNothingEnabled() {
-        // REQ-035. The resting state must be silent, so an unexplained log is never the
+        // The resting state must be silent, so an unexplained log is never the
         // toolkit's fault by default.
         assertTrue(ToolkitState.getEnabledCategories().isEmpty());
         for (LoggingCategory category : LoggingCategory.values()) {
@@ -129,7 +129,7 @@ class LoggingCategoryStateTest {
             EventType type = category.getEventType();
             assertNotNull(type, category.getCategoryName());
             // Guards against a category being wired to an event name that does not exist in
-            // the fixed vocabulary REQ-034 defines.
+            // the closed event-type vocabulary.
             assertEquals(type, EventType.valueOf(type.name()));
         }
     }
@@ -156,7 +156,7 @@ class LoggingCategoryStateTest {
     @Test
     @DisplayName("an enabled category is recorded on the server and never on the client")
     void enabledCategoryIsServerSideOnly() {
-        // REQ-041. In single player both logical sides share a JVM, so without the side check
+        // In single player both logical sides share a JVM, so without the side check
         // one placement would produce two records.
         ToolkitState.enable(LoggingCategory.BLOCK_PLACE);
         assertTrue(ObserverGate.shouldRecord(LoggingCategory.BLOCK_PLACE, false));
@@ -172,8 +172,8 @@ class LoggingCategoryStateTest {
     }
 
     // --- Session stamping -----------------------------------------------------------
-    // Moved from `session` into `state` so observers can stamp records without violating
-    // dependency rule 3. Covered here because that is where it now lives.
+    // Moved from `session` into `state` so observers can stamp records without depending on
+    // the session package. Covered here because that is where it now lives.
 
     @Test
     @DisplayName("session stamping adds nothing when no session is active")

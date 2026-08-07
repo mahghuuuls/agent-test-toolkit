@@ -49,7 +49,7 @@ class BundleCallStackTest {
     @Test
     @DisplayName("an indirect cycle is refused, a to b to a")
     void indirectCycleRefused() {
-        // The acceptance criterion's case. Detecting only direct self-invocation would let this
+        // Detecting only direct self-invocation would let this
         // through, and it is the more likely mistake: nobody writes a bundle that calls itself,
         // but two setup bundles each calling the other is an easy accident.
         BundleCallStack stack = BundleCallStack.root("bundle_a").push("bundle_b");
@@ -82,7 +82,7 @@ class BundleCallStackTest {
     @Test
     @DisplayName("one level beyond the limit is refused with the limit named")
     void refusedBeyondLimit() {
-        // The acceptance criterion asks for a chain 11 deep to fail explicitly.
+        // A chain one past the limit must fail explicitly.
         BundleCallStack stack = BundleCallStack.root("b1");
         for (int i = 2; i <= BundleCallStack.MAX_DEPTH; i++) {
             stack = stack.push("b" + i);

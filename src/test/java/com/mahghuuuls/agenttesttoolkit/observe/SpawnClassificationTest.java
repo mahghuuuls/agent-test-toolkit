@@ -46,7 +46,7 @@ class SpawnClassificationTest {
     @Test
     @DisplayName("everything else is recorded by default")
     void othersRecordedByDefault() {
-        // A projectile is the case the acceptance criteria call out: it is neither an item nor
+        // A projectile is the case that matters: it is neither an item nor
         // an orb, so it must survive the default exclusion.
         assertTrue(SpawnClassification.shouldRecordType(false, false, false));
     }

@@ -64,8 +64,8 @@ class CapabilitiesTest {
     @Test
     @DisplayName("a command absent from the registry is absent from the report")
     void absentCommandNotReported() {
-        // The direction that matters. REQ-082 requires a feature missing from the build to be
-        // reported missing, and a hand-maintained list would keep claiming it.
+        // The direction that matters: a feature missing from the build must be reported
+        // missing, and a hand-maintained list would keep claiming it.
         String rendered = render(Arrays.asList("mark"), Arrays.asList("player"));
         assertTrue(rendered.contains("commands=mark"), rendered);
         assertEquals(-1, rendered.indexOf("removed_feature"), rendered);
@@ -91,7 +91,7 @@ class CapabilitiesTest {
     void emptyCollections() {
         String rendered = render(Collections.<String>emptyList(), Collections.<String>emptyList());
         assertTrue(rendered.contains("commandCount=0"), rendered);
-        // Empty values are omitted rather than rendered as an empty field, per REQ-033.
+        // Empty values are omitted rather than rendered as an empty field.
         assertEquals(-1, rendered.indexOf("commands="), rendered);
     }
 

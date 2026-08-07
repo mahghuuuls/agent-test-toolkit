@@ -11,13 +11,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The REQ-070 cardinality rule, and relative-coordinate detection.
+ * The cardinality rule, and relative-coordinate detection.
  *
- * <p>This issue's plan committed to tier 1 coverage for cardinality and none was delivered
- * initially, because the decision was tangled with Minecraft-typed matching. Independent
- * review flagged both the missing tests and that the decision was separable. It now is, and
- * these cover it: matching still needs a live selector engine, but deciding what a match
- * count means does not.
+ * <p>These were missing at first, because the decision was tangled with Minecraft-typed
+ * matching. Independent review flagged both the gap and that the decision was separable. It
+ * now is, and these cover it: matching still needs a live selector engine, but deciding what
+ * a match count means does not.
  */
 class EntityTargetTest {
 

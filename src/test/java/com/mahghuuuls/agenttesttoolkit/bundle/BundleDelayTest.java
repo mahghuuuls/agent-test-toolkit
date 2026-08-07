@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Per-command tick delays.
  *
- * <p>REQ-015 measures a delay from the <b>completion of the preceding command</b>, not from the
+ * <p>A delay is measured from the <b>completion of the preceding command</b>, not from the
  * bundle's start. The difference only shows up with two delays in a row, and getting it wrong
  * produces a bundle that runs faster than written, which in a setup routine means acting before
  * the world has settled. That failure looks like a flaky test rather than a scheduling bug.
@@ -98,7 +98,7 @@ class BundleDelayTest {
     @Test
     @DisplayName("two consecutive delays accumulate rather than overlapping")
     void consecutiveDelaysAccumulate() {
-        // The acceptance criterion: two commands each with delayTicks 20 put the second
+        // Two commands each with delayTicks 20 put the second
         // roughly 40 ticks after the first command. Measuring both from the bundle's start
         // would run them together at tick 20 and silently halve the intended pacing.
         TickRecorder r = run(bundle("a", 0, "b", 20, "c", 20), 60);
@@ -119,7 +119,7 @@ class BundleDelayTest {
     @Test
     @DisplayName("the bundle stays active while waiting and does not report an end early")
     void doesNotFinishWhileWaiting() {
-        // REQ-022: BUNDLE_END must follow the last delayed command. Falling through to
+        // BUNDLE_END must follow the last delayed command. Falling through to
         // completion while a command is still pending would close the boundary early and make
         // the delayed command look like it happened outside the bundle that caused it.
         final int[] finished = {0};

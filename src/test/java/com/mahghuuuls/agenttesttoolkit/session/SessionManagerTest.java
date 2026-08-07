@@ -23,8 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Session lifecycle, record stamping, and emitted record content.
  *
- * <p>Covers everything about REQ-041, REQ-043 and REQ-050 through REQ-055 that does not need a
- * running game. The one thing these cannot cover is the behavior REQ-052 exists for: whether
+ * <p>Covers everything about session lifecycle and record stamping that does not need a
+ * running game. The one thing these cannot cover is the important one: whether
  * the state survives an integrated server shutdown. That is a property of where the state
  * lives rather than of its logic, so no single-threaded unit test can distinguish a static
  * that survives from one a lifecycle handler would clear. It needs a real world exit and is
@@ -132,7 +132,7 @@ class SessionManagerTest {
     // --- Emitted record content -----------------------------------------------------
     // These exist because independent review found `side` missing from SESSION_START and
     // SESSION_STOP while the whole suite passed: nothing could observe a rendered record.
-    // REQ-041 requires side on EVERY record, so it is asserted per event type, not once.
+    // Side belongs on EVERY record, so it is asserted per event type, not once.
 
     @Test
     @DisplayName("SESSION_START carries side, worldTick and session name")
@@ -177,8 +177,8 @@ class SessionManagerTest {
     @Test
     @DisplayName("side is still emitted when no world context exists, worldTick is omitted")
     void sideSurvivesMissingWorldContext() {
-        // REQ-041 has no exception for a worldless sender: side is always resolvable and must
-        // always appear. worldTick genuinely cannot be known, so it is omitted per REQ-033.
+        // There is no exception for a worldless sender: side is always resolvable and must
+        // always appear. worldTick genuinely cannot be known, so it is omitted entirely.
         SessionManager.start("console_started", NO_WORLD);
         String record = ToolkitLog.capturedForTesting().get(0);
         assertEquals("[DevToolkit][SESSION_START] side=SERVER session=console_started", record);
@@ -202,8 +202,8 @@ class SessionManagerTest {
     @Test
     @DisplayName("stamp omits both fields when no session is active")
     void stampOmitsFieldsWithoutSession() {
-        // REQ-054: a marker must work without a session, and REQ-033 says an absent optional
-        // value is omitted rather than rendered as a placeholder.
+        // A marker must work without a session, and an absent optional value is omitted
+        // rather than rendered as a placeholder.
         String out = SessionStamp.apply(LogRecord.of(EventType.MARK)).add("label", "X").render();
         assertEquals("[DevToolkit][MARK] label=X", out);
         assertFalse(out.contains("session"));

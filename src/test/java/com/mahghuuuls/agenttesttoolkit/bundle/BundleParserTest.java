@@ -62,7 +62,7 @@ class BundleParserTest {
     @Test
     @DisplayName("stopOnFailure defaults to true when omitted")
     void stopOnFailureDefaultsTrue() throws Exception {
-        // REQ-017. Setup bundles build on each other, so continuing past a failure usually
+        // Setup bundles build on each other, so continuing past a failure usually
         // produces a half-prepared environment that wastes the next test run.
         BundleDefinition bundle = parse("{\"b\": {\"commands\": [\"say a\"]}}").get("b");
         assertTrue(bundle.isStopOnFailure());
@@ -202,7 +202,7 @@ class BundleParserTest {
     void duplicateNameWithinOneFileRejected() {
         // Found in review. Gson's object model is map backed, so a repeated key overwrites the
         // earlier value before this parser ever sees it: one definition would vanish with no
-        // error at all. REQ-012 refuses this across files; the same copy-paste mistake inside
+        // error at all. This is refused across files; the same copy-paste mistake inside
         // one file was invisible.
         BundleParseException e = assertThrows(BundleParseException.class,
                 () -> parse("{\"same\": {\"commands\": [\"first\"]},"
@@ -230,7 +230,7 @@ class BundleParserTest {
     @Test
     @DisplayName("no scripting constructs are interpreted")
     void noScriptingConstructs() throws Exception {
-        // REQ-023. A value that looks like a variable stays a literal string; it is passed to
+        // A value that looks like a variable stays a literal string; it is passed to
         // the command handler unchanged rather than expanded.
         BundleDefinition bundle =
                 parse("{\"b\": {\"commands\": [\"say ${player} $(x) %v%\"]}}").get("b");

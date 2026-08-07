@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>This issue is Foundation work with no runtime behavior of its own, so these tests are
  * effectively all the evidence it can produce directly. Its real verification comes through
- * its consumers, principally the arena in IMP-009.
+ * its consumers, principally the arena.
  */
 class ToolkitConfigTest {
 
@@ -27,9 +27,9 @@ class ToolkitConfigTest {
         assertTrue(d.getDefaultArenaHeight() <= d.getMaxArenaDimension());
         assertTrue(d.getDefaultArenaLength() <= d.getMaxArenaDimension());
         assertTrue(d.getMaxNbtOutputLength() > 0);
-        assertEquals(8192, d.getMaxNbtOutputLength(), "REQ-076 fixes the default NBT limit");
-        assertFalse(d.isJoinExecutionEnabled(), "REQ-090 requires join execution off by default");
-        assertTrue(d.hasArenaCeiling(), "REQ-061 requires a ceiling by default");
+        assertEquals(8192, d.getMaxNbtOutputLength(), "default NBT limit");
+        assertFalse(d.isJoinExecutionEnabled(), "join execution is off by default");
+        assertTrue(d.hasArenaCeiling(), "arenas have a ceiling by default");
     }
 
     @Test
@@ -55,7 +55,7 @@ class ToolkitConfigTest {
     @Test
     @DisplayName("the configured maximum cannot exceed the absolute ceiling")
     void configuredMaximumCannotEscapeAbsoluteCeiling() {
-        // REQ-063 exists so a mistyped dimension cannot stall the server. A purely
+        // The ceiling exists so a mistyped dimension cannot stall the server. A purely
         // configurable limit would not achieve that, because the mistype could land in the
         // limit itself.
         ToolkitConfig c = ToolkitConfig.builder().arenaBlock("minecraft:stone").maxArenaDimension(Integer.MAX_VALUE).build();

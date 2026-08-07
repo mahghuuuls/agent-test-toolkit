@@ -71,7 +71,7 @@ class BundleRegistryTest {
     @Test
     @DisplayName("a duplicated name loads from neither file")
     void duplicateNameLoadsFromNeither() {
-        // REQ-012. Picking a winner by file order would be deterministic but wrong: the two
+        // Picking a winner by file order would be deterministic but wrong: the two
         // definitions differ, so running either is a coin flip on which the author meant.
         BundleRegistry.LoadReport report = BundleRegistry.mergeSources(
                 BundleRegistry.source("combat.json", bundles("shared", "only_a")),
@@ -146,7 +146,7 @@ class BundleRegistryTest {
     @Test
     @DisplayName("a malformed file does not prevent valid files from loading")
     void malformedFileDoesNotBlockOthers(@TempDir File dir) throws Exception {
-        // REQ-020. Partial success is deliberate: a toolkit that refuses to load anything over
+        // Partial success is deliberate: a toolkit that refuses to load anything over
         // one typo is useless for diagnosing whatever was actually being tested.
         write(dir, "good1.json", "{\"good1\": {\"commands\": [\"say a\"]}}");
         write(dir, "broken.json", "{ not json at all");
@@ -215,7 +215,7 @@ class BundleRegistryTest {
     @Test
     @DisplayName("loading does not log; the caller decides when problems are reported")
     void loadingDoesNotLogDirectly(@TempDir File dir) throws Exception {
-        // REQ-111 requires the startup summary to carry the bundle count AND to precede error
+        // The startup summary must carry the bundle count AND precede error
         // records. Both are only possible if loading holds its problems back for the caller.
         write(dir, "bad1.json", "{ broken");
         write(dir, "bad2.json", "{ also broken");

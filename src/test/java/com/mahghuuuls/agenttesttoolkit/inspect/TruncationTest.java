@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The NBT output bound.
  *
- * <p>REQ-076 forbids silent truncation, and the boundary is where that promise is easiest to
+ * <p>Truncation is never silent, and the boundary is where that promise is easiest to
  * break invisibly. A dump one character short looks complete, and an agent comparing it against
  * expected contents would conclude the game is wrong rather than the log.
  */

@@ -239,7 +239,7 @@ class DamageCorrelationBufferTest {
     @Test
     @DisplayName("discarding pending entries empties the buffer without emitting")
     void discardPendingEmptiesBuffer() {
-        // ARC-002 precedent. Entries hold references into a world that is unloading, so a
+        // Entries hold references into a world that is unloading, so a
         // crash between the attack stage and the tick-end flush must not leak them into the
         // next world's first tick.
         attack(ZOMBIE, 8.0, 20.0);

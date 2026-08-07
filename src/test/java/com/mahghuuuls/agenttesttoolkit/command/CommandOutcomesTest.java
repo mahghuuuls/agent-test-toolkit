@@ -37,8 +37,7 @@ class CommandOutcomesTest {
         // Owner decision, 2026-08-04. Vanilla raises PlayerNotFoundException from
         // CommandHandler itself when it expands a selector to an empty list, so a teardown
         // bundle ending in kill @e[name=...] would otherwise halt on its second run under the
-        // default stopOnFailure. REQ-016's intent is that a command which runs and affects
-        // nothing has succeeded.
+        // default stopOnFailure. A command that runs and affects nothing has still run.
         CommandOutcome outcome =
                 CommandOutcomes.classify(0, CommandOutcomes.KEY_SELECTOR_NOT_FOUND);
 
@@ -86,7 +85,7 @@ class CommandOutcomesTest {
     @Test
     @DisplayName("zero with no key at all is a failure that says so plainly")
     void noKeyFails() {
-        // REQ-110: report the failure rather than guess at a cause that was never given.
+        // Report the failure rather than guess at a cause that was never given.
         CommandOutcome outcome = CommandOutcomes.classify(0, null);
         assertFalse(outcome.succeeded());
         assertTrue(outcome.getDetail().contains("no reason"), outcome.getDetail());

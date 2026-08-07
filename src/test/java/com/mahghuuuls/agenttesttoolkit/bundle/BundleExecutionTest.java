@@ -105,7 +105,7 @@ class BundleExecutionTest {
     @Test
     @DisplayName("a command that succeeds without changing anything is not a failure")
     void successWithNoEffectIsNotFailure() {
-        // REQ-016. This is the rule that keeps teardown bundles re-runnable: a kill matching
+        // The rule that keeps teardown bundles re-runnable: a kill matching
         // nothing must not halt the bundle behind it.
         StubDispatcher dispatcher = new StubDispatcher();
         dispatcher.succeedWithNote("kill @e[name=absent]", "selector matched nothing");
@@ -260,7 +260,7 @@ class BundleExecutionTest {
     @Test
     @DisplayName("a bundle whose caller has gone stops without running anything")
     void senderLostStopsExecution() {
-        // REQ-112. A bundle with delays spans ticks, so the player who started it can leave
+        // A bundle with delays spans ticks, so the player who started it can leave
         // between them. Running the remainder against nobody would apply half a setup routine
         // with no one to see it.
         CommandDispatcher gone = new CommandDispatcher() {
