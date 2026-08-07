@@ -16,18 +16,18 @@ import java.util.Set;
  *
  * <h2>Why this is a static that is never cleared on server stop</h2>
  *
- * <p>ARC-001. REQ-052 requires the active session to survive leaving a single player world and
- * returning to the title screen, so that a disconnect and reconnect cycle can be tested inside
+ * <p>The active session must survive leaving a single player world and returning to the title
+ * screen, so that a disconnect and reconnect cycle can be tested inside
  * one session. In single player, leaving a world stops the integrated server and fires
  * {@code FMLServerStoppedEvent}, which Forge documents as the place to reset static state.
  *
- * <p>Following that convention here would break REQ-052. <b>Do not add a handler that clears
+ * <p>Following that convention here would break that. <b>Do not add a handler that clears
  * this class on server stop.</b> The state is meant to die with the JVM and nothing sooner,
  * which is also the boundary {@code latest.log} itself uses, so a session and a log file cover
  * the same span.
  *
  * <p>Bundle executions are the opposite case and genuinely must be discarded on server stop,
- * because they hold a sender and dispatch through a server that no longer exists. See ARC-002.
+ * because they hold a sender and dispatch through a server that no longer exists.
  * The two look alike and behave oppositely; that is why both are written down.
  *
  * <h2>Why the field is volatile</h2>
@@ -41,8 +41,8 @@ import java.util.Set;
  * <p>A plain static field gives no such guarantee. Whether an ordering edge happens to exist
  * depends on vanilla's own shutdown and restart sequence, which is not this mod's code and is
  * not something to rely on silently. {@code volatile} makes the handoff correct by
- * construction, and with no contention it costs nothing worth measuring. Given that ARC-001
- * rests entirely on this field surviving exactly that transition, the guarantee should come
+ * construction, and with no contention it costs nothing worth measuring. Given that session
+ * survival rests entirely on this field surviving that transition, the guarantee should come
  * from the declaration rather than from an assumption about another codebase.
  */
 public final class ToolkitState {
@@ -70,12 +70,12 @@ public final class ToolkitState {
     }
 
     /**
-     * Hot path: consulted at the top of every event handler, per ARC-006. Must stay cheap
+     * Hot path: consulted at the top of every event handler. Must stay cheap
      * enough that an always-registered handler costs nothing worth measuring when its
      * category is off.
      */
     /**
-     * One filter per category, or absent for none. REQ-047 forbids composing filters, so this
+     * One filter per category, or absent for none. Filters deliberately do not compose, so this
      * is a plain replacement rather than a list.
      *
      * <p>Held separately from {@code enabledCategories} rather than as a field on the category,
@@ -91,7 +91,7 @@ public final class ToolkitState {
         return filters.get(category);
     }
 
-    /** Replaces any existing filter. Passing null removes it. REQ-047. */
+    /** Replaces any existing filter. Passing null removes it. */
     public static void setFilter(LoggingCategory category, Filter filter) {
         Map<LoggingCategory, Filter> next =
                 new EnumMap<LoggingCategory, Filter>(LoggingCategory.class);
@@ -201,7 +201,7 @@ public final class ToolkitState {
      * Clears every piece of process-scoped state.
      *
      * <p>Exists for tests only. Production code must never call this: doing so on server stop
-     * is exactly the mistake ARC-001 exists to prevent.
+     * is exactly the mistake this class is written to prevent.
      */
     public static void resetForTesting() {
         activeSession = null;
