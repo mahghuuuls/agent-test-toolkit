@@ -16,7 +16,9 @@ You still play. The toolkit sets the world up, watches, and writes it down.
 | Parsing the log | [docs/logging.md](docs/logging.md) |
 | Deciding whether to install it | [MOD-PAGE.md](MOD-PAGE.md) |
 
-`AGENTS.md` is the one that matters most. It covers the traps that waste a test run: why an absent record is ambiguous, why `entity_spawn` floods, and why `latest.log` may not be the file you think it is.
+`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 27 record types, and three worked examples of testing a freshly implemented feature. The `docs/` pages are the same material written for a person.
+
+It also covers the traps that waste a test run: why an absent record is ambiguous, why `entity_spawn` floods, and why `latest.log` may not be the file you think it is.
 
 ## Features
 

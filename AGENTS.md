@@ -1,191 +1,434 @@
 # Agent Test Toolkit
 
-Guidance for an AI coding agent working on a Minecraft 1.12.2 mod, using this toolkit to diagnose manual tests.
+A Forge 1.12.2 mod that turns a manual test into something you can build from a file and read back from a log.
 
-## What this is
+This document is self-contained. Everything you need to use the toolkit is here: the commands, the bundle format, the record vocabulary, and worked examples. `docs/` holds the same material written for a human.
 
-A Forge 1.12.2 utility mod that prepares test environments and writes structured, single line records into `latest.log`, so that an agent can read what happened during a manual test instead of relying on screenshots or a human's description.
+## What you use this for
 
-**What it is mostly for is evidence discipline, not the event categories.** Sessions, marks, bundles, deterministic arena reset, one stable timeline, and a capability report that reflects the running build: those are the parts that change how a test is run and how far it can be trusted. The eight logging categories are useful corroboration of what the game did, and they are genuinely not the main thing.
+You have just implemented a feature. You cannot play the game, and asking a person "did it work?" gets you a sentence when you need evidence.
 
-That ordering matters because of a specific failure mode. A dense generic log is easy to mistake for discriminating evidence. If a test is designed around the facts this toolkit happens to record, rather than around the facts that would distinguish a pass from the ways it could look like a pass, the log will be long and prove nothing. Most of what you actually need to establish about **your** mod is a decision your mod made, and only your mod can record that.
+This toolkit gives you two things:
 
-## What this is not
+1. **A way to build the test environment from a file you write.** One JSON file becomes one command a person types. Arena, fixtures, gamerules, logging, marks: all of it set up identically every run.
+2. **A machine-readable account of what the game did**, written into `latest.log` next to Forge's output and your own mod's output.
 
-**It does not play the game.** A human performs every gameplay action. The toolkit prepares the environment, records what occurred, and reports current state. It never presses a button on your behalf.
+The intended shape of a test is: you write the setup, a person performs two or three specific actions, you read the log and decide.
 
-**It does not know about your mod.** Every record it writes is generic: blocks placed, entities damaged, items used. It reports what Minecraft and Forge expose and nothing else. A modded block's tile entity class is reported; its contents are not interpreted, because interpreting them would require knowing how that mod works.
+## Your working loop
 
-**It is not a substitute for your mod's own diagnostics.** If you need to know why your spell did 3 damage instead of 5, this toolkit can tell you that 3 damage was dealt, by whom, to what, and when. It cannot tell you which branch of your damage calculation ran. Add logging to the mod under test for that. The toolkit tells you what the game observed; only your mod can tell you what your mod decided.
-
-**It does not assert or conclude.** Records are facts. There is no pass, no fail, and no verdict anywhere in the output. Deciding whether a result is correct is your job.
-
-## Before you use it
-
-Read this section. It is short and it will save you a wasted test run.
-
-### Enable only the categories you need
-
-Every logging category is off by default, and that default is deliberate. `entity_spawn` in particular will produce hundreds of records if the player explores, because generating fresh terrain genuinely spawns hundreds of entities. That is correct behaviour and it will still make your log unreadable.
-
-Narrow it. Both of these work:
+You never type in the game. **Your hands are the filesystem.**
 
 ```
-devtool log entity_spawn on arena
-devtool log entity_spawn on radius 32
+1. WRITE    run/config/devtool/bundles/<yourfile>.json
+2. ASK      person runs:  /devtool reload
+                          /devtool run <bundle_name>
+3. ASK      person performs the actions you listed, in order
+4. READ     run/logs/latest.log
 ```
 
-A filter is not optional housekeeping for the busy categories. It is the difference between a usable log and 700 lines of chickens.
+Step 2 is two commands and never more. If you find yourself asking a person to type a sequence of setup commands, that sequence belongs in the bundle instead.
 
-### An excluded event and an event that never happened look identical
+`reload` re-reads bundles and configuration from disk. It does not disturb an active session, the enabled categories, their filters, or a bundle already running. You need it after every file edit; a person who forgets it will run the previous version of your bundle, and the log will not say so.
 
-Nothing is written when a filter excludes something. Before concluding the game did not do something, check what was actually being recorded at the time.
+### Paths
 
-You do not need to run a command for this. Every change to the enabled set writes a `LOG_CONFIG` record, and each one carries the full set:
+| What | Where |
+| --- | --- |
+| Bundles you write | `run/config/devtool/bundles/*.json` (scanned recursively) |
+| Configuration | `run/config/devtool/devtool.cfg` |
+| The log you read | `run/logs/latest.log` |
 
-```
-[DevToolkit][LOG_CONFIG] side=SERVER worldTick=1204 action=enable category=entity_spawn filter="radius=32.0 at 10.5,64.0,-3.5 dim=0" enabledCount=2 enabledCategories=block_place,entity_spawn filters="entity_spawn=radius=32.0 at 10.5,64.0,-3.5 dim=0"
-```
+On a dedicated server these live under the **server's** directory, not the client's. A client-side copy of a bundle has no effect on what the server runs.
 
-Search backwards from the gap in your log for the nearest `LOG_CONFIG`. Its `enabledCategories` and `filters` tell you what was being watched, so you can distinguish "the event did not happen" from "nothing was listening for it".
+## Writing a bundle
 
-`enabledCategories` is comma separated; `filters` is **semicolon** separated, because a filter description contains commas of its own.
+A file maps bundle names to definitions. One file can hold many bundles; names share a single global namespace across all files.
 
-`devtool log status` writes one of these too, if you want a reading at a specific point rather than at the last change.
-
-### Sessions group the evidence
-
-```
-devtool session start spell_damage
-```
-
-Every record written while a session is active carries the session name and a tick counter relative to its start. Use one per test. It is the difference between reading a log and searching one.
-
-### Prove the transition, not the final value
-
-The single most useful rule for designing a check:
-
-> **A successful-looking final value is not evidence unless the log also proves the tested transition occurred from the intended initial state.**
-
-A test that expects a resource to end at 20, and observes 20, has established nothing if the resource never left 20. The run proves the behaviour only when the log shows the intermediate states: 20, then 5, then 20 again.
-
-The corollary is that you must rule out the ways a test can appear to pass without running. Before trusting a human's "done":
-
-1. confirm the intended build and environment actually started
-2. confirm each setup command **took effect**, not merely that it was sent
-3. confirm a mark proves the human reached the action
-4. confirm a positive record proves the action occurred at all
-5. confirm the records after that mark concern the same entity and side
-6. confirm the result distinguishes the expected behaviour from bypass paths: creative mode, a cancelled event, a disabled config, the wrong hand, an insufficient resource
-7. confirm no relevant error was recorded
-
-Point 6 is where checks usually fail. A player in creative mode, or a config flag left off from an earlier test, produces a log that looks exactly like the feature working.
-
-### Marks are how you find the interesting part
-
-```
-devtool mark ABOUT_TO_CAST
+```json
+{
+  "feat_redstone_block_setup": {
+    "description": "Arena, one placed test block, logging armed",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start redstone_block",
+      "devtool arena reset",
+      "gamerule doMobSpawning false",
+      "gamerule doDaylightCycle false",
+      "devtool log player_interaction on arena",
+      "devtool log block_place on arena",
+      { "command": "devtool mark SETUP_COMPLETE", "delayTicks": 20 }
+    ]
+  }
+}
 ```
 
-Drop one immediately before the action under test. A mark asserts nothing. It is a bookmark, and it is the fastest way to locate the region of `latest.log` that matters.
+Rules that matter to you:
 
-If you are asking a human to perform a sequence, put a mark before each step. Then a missing record means something: you can tell "the action produced nothing" from "the human never got that far". Without the mark, those two look the same.
+- **Commands take no leading slash inside a bundle.** In chat a person types `/devtool run x`; in the file it is `devtool run x`.
+- `stopOnFailure` defaults to **true**. Leave it true for setup, so a broken step does not produce a half-prepared world you then test in.
+- `delayTicks` is measured from the **previous command finishing**, not from the bundle's start. Two commands with `delayTicks: 20` put the second 40 ticks in. 20 ticks per second.
+- **No comments.** JSON has none, and a `"_comment"` key at the top level fails the *entire file*, because every top-level entry must be a bundle. Use `description`.
+- **A duplicate name loads from neither file**, and the error names both. Prefix your bundles so they cannot collide: `feat_`, or the feature's name.
+- `example_` is reserved for the bundles the toolkit ships.
+- **Not a scripting language.** No variables, conditionals, loops, or substitution. `say ${player}` prints the literal `${player}`. If you want a variable, write two bundles.
+- **Nesting works**: a command may be `devtool run other_bundle`. The parent waits; the child's whole outcome counts as one command. Cycles and nesting past depth 10 are refused before anything runs.
+- A bundle runs **as whoever ran it**. It is a convenience for typing, never a way to widen permissions.
 
-## Bundles
+### Split setup from teardown
 
-A bundle is a named, ordered list of commands in a JSON file under `config/devtool/bundles/`.
+Write them as separate bundles and make teardown re-runnable:
+
+```json
+{
+  "feat_redstone_block_teardown": {
+    "description": "Return to a neutral state without ending the session",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool log all off",
+      "devtool arena clear",
+      "kill @e[name=probe]",
+      "clear @p"
+    ]
+  }
+}
+```
+
+`kill` matching nothing and `clear` on an empty inventory both **succeed**, deliberately, so a teardown survives being run twice.
+
+## What you can observe
+
+Eight categories. **All are off by default**, and a category that is off produces no records at all.
+
+| Category | Records | Emits |
+| --- | --- | --- |
+| `block_place` | a block being placed | `BLOCK_PLACE` |
+| `block_break` | a block being broken | `BLOCK_BREAK` |
+| `entity_spawn` | an entity genuinely spawning | `ENTITY_SPAWN` |
+| `entity_death` | an entity dying | `ENTITY_DEATH` |
+| `entity_damage` | damage dealt, with the outcome | `ENTITY_DAMAGE` |
+| `player_interaction` | right or left clicking a block | `PLAYER_INTERACT` |
+| `entity_interaction` | right clicking an entity | `ENTITY_INTERACT` |
+| `item_use` | using an item while targeting nothing | `ITEM_USE` |
 
 ```
-devtool run example_test_ready
+devtool log <category> on
+devtool log <category> on arena
+devtool log <category> on radius <n>
+devtool log <category> off
+devtool log all off
+devtool log status
 ```
 
-Bundles are how you stop asking a human to type eight setup commands. They support per command tick delays, stop on failure, and nesting, and they emit `BUNDLE_START` and `BUNDLE_END` around everything they do, so you can tell which observed events your setup caused and which came from the test that followed.
+**Enable narrowly and late; disable early.** Put the enables at the end of your setup bundle, immediately before the mark, so the setup's own block placements do not fill the log you are about to read.
 
-**Bundles are not a scripting language and will not become one.** No variables, no conditionals, no loops, no arithmetic, no placeholder expansion. A command line is passed to the game unchanged. If you find yourself wanting a variable, write two bundles.
+**Filter the noisy ones.** `entity_spawn` in particular will produce hundreds of records if a person walks into fresh terrain, because generating terrain genuinely spawns hundreds of entities. That is correct behaviour and it will still make your log unreadable. One filter per category, replacing any previous one; a radius filter is anchored where the person stood when it was applied and does not follow them.
 
-**Bundle files cannot carry comments.** JSON has none, and a `"_comment"` key at the top level fails the entire file, because every top level entry must be a bundle. Use each bundle's `description` field for notes. That field exists for this.
+You can turn categories on and off **mid-test** from a second bundle. This is the right tool when a first run gives you an ambiguous result: re-run with one more category enabled rather than enabling everything up front.
 
-Example bundles are written into the bundles directory the first time the toolkit runs, and never touched again. Edit them freely. They are yours after that first write.
+## Commands
 
-## Arenas
+All require permission level 2. Root command `devtool`, alias `att` (a fallback, not a guarantee: a mod whose own command is `att` takes it, and nothing reports that).
+
+### Environment preparation
+
+| Command | Effect |
+| --- | --- |
+| `devtool arena create [w] [h] [l] [block]` | Build a sealed, lit, empty box centred on the caller |
+| `devtool arena reset` | Rebuild structure and empty the interior. **Idempotent** |
+| `devtool arena clear` | Empty the interior, leave the structure |
+| `devtool arena info` | Bounds, origin, start position, construction block |
+
+Dimensions are the **interior**: `create 20 10 20` gives twenty blocks to walk in. One arena per dimension, stored in the world save, so it survives a restart. Lighting is in the floor, not the ceiling, so it works at any height and nothing hostile spawns inside.
+
+`arena reset` at the top of every setup bundle is the single highest-value habit here. It is what makes two runs comparable.
+
+Creating an arena also moves the caller's respawn point to its start position. Minecraft revalidates that on death and silently falls back to world spawn if the position has become obstructed, reporting **"Your home bed was missing or obstructed"** — misleading, since no bed is involved. If a person reports respawning far away after seeing that, the arena start was blocked.
+
+### Session and marks
+
+| Command | Effect |
+| --- | --- |
+| `devtool session start <name>` | Stamp every subsequent record with a name and a relative tick |
+| `devtool session stop` | End it |
+| `devtool session status` | Report the active session |
+| `devtool mark <label>` | Write a labelled marker record |
+
+Start a session in every setup bundle. Without one you are searching a log; with one you are reading a slice of it.
+
+**Marks are how you tell "the action produced nothing" from "they never got that far."** When you ask a person for a sequence of actions, put a mark before each one. Then a missing record is informative instead of ambiguous.
+
+### Inspection
+
+| Command | Effect |
+| --- | --- |
+| `devtool inspect player [selector]` | Position, health, hunger, experience, gamemode, held items, effects |
+| `devtool inspect entity <selector>` | Registry id, position, motion, health, effects |
+| `devtool inspect block <x> <y> <z>` | Block id, metadata, blockstate, tile entity class |
+| `devtool inspect inventory [selector]` | Occupied slots across inventory, armour, offhand |
+| `devtool entities nearby <radius>` | Every entity within the radius, one record each |
+| `devtool nbt entity <selector>` | Raw NBT for an entity |
+| `devtool nbt block <x> <y> <z>` | Raw NBT for a tile entity |
+| `devtool nbt held` | Raw NBT for the held item |
+
+**A selector matching more than one entity is an error, not an invitation to pick one.** Name your fixtures on summon and select on the name:
 
 ```
-devtool arena create 20 10 20
-devtool arena reset
+summon minecraft:zombie ~3 ~ ~ {CustomName:"probe",NoAI:1}
+devtool inspect entity @e[name=probe]
 ```
 
-An arena is an enclosed, lit, empty box with deterministic bounds, one per dimension, stored in the world save. `reset` restores it and removes everything inside, and it is safe to run at the start of every test because running it twice produces the same state.
+Inspection reports what Minecraft and Forge expose. A modded tile entity's class is named; its contents are not interpreted.
 
-Creating an arena also moves your respawn point into it, so dying during a test does not send you hundreds of blocks away.
+NBT goes to the log, never to chat, and is truncated at `maxNbtOutputLength`. Truncation is always reported with the original length, so you can tell whether raising the limit would recover the rest.
 
-Note one thing about that: setting a respawn point does not guarantee respawning there. Minecraft revalidates the position when you die and falls back to the world spawn if it is obstructed, silently. If you build something at the arena's start position, expect to respawn elsewhere.
+### Bundles and self-reporting
 
-## Evidence: read this before you rely on a log
+| Command | Effect |
+| --- | --- |
+| `devtool run <name>` | Run a bundle |
+| `devtool reload` | Re-read bundles and configuration from disk |
+| `devtool bundle list` | Loaded bundles and their command counts |
+| `devtool bundle show <name>` | One bundle's commands in order, with delays |
+| `devtool capabilities` | Version, commands, inspection types, logging categories |
+| `devtool environment` | Minecraft and Forge versions, dimension, difficulty, position |
+| `devtool mods` | Every loaded mod id and version |
 
-**`latest.log` is not a stable evidence identifier.** Minecraft renames it to a dated `.gz` archive every time a process starts. If you restart and then read `latest.log`, you are reading a different file than the one your test wrote to, and you will conclude that nothing was recorded.
+`capabilities` is read from the live command registry and the category enum, never from a written list, so it cannot claim a feature the jar does not have. Use it when you need to know what build is actually running.
 
-**A client and a dedicated server started from the same directory share `run/logs/`.** The second process to start archives the first one's log. Running a client against a local dedicated server therefore rotates the server's log out from under it.
+## Record vocabulary
 
-This is not hypothetical. It cost this toolkit's own development two near-miss conclusions during testing.
-
-The practice that works:
-
-1. Finish the check and **stop the runtime**. Confirm it shut down normally.
-2. Read the relevant region of the log for immediate diagnosis.
-3. **Copy** the log to a scenario-named path before anything restarts. Hash the copy if the evidence needs to be durable.
-4. In dedicated testing, archive the server and client logs **separately**, with the role and the scenario in the filename.
-5. Only then start anything again.
-
-Hashing a file that is later overwritten proves nothing unless the bytes were kept too.
-
-### Which log receives what
-
-Records are written by whichever process observed the event. Observation is server side, so in integrated single player the records land in that one process's log. With a dedicated server, event records are on the **server**; command replies you see in chat are on the **client**. Client environment defaults, if you enable them, are the only records written client side.
-
-## Reading the output
-
-Records go to `latest.log`, alongside Forge output and your own mod's output. That colocation is the point. You get one timeline, not three files to correlate.
-
-Format is one line per record:
+One line per record, never spanning lines:
 
 ```
 [DevToolkit][BLOCK_PLACE] side=SERVER worldTick=1078 block=minecraft:stone posX=10 posY=64 posZ=-3 placedBy=Developer
 ```
 
-Field names are camelCase, order is stable per event type, values containing whitespace are quoted, and an absent optional value is omitted rather than filled with a placeholder. An empty field never appears, so `field=` is not something you need to parse for.
+Field names are camelCase. Field order is stable per type. A value containing whitespace is quoted. **An absent optional value is omitted entirely** — you will never parse `field=`. Block coordinates are integers; entity positions and damage amounts have two decimals.
 
-**There are 27 record types and no others.** The vocabulary is closed: no near synonyms, no renames between versions. Eight of them are the observed game events and appear only while their category is enabled; the rest are written whenever the command that produces them runs. The full table, with what each one is written for, is in [docs/logging.md](docs/logging.md#every-record-type).
+`side` leads every record, then `worldTick`, then `session` and `sessionTick` when a session is active. `worldTick` comes from the dimension where the event happened, and dimensions tick independently, so it is not comparable across dimensions.
 
-Worth knowing before you parse: `ENTITY_DAMAGE` collapses three separate game events into one record, so one hit is one line carrying `amountRaw`, `amountPreMitigation` and `amountFinal`. `INVENTORY_INSPECT` emits one record per occupied slot and still reports `occupiedSlots=0` for an empty inventory. `devtool mods` emits one `CAPABILITIES` record per mod rather than a type of its own.
+**There are 27 record types and no others.** The vocabulary is closed: no near-synonyms, no renames between versions.
 
-## Details that are easy to get wrong
+**Category-gated** — these eight exist only while their category is on:
 
-**Commands need permission level 2.** In chat they take a leading slash, `/devtool ...`. In a server console they do not, `devtool ...`. Inside a bundle file they do not.
+| Record | Key fields beyond the common ones |
+| --- | --- |
+| `BLOCK_PLACE` | `block` `meta` `blockState` `dimension` `posX/Y/Z` `placedBy` `placedById` `placedByUuid` |
+| `BLOCK_BREAK` | `block` `meta` `blockState` `posX/Y/Z` |
+| `ENTITY_SPAWN` | `entity` `entityId` `name` |
+| `ENTITY_DEATH` | `posX/Y/Z` `damageType` |
+| `ENTITY_DAMAGE` | `target` `targetId` `targetUuid` `name` `dimension` `amountRaw` `amountPreMitigation` `amountFinal` `healthBefore` `healthAfter` `source` `outcome` `stoppedAt` |
+| `PLAYER_INTERACT` | `button` `hand` `block` `meta` `blockState` `posX/Y/Z` |
+| `ENTITY_INTERACT` | `hand` `posX/Y/Z` and the target's id and name |
+| `ITEM_USE` | `hand` `held` `heldMeta` `posX/Y/Z` |
 
-**A bundle command fails only when the game raises a command error.** A command that runs and changes nothing has succeeded. `kill @e[type=zombie,r=10]` matching nothing, and `clear @p` on an already empty inventory, both count as success, deliberately, so a teardown bundle survives a second run. Unknown command, missing permission and bad syntax all count as failure.
+**Command-driven** — no category gates these; if the command ran, the record exists:
 
-**Nothing is rolled back.** A bundle that stops half way leaves the world half prepared. `stopOnFailure` limits the damage; it does not undo it.
+| Record | Written by |
+| --- | --- |
+| `SESSION_START` / `SESSION_STOP` | `session start` / `stop` |
+| `MARK` | `mark`, carrying `label` |
+| `BUNDLE_START` | a bundle beginning, with `bundle` and `commands` |
+| `BUNDLE_END` | a bundle finishing, with `bundle` `executed` `failed` `total` `stoppedEarly` `durationTicks`, plus `senderLost` if the caller disconnected |
+| `ARENA_CREATE` / `ARENA_RESET` / `ARENA_CLEAR` | the matching `arena` action |
+| `PLAYER_INSPECT` | `inspect player` |
+| `ENTITY_INSPECT` | `inspect entity` |
+| `BLOCK_INSPECT` | `inspect block`, with `tileEntityClass` when there is one |
+| `INVENTORY_INSPECT` | `inspect inventory` |
+| `NBT` | `nbt`, carrying `truncated` always |
+| `ENTITY_LIST` | `entities nearby`, including when nothing matched |
+| `ENVIRONMENT` | `environment` |
+| `CAPABILITIES` | `capabilities`, and one per mod for `mods` |
+| `LOG_CONFIG` | any change to enabled categories, and `log status` |
 
-**Arena dimensions describe the interior.** `arena create 20 10 20` gives twenty blocks of usable space, with the shell outside that. The arena is centred horizontally on you, its floor level with your feet, one per dimension, capped by `maxArenaDimension` in the config.
+**Toolkit-internal:**
 
-**On a dedicated server, configuration and bundles live on the server**, under its own `config/devtool/`. `devtool reload` re-reads them there. A client copy has no effect on what the server runs.
+| Record | Written when |
+| --- | --- |
+| `STARTUP` | once per launch, with version and bundle load result |
+| `ERROR` | anything that failed, with enough context to identify the cause |
 
-## Command reference
+### Three shapes that break naive parsers
+
+- **`ENTITY_DAMAGE` collapses three game events into one record.** One hit is one line. `amountPreMitigation` and `amountFinal` are omitted when the damage was cancelled before reaching those stages, and `stoppedAt` tells you where it stopped. Do not expect three lines.
+- **`INVENTORY_INSPECT` emits one record per occupied slot**, and still emits one carrying `occupiedSlots=0` for an empty inventory. Counting records is not counting items.
+- **`devtool mods` emits `CAPABILITIES`**, one per mod, rather than a type of its own.
+
+## Reading the log
+
+### An excluded event and an event that never happened look identical
+
+Nothing is written when a category is off or a filter excludes something. This is the single most common way to reach a wrong conclusion here.
+
+You do not need to ask anyone. Every change to the enabled set writes a `LOG_CONFIG` carrying the **full** set:
 
 ```
-devtool help
+[DevToolkit][LOG_CONFIG] side=SERVER worldTick=1204 action=enable category=entity_spawn filter="radius=32.0 at 10.5,64.0,-3.5 dim=0" enabledCount=2 enabledCategories=block_place,entity_spawn filters="entity_spawn=radius=32.0 at 10.5,64.0,-3.5 dim=0"
 ```
 
-The command is `/devtool`, with `/att` as an alias. Be aware that the alias is a fallback, not a guarantee: another mod holding `att` as its own command name takes it, and nothing reports that it happened.
+Search backwards from the gap to the nearest `LOG_CONFIG`. `action` is `enable`, `disable`, `disableAll` or `status`.
 
-Full reference: `docs/commands.md`.
+`enabledCategories` is comma separated. **`filters` is semicolon separated**, because a filter description contains commas of its own.
 
-## Warning: use a disposable world
+### Prove the transition, not the final value
 
-**This toolkit modifies the world irreversibly and without confirmation.**
+> A successful-looking final value is not evidence unless the log also proves the tested transition occurred from the intended initial state.
 
-`arena create` replaces every block in its volume. `arena reset` and `arena clear` delete every non player entity inside the bounds, dropped items included. None of these prompt, and none of them can be undone. That is deliberate, because a prompt would make them unusable from a bundle, and `arena reset` is the most used command in a setup bundle.
+A test expecting a resource to end at 20 and observing 20 has established nothing if the resource never left 20. Design the check so the log shows 20, then 5, then 20.
 
-Commands can also be run from a command block, which means a bundle can be triggered by redstone with no human in the loop.
+Before trusting a "done":
 
-Use a world you are willing to lose.
+1. the intended build and environment actually started (`STARTUP`, `ENVIRONMENT`)
+2. each setup command **took effect**, not merely that it was sent (`BUNDLE_END` with `failed=0`, plus the specific record — `ARENA_RESET`, `LOG_CONFIG`)
+3. a mark proves the person reached the action
+4. a positive record proves the action occurred at all
+5. the records after that mark concern the same entity and side
+6. the result distinguishes the real behaviour from bypass paths: creative mode, a cancelled event, a disabled config, the wrong hand, an insufficient resource
+7. no relevant `ERROR` was recorded
+
+**Point 6 is where checks usually fail.** A player in creative mode, or a config flag left off from an earlier run, produces a log that looks exactly like the feature working. `devtool inspect player` in your setup bundle costs one line and rules out the most common one.
+
+### `latest.log` is not a stable identifier
+
+Minecraft renames it to a dated `.gz` archive **every time a process starts**. If a restart happens and you then read `latest.log`, you are reading a different file from the one your test wrote to, and you will conclude nothing was recorded.
+
+A client and a dedicated server started from the same directory share `run/logs/`, so the second to start archives the first one's log.
+
+So: read the log **before** anything restarts, and copy it to a scenario-named path if it needs to outlive the session. Hashing a file that is later overwritten proves nothing unless the bytes were kept too.
+
+### Which process writes what
+
+Observation is server-side. In single player everything lands in the one log. With a dedicated server, event records are on the **server**; command replies a person sees in chat are on the **client**.
+
+### What counts as a bundle failure
+
+A command fails when the game raises an error: unknown command, bad syntax, missing permission, unparseable selector. **A command that runs and changes nothing has succeeded.**
+
+Read `BUNDLE_END` rather than assuming. `executed`, `failed` and `stoppedEarly` are the fields that tell you whether your setup actually happened.
+
+## Worked examples
+
+### A. A block that should emit redstone when right-clicked
+
+**Setup** — arena, a known-good comparison, the block under test placed at a fixed offset, then logging armed last:
+
+```json
+{
+  "feat_rsblock_setup": {
+    "description": "One test block placed at a known position, interaction logging armed",
+    "commands": [
+      "devtool session start rsblock",
+      "devtool arena reset",
+      "gamerule doMobSpawning false",
+      "setblock ~2 ~ ~ yourmod:redstone_block",
+      "setblock ~2 ~-1 ~1 minecraft:redstone_lamp",
+      "devtool inspect player",
+      "devtool inspect block ~2 ~ ~",
+      "devtool log player_interaction on arena",
+      { "command": "devtool mark READY_RIGHT_CLICK", "delayTicks": 20 }
+    ]
+  }
+}
+```
+
+**Ask a person for:** right-click the block at 2 blocks east of where the bundle put you. Nothing else.
+
+**Then read back:**
+
+- `PLAYER_INSPECT` — is `gameMode` what you expected? Creative would invalidate the run.
+- `BLOCK_INSPECT` before the mark — the block is there, and `blockState` shows its powered property in the **off** state. This is your initial state, and without it a lamp that was already lit proves nothing.
+- `MARK label=READY_RIGHT_CLICK`
+- `PLAYER_INTERACT` with `button` and `posX/Y/Z` matching the block. If this is missing, the click never reached the server and the rest of the test is void.
+
+**Second pass to prove the transition:** ask for a second `devtool inspect block ~2 ~ ~` after the click, and compare `blockState`. You now have off → interact → on, from records, in order.
+
+**What would fool you:** a lamp lit by daylight, an already-powered block from a previous run (which `arena reset` prevents), or a right-click that fired on the off-hand and did nothing. The toolkit suppresses the duplicate hand event, so one click is one `PLAYER_INTERACT`; two records means two clicks.
+
+### B. An item that should deal damage on use
+
+```json
+{
+  "feat_damage_item_setup": {
+    "description": "One named, immobile target and a single test item",
+    "commands": [
+      "devtool session start damage_item",
+      "devtool arena reset",
+      "gamerule doMobSpawning false",
+      "clear @p",
+      "give @p yourmod:test_wand 1",
+      "summon minecraft:zombie ~4 ~ ~ {CustomName:\"probe\",NoAI:1,PersistenceRequired:1}",
+      "devtool inspect entity @e[name=probe]",
+      "devtool log entity_damage on arena",
+      "devtool log entity_death on arena",
+      { "command": "devtool mark READY_STRIKE", "delayTicks": 20 }
+    ]
+  }
+}
+```
+
+`NoAI:1` matters: a target that wanders leaves the arena filter and its damage stops being recorded. `clear @p` first means `nbt held` and the `ITEM_USE` `held` field cannot report a leftover item from an earlier run.
+
+**Ask a person for:** hit the zombie named `probe` once with the item you were given.
+
+**Then read back the single `ENTITY_DAMAGE`:**
+
+```
+[DevToolkit][ENTITY_DAMAGE] side=SERVER worldTick=... session=damage_item sessionTick=... target=minecraft:zombie targetId=... name=probe dimension=0 amountRaw=5.00 amountPreMitigation=5.00 amountFinal=3.00 healthBefore=20.00 healthAfter=17.00 source=player outcome=... stoppedAt=...
+```
+
+This is the record that repays reading carefully, because the three amounts localise the discrepancy for you:
+
+- `amountRaw` differs from what you expected → **your mod's calculation** is wrong.
+- `amountRaw` is right but `amountFinal` is lower → armour, resistance or another mitigation, not your code.
+- `amountPreMitigation` and `amountFinal` are **absent** → the damage was cancelled before those stages; `stoppedAt` names where.
+- `healthAfter` disagrees with `healthBefore - amountFinal` → something outside the three stages changed the health, which is itself worth knowing. `healthAfter` is read, not computed, precisely so it can disagree.
+
+**What would fool you:** invulnerability ticks swallowing a second hit, a target already damaged from a previous run, or the item's damage coming from the vanilla attack rather than your feature. The `source` field distinguishes the last one.
+
+### C. A mob with custom drops
+
+```json
+{
+  "feat_mob_drops_setup": {
+    "description": "One named mob, empty inventory, item spawn logging on",
+    "commands": [
+      "devtool session start mob_drops",
+      "devtool arena reset",
+      "gamerule doMobSpawning false",
+      "gamerule doMobLoot true",
+      "clear @p",
+      "devtool inspect inventory",
+      "summon yourmod:test_mob ~4 ~ ~ {CustomName:\"probe\",PersistenceRequired:1}",
+      "devtool log entity_death on arena",
+      "devtool log entity_spawn on arena",
+      { "command": "devtool mark READY_KILL", "delayTicks": 20 }
+    ]
+  }
+}
+```
+
+This one needs a configuration change: dropped items and experience orbs are **excluded from `entity_spawn` by default**, because one mob death produces a burst of both. Set `spawnIncludeItems` in `run/config/devtool/devtool.cfg` and have the person run `/devtool reload`. Drop timing is exactly the case that option exists for.
+
+**Ask a person for:** kill the mob named `probe`, then stand still for five seconds.
+
+**Then read back:**
+
+- `INVENTORY_INSPECT` with `occupiedSlots=0` before the mark — the initial state, so a drop cannot be confused with something already carried.
+- `ENTITY_DEATH` with `damageType`
+- one `ENTITY_SPAWN` per dropped item, after the death
+- a second `devtool inspect inventory` after pickup, to prove the items were real and reachable
+
+**What would fool you:** `doMobLoot` left false, drops falling outside the arena filter, or a despawn before pickup. The standing-still instruction is not politeness; it is what separates "nothing dropped" from "it dropped and vanished".
+
+## Limits
+
+**It does not play the game.** A person performs every gameplay action. The toolkit prepares, records, and reports. It never presses a button.
+
+**It does not know about your mod.** Every record is generic: blocks placed, entities damaged, items used. A modded tile entity's class is named; its contents are not interpreted, because interpreting them would require knowing how that mod works.
+
+**It is not a substitute for your mod's own logging.** It can tell you 3 damage was dealt, by whom, to what, and when. It cannot tell you which branch of your damage calculation ran. **Most of what you need to establish about your own feature is a decision your code made, and only your code can record that.** Add logging to the mod under test and read both in the same file — that colocation is the point.
+
+**It does not assert or conclude.** Records are facts. There is no pass, no fail, no verdict. Deciding is your job.
+
+**A dense log is not discriminating evidence.** If you design a test around the facts this toolkit happens to record, rather than around the facts that would separate a pass from the ways a failure can look like a pass, you will get a long log that proves nothing.
