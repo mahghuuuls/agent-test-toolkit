@@ -45,9 +45,14 @@ public final class DiscreteActionObserver {
      * Suppresses the second hand of a single interaction.
      *
      * <p>Found in testing, not by reading the source. Vanilla tries the main hand and then the
-     * off hand when the first does not consume the action, so one right-click on an entity fires
-     * {@code EntityInteractSpecific} <b>twice</b>, in the same tick, differing only by hand. The
-     * log showed exact pairs at eight consecutive ticks.
+     * off hand when the first does not consume the action, so one right-click fires its event
+     * <b>twice</b>, in the same tick, differing only by hand. The log showed exact pairs at
+     * eight consecutive ticks.
+     *
+     * <p>This affects blocks as well as entities. {@code RightClickBlock} pairs the same way as
+     * {@code EntityInteractSpecific}, and was missed the first time round: the suppression was
+     * added for entities only, so right-clicking a block kept producing two records with a
+     * {@code hand} field to tell them apart. That is the outcome the paragraph below rejects.
      *
      * <p>The log carries one record per logical action, and two hands attempting one click is
      * one action. Carrying a {@code hand} field and calling it explained would have been an
@@ -56,16 +61,44 @@ public final class DiscreteActionObserver {
      * <p>Keyed on player, target and tick together. Tick alone would drop a genuine interaction
      * with a second entity in the same tick, which is rare but real when a bundle runs.
      */
-    private long lastInteractionKey = Long.MIN_VALUE;
-    private long lastInteractionTick = Long.MIN_VALUE;
+    private long lastEntityInteractionKey = Long.MIN_VALUE;
+    private long lastEntityInteractionTick = Long.MIN_VALUE;
 
-    private boolean isRepeatHand(int playerId, int targetId, long tick) {
+    private long lastBlockInteractionKey = Long.MIN_VALUE;
+    private long lastBlockInteractionTick = Long.MIN_VALUE;
+
+    boolean isRepeatEntityHand(int playerId, int targetId, long tick) {
         long key = ((long) playerId << 32) ^ (targetId & 0xFFFFFFFFL);
-        if (tick == lastInteractionTick && key == lastInteractionKey) {
+        if (tick == lastEntityInteractionTick && key == lastEntityInteractionKey) {
             return true;
         }
-        lastInteractionTick = tick;
-        lastInteractionKey = key;
+        lastEntityInteractionTick = tick;
+        lastEntityInteractionKey = key;
+        return false;
+    }
+
+    /**
+     * The same suppression for a block.
+     *
+     * <p>Kept on its own slot rather than sharing one with the entity case. A block interaction
+     * and an entity interaction in the same tick would otherwise evict each other, and the
+     * evicted one's second hand would come through as a duplicate.
+     *
+     * <p>The button is part of the key. A left and a right click on the same block in the same
+     * tick are two actions rather than one action repeated.
+     *
+     * <p>Takes the packed position as a {@code long} rather than a {@link BlockPos} so the rule
+     * stays free of Minecraft types and can be exercised without a running game. That matters
+     * here more than usual: the entity half of this suppression shipped correct while the block
+     * half was missing entirely, and nothing could tell the difference without launching.
+     */
+    boolean isRepeatBlockHand(int playerId, long packedPos, String button, long tick) {
+        long key = packedPos ^ ((long) playerId << 40) ^ (long) button.hashCode();
+        if (tick == lastBlockInteractionTick && key == lastBlockInteractionKey) {
+            return true;
+        }
+        lastBlockInteractionTick = tick;
+        lastBlockInteractionKey = key;
         return false;
     }
 
@@ -166,13 +199,19 @@ public final class DiscreteActionObserver {
                 pos.getZ() + 0.5D)) {
             return;
         }
+        // The gate runs first so a suppressed hand does not consume the dedupe slot for a
+        // filtered-out interaction, which would then let the next real one through twice.
+        if (isRepeatBlockHand(player.getEntityId(), pos.toLong(), button,
+                world.getTotalWorldTime())) {
+            return;
+        }
 
         LogRecord record = RecordContext.stamp(
                 LogRecord.of(EventType.PLAYER_INTERACT), RecordContext.snapshot(world));
         SessionStamp.apply(record);
         record.add("button", button);
-        // Both hands fire their own event, so the hand is recorded rather than collapsed.
-        // Without it two records for one action would look like a duplicate-record bug.
+        // The hand that actually produced the record. Only the first is recorded: the second
+        // is suppressed above, so this reads as which hand won rather than as one of a pair.
         record.add("hand", event.getHand() == null ? null : event.getHand().name());
         addBlock(record, world.getBlockState(pos));
         record.addBlockPos("pos", pos.getX(), pos.getY(), pos.getZ());
@@ -204,7 +243,7 @@ public final class DiscreteActionObserver {
         }
         // The gate runs first so a suppressed hand does not consume the dedupe slot for a
         // filtered-out interaction, which would then let the next real one through twice.
-        if (isRepeatHand(player.getEntityId(), target.getEntityId(),
+        if (isRepeatEntityHand(player.getEntityId(), target.getEntityId(),
                 world.getTotalWorldTime())) {
             return;
         }

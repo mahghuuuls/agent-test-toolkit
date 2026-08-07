@@ -34,8 +34,14 @@ public final class ServerCommandDispatcher implements CommandDispatcher {
             throw new IllegalArgumentException("server must not be null");
         }
         this.server = server;
-        if (originalSender instanceof net.minecraft.entity.player.EntityPlayer) {
-            this.playerId = ((net.minecraft.entity.player.EntityPlayer) originalSender).getUniqueID();
+        // Senders, not a bare instanceof. A nested bundle is dispatched with the parent's
+        // ObservingSender, which wraps the player rather than being one, so a direct
+        // instanceof reports false and the wrapper gets held as a fixed sender. The UUID would
+        // then never be resolved again and isSenderAvailable would keep answering true after
+        // the player had gone, which is exactly what re-resolving exists to prevent.
+        net.minecraft.entity.player.EntityPlayer player = Senders.asPlayer(originalSender);
+        if (player != null) {
+            this.playerId = player.getUniqueID();
             this.fixedSender = null;
         } else {
             this.playerId = null;

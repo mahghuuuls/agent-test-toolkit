@@ -64,9 +64,12 @@ public final class SessionSubCommand implements SubCommand {
         } else if ("status".equals(action)) {
             status(sender);
         } else {
+            // Thrown rather than reported quietly. Falling out of this chain would let the
+            // command manager count a typo as a success, so a bundle would carry on as though
+            // the session had started.
             ToolkitLog.error("Unknown session action", action);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Unknown session action: " + action + ". Expected start, stop or status."));
+            throw new CommandException("[DevToolkit] Unknown session action: " + action
+                    + ". Expected start, stop or status.");
         }
     }
 

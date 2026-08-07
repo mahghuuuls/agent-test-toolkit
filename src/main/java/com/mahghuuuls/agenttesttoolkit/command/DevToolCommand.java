@@ -21,7 +21,6 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
@@ -110,20 +109,19 @@ public final class DevToolCommand extends CommandBase {
 
         SubCommand sub = subCommands.get(name);
         if (sub == null) {
-            // Never silent. The error reaches the log with enough context to identify
-            // the cause, and the sender gets a short message.
+            // Thrown, not returned. Returning here would let the command manager count the
+            // command as a success, so a bundle containing a typo would report executed with
+            // no failures and run on past it, defeating stopOnFailure entirely.
             ToolkitLog.error("Unknown subcommand", name);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Unknown subcommand: " + name + ". Try /devtool help"));
-            return;
+            throw new CommandException(
+                    "[DevToolkit] Unknown subcommand: " + name + ". Try /devtool help");
         }
 
-        // Fail explicitly rather than obscurely when a player sender is required.
+        // Thrown for the same reason: a subcommand that cannot run must not report success.
         if (sub.requiresPlayer() && !Senders.isPlayer(sender)) {
             ToolkitLog.error("Subcommand requires a player sender", sub.getName());
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] /devtool " + sub.getName() + " requires a player sender."));
-            return;
+            throw new CommandException(
+                    "[DevToolkit] /devtool " + sub.getName() + " requires a player sender.");
         }
 
         String[] subArgs = (args.length <= 1)
