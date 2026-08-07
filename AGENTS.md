@@ -143,7 +143,7 @@ Dimensions are the **interior**: `create 20 10 20` gives twenty blocks to walk i
 
 `arena reset` at the top of every setup bundle is the single highest-value habit here. It is what makes two runs comparable.
 
-Creating an arena also moves the caller's respawn point to its start position. Minecraft revalidates that on death and silently falls back to world spawn if the position has become obstructed, reporting **"Your home bed was missing or obstructed"** — misleading, since no bed is involved. If a person reports respawning far away after seeing that, the arena start was blocked.
+Creating an arena also moves the caller's respawn point to its start position. Minecraft revalidates that on death and silently falls back to world spawn if the position has become obstructed, reporting **"Your home bed was missing or obstructed"**, which is misleading, since no bed is involved. If a person reports respawning far away after seeing that, the arena start was blocked.
 
 ### Session and marks
 
@@ -204,13 +204,13 @@ One line per record, never spanning lines:
 [DevToolkit][BLOCK_PLACE] side=SERVER worldTick=1078 block=minecraft:stone posX=10 posY=64 posZ=-3 placedBy=Developer
 ```
 
-Field names are camelCase. Field order is stable per type. A value containing whitespace is quoted. **An absent optional value is omitted entirely** — you will never parse `field=`. Block coordinates are integers; entity positions and damage amounts have two decimals.
+Field names are camelCase. Field order is stable per type. A value containing whitespace is quoted. **An absent optional value is omitted entirely**, so you will never parse `field=`. Block coordinates are integers; entity positions and damage amounts have two decimals.
 
 `side` leads every record, then `worldTick`, then `session` and `sessionTick` when a session is active. `worldTick` comes from the dimension where the event happened, and dimensions tick independently, so it is not comparable across dimensions.
 
 **There are 27 record types and no others.** The vocabulary is closed: no near-synonyms, no renames between versions.
 
-**Category-gated** — these eight exist only while their category is on:
+**Category-gated.** These eight exist only while their category is on:
 
 | Record | Key fields beyond the common ones |
 | --- | --- |
@@ -223,7 +223,7 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 | `ENTITY_INTERACT` | `hand` `posX/Y/Z` and the target's id and name |
 | `ITEM_USE` | `hand` `held` `heldMeta` `posX/Y/Z` |
 
-**Command-driven** — no category gates these; if the command ran, the record exists:
+**Command-driven.** No category gates these; if the command ran, the record exists:
 
 | Record | Written by |
 | --- | --- |
@@ -280,7 +280,7 @@ A test expecting a resource to end at 20 and observing 20 has established nothin
 Before trusting a "done":
 
 1. the intended build and environment actually started (`STARTUP`, `ENVIRONMENT`)
-2. each setup command **took effect**, not merely that it was sent (`BUNDLE_END` with `failed=0`, plus the specific record — `ARENA_RESET`, `LOG_CONFIG`)
+2. each setup command **took effect**, not merely that it was sent (`BUNDLE_END` with `failed=0`, plus the specific record: `ARENA_RESET`, `LOG_CONFIG`)
 3. a mark proves the person reached the action
 4. a positive record proves the action occurred at all
 5. the records after that mark concern the same entity and side
@@ -311,7 +311,7 @@ Read `BUNDLE_END` rather than assuming. `executed`, `failed` and `stoppedEarly` 
 
 ### A. A block that should emit redstone when right-clicked
 
-**Setup** — arena, a known-good comparison, the block under test placed at a fixed offset, then logging armed last:
+**Setup.** Arena, a known-good comparison, the block under test placed at a fixed offset, then logging armed last:
 
 ```json
 {
@@ -336,8 +336,8 @@ Read `BUNDLE_END` rather than assuming. `executed`, `failed` and `stoppedEarly` 
 
 **Then read back:**
 
-- `PLAYER_INSPECT` — is `gameMode` what you expected? Creative would invalidate the run.
-- `BLOCK_INSPECT` before the mark — the block is there, and `blockState` shows its powered property in the **off** state. This is your initial state, and without it a lamp that was already lit proves nothing.
+- `PLAYER_INSPECT`. Is `gameMode` what you expected? Creative would invalidate the run.
+- `BLOCK_INSPECT` before the mark. The block is there, and `blockState` shows its powered property in the **off** state. This is your initial state, and without it a lamp that was already lit proves nothing.
 - `MARK label=READY_RIGHT_CLICK`
 - `PLAYER_INTERACT` with `button` and `posX/Y/Z` matching the block. If this is missing, the click never reached the server and the rest of the test is void.
 
@@ -414,7 +414,7 @@ This one needs a configuration change: dropped items and experience orbs are **e
 
 **Then read back:**
 
-- `INVENTORY_INSPECT` with `occupiedSlots=0` before the mark — the initial state, so a drop cannot be confused with something already carried.
+- `INVENTORY_INSPECT` with `occupiedSlots=0` before the mark. This is the initial state, so a drop cannot be confused with something already carried.
 - `ENTITY_DEATH` with `damageType`
 - one `ENTITY_SPAWN` per dropped item, after the death
 - a second `devtool inspect inventory` after pickup, to prove the items were real and reachable
@@ -427,7 +427,7 @@ This one needs a configuration change: dropped items and experience orbs are **e
 
 **It does not know about your mod.** Every record is generic: blocks placed, entities damaged, items used. A modded tile entity's class is named; its contents are not interpreted, because interpreting them would require knowing how that mod works.
 
-**It is not a substitute for your mod's own logging.** It can tell you 3 damage was dealt, by whom, to what, and when. It cannot tell you which branch of your damage calculation ran. **Most of what you need to establish about your own feature is a decision your code made, and only your code can record that.** Add logging to the mod under test and read both in the same file — that colocation is the point.
+**It is not a substitute for your mod's own logging.** It can tell you 3 damage was dealt, by whom, to what, and when. It cannot tell you which branch of your damage calculation ran. **Most of what you need to establish about your own feature is a decision your code made, and only your code can record that.** Add logging to the mod under test and read both in the same file; that colocation is the point.
 
 **It does not assert or conclude.** Records are facts. There is no pass, no fail, no verdict. Deciding is your job.
 

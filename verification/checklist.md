@@ -38,16 +38,16 @@ you go further.
 Expect a matching `BUNDLE_START` / `BUNDLE_END` pair per child, `failed=0` throughout, and one
 record per command. The things worth checking closely:
 
-- `v1_player_sender` — `PLAYER_INSPECT`, `INVENTORY_INSPECT`, `ENTITY_LIST` and `NBT` must all
+- `v1_player_sender`: `PLAYER_INSPECT`, `INVENTORY_INSPECT`, `ENTITY_LIST` and `NBT` must all
   appear. These are the commands that silently did nothing before, so their presence is the
   regression check for this morning's defect.
-- `v1_session` — records between the start and stop carry `session` and `sessionTick`; the ones
+- `v1_session`: records between the start and stop carry `session` and `sessionTick`; the ones
   after `AFTER_STOP` carry neither.
-- `v1_reload_preserves` — session and category status identical either side of the reload.
-- `v2_arena_boundary` — 64 succeeds, all three 65s fail.
-- `v3_rejected_filter_changes_nothing` — the rejected arena filter must leave `block_break` OFF.
+- `v1_reload_preserves`: session and category status identical either side of the reload.
+- `v2_arena_boundary`: 64 succeeds, all three 65s fail.
+- `v3_rejected_filter_changes_nothing`: the rejected arena filter must leave `block_break` OFF.
 
-## 3. The failure sweep — EXPECTED TO FAIL
+## 3. The failure sweep: EXPECTED TO FAIL
 
 ```
 /devtool run v9_suite_failures
@@ -75,14 +75,14 @@ Everything else in this suite should be correct: `v7_must_fail_selectors` all fa
 
 Takes a few seconds because of the delays.
 
-- `v4_delay_spacing` — `durationTicks` near 40, not near 20. Both delays measured from the
+- `v4_delay_spacing`: `durationTicks` near 40, not near 20. Both delays measured from the
   previous command, not from the start.
-- `v4_delay_end_is_last` — `BUNDLE_END` after the delayed mark, never before.
-- `v4_nest_parent` — order is `parent_BEFORE`, `child_ran`, `parent_AFTER`.
-- `v4_child_failure_counts_once` — the failing child counts as exactly one failed command.
-- `v4_stop_on_failure_true` — `v4_stop_SHOULD_NOT_APPEAR` must be absent, `stoppedEarly=true`.
-- `v4_cycle_a` and `v4_self_cycle` — refused with an explicit record, no crash, no recursion.
-- `v4_empty` — a `BUNDLE_START` and `BUNDLE_END` pair with nothing between.
+- `v4_delay_end_is_last`: `BUNDLE_END` after the delayed mark, never before.
+- `v4_nest_parent`: order is `parent_BEFORE`, `child_ran`, `parent_AFTER`.
+- `v4_child_failure_counts_once`: the failing child counts as exactly one failed command.
+- `v4_stop_on_failure_true`: `v4_stop_SHOULD_NOT_APPEAR` must be absent, `stoppedEarly=true`.
+- `v4_cycle_a` and `v4_self_cycle`: refused with an explicit record, no crash, no recursion.
+- `v4_empty`: a `BUNDLE_START` and `BUNDLE_END` pair with nothing between.
 
 ## 5. Depth limit
 
@@ -101,14 +101,14 @@ not.** `v5_depth_10`'s call is refused with a nesting-too-deep record.
 /devtool run v9_suite_world
 ```
 
-- `v2_arena_clears_entities` — three mobs before the reset, none after, you still alive.
-- `v6_inspect_block` — `BLOCK_INSPECT` and `NBT` for the chest at `0 100 0`.
-- `v6_inspect_entity` — the named pig inspected and dumped, then removed.
-- `v6_inventory_states` — `occupiedSlots=0` explicitly present after the clear, not omitted.
-- `v6_nbt_truncation` — if `truncated=true`, then `nbtLength` and `outputLength` are both there.
-- `v8_spawn_noise` — the pig produces a spawn record; the dropped item and the xp orb do not.
+- `v2_arena_clears_entities`: three mobs before the reset, none after, you still alive.
+- `v6_inspect_block`: `BLOCK_INSPECT` and `NBT` for the chest at `0 100 0`.
+- `v6_inspect_entity`: the named pig inspected and dumped, then removed.
+- `v6_inventory_states`: `occupiedSlots=0` explicitly present after the clear, not omitted.
+- `v6_nbt_truncation`: if `truncated=true`, then `nbtLength` and `outputLength` are both there.
+- `v8_spawn_noise`: the pig produces a spawn record; the dropped item and the xp orb do not.
 
-## 7. Observers — manual
+## 7. Observers: manual
 
 ```
 /devtool run v8_observe_setup
@@ -120,7 +120,7 @@ Then, inside the arena it builds, do each of these once and note roughly what yo
 |---|---|
 | Place a stone block | one `BLOCK_PLACE` |
 | Break it | one `BLOCK_BREAK` |
-| Place the oak door | **one** `BLOCK_PLACE`, not two — a door is two blocks |
+| Place the oak door | **one** `BLOCK_PLACE`, not two, since a door is two blocks |
 | Eat bread | `ITEM_USE` |
 | Right-click a pig with an empty hand | **one** `ENTITY_INTERACT`, not two |
 | Hit a pig with the sword | **one** `ENTITY_DAMAGE`, not three |
@@ -134,7 +134,7 @@ Then:
 /devtool run v8_observe_teardown
 ```
 
-The doubling cases are the ones that matter — each was a deliberate event-choice decision, and a
+The doubling cases are the ones that matter, because each was a deliberate event-choice decision, and a
 duplicate record means the wrong Forge event is subscribed.
 
 Two more, run separately because they involve dying:
@@ -144,10 +144,10 @@ Two more, run separately because they involve dying:
 /devtool run v8_death_single_record
 ```
 
-`v8_death_single_record` kills you. One `ENTITY_DEATH` for the pig, one for you — a player death
+`v8_death_single_record` kills you. One `ENTITY_DEATH` for the pig, one for you, since a player death
 posts the underlying event twice, so two records here would be a real defect.
 
-## 8. Console — EXPECTED TO FAIL
+## 8. Console: EXPECTED TO FAIL
 
 Only on a dedicated server. From the server console, not in game:
 
@@ -162,7 +162,7 @@ second half of the same defect as step 3.
 ## 9. Arena persistence across restart
 
 1. `/devtool arena create 9 5 9 minecraft:stone`
-2. `/devtool arena info` — note the coordinates
+2. `/devtool arena info`: note the coordinates
 3. Quit to the title screen, then fully quit the game
 4. Relaunch, load the same world
 5. `/devtool arena info`
@@ -173,7 +173,7 @@ called; without it the arena lives only in memory and is lost on shutdown.
 While you are there, this also covers the session rule: after step 3 the session state should
 **survive** returning to the title screen within one launch, but not survive a full quit.
 
-## 10. Tier 4 — client without the toolkit
+## 10. Tier 4: client without the toolkit
 
 The README claims a client without the toolkit can join a server that has it. Nothing has ever
 tested this.
