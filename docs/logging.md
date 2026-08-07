@@ -63,8 +63,12 @@ An excluded event and an event that never happened are identical in the log. Bef
 The log answers that on its own. Every change to the enabled set writes a `LOG_CONFIG` record, and so does `devtool log status`:
 
 ```
-[DevToolkit][LOG_CONFIG] side=SERVER worldTick=1204 action=enable category=entity_spawn filter=radius(32.00) enabledCount=2 enabledCategories=block_place,entity_spawn filters=entity_spawn:radius(32.00)
+[DevToolkit][LOG_CONFIG] side=SERVER worldTick=1204 action=enable category=entity_spawn filter="radius=32.0 at 10.5,64.0,-3.5 dim=0" enabledCount=2 enabledCategories=block_place,entity_spawn filters="entity_spawn=radius=32.0 at 10.5,64.0,-3.5 dim=0"
 ```
+
+`action` is one of `enable`, `disable`, `disableAll` or `status`.
+
+`enabledCategories` is comma separated. `filters` is **semicolon** separated, because a filter description contains commas of its own.
 
 The full enabled set is repeated on every one of these, so any single line tells you what was being recorded at that moment. You do not have to accumulate state across the file, and you do not need chat.
 

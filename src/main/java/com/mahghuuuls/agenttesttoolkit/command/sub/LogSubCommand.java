@@ -180,10 +180,13 @@ public final class LogSubCommand implements SubCommand {
 
             Filter active = ToolkitState.getFilter(each);
             if (active != null) {
+                // Semicolon, not comma. A filter's own description contains commas, as a radius
+                // one carries a position, so a comma here would leave a reader unable to tell
+                // where one entry ends and the next begins.
                 if (filters.length() > 0) {
-                    filters.append(',');
+                    filters.append(';');
                 }
-                filters.append(each.getCategoryName()).append(':').append(active.describe());
+                filters.append(each.getCategoryName()).append('=').append(active.describe());
             }
         }
         // Both omitted when empty rather than rendered as a placeholder, so an absent field
