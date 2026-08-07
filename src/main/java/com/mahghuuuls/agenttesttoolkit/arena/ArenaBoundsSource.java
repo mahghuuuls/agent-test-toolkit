@@ -26,10 +26,15 @@ public final class ArenaBoundsSource implements ArenaBounds {
         if (server == null) {
             return null;
         }
-        World world = server.getWorld(dimension);
+        // DimensionManager rather than server.getWorld, which Forge patches to *initialise* a
+        // dimension that is not loaded. This runs on every observed event while an arena filter
+        // is active, so calling it with an id that happens to be unloaded would load a whole
+        // dimension as a side effect of deciding whether to write a log line.
+        World world = net.minecraftforge.common.DimensionManager.getWorld(dimension);
         if (world == null) {
-            // The dimension is not loaded. Not an error: the filter simply admits nothing
-            // there, which is what it would do anyway with no arena.
+            // Not loaded, or not a dimension. Either way there is no arena to be inside, so
+            // the filter admits nothing, which is the same answer it gives when a loaded
+            // dimension has no arena.
             return null;
         }
         ArenaRecord record = ArenaStorage.get(world).getArena();

@@ -30,6 +30,11 @@ public final class ArenaBuilder {
     /**
      * Blocks between light sources in the floor, on both axes.
      *
+     * <p><b>Verified threshold.</b> {@code EntityMob.isValidLightLevel} ends with
+     * {@code return i <= this.rand.nextInt(8)}, and {@code nextInt(8)} yields 0 to 7, so a
+     * block light level of 8 can never satisfy it. Light 8 is the first value at which hostile
+     * spawning is impossible rather than merely unlikely.
+     *
      * <p>Light decays by one per block of travel. The worst case is the point diagonally
      * furthest from four sources, at spacing/2 on each axis and one block up: with a spacing of
      * 6 that is 3 + 3 + 1 = 7 blocks of travel, leaving light 8. Hostile mobs require 7 or
