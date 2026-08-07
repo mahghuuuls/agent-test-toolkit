@@ -67,7 +67,9 @@ One arena per dimension, stored in the world save. Creating a new one replaces t
 
 `reset` is idempotent and safe to run at the start of every test. Neither `reset` nor `clear` removes players.
 
-Creating an arena also moves your respawn point to its start position, unless `setRespawnPoint` is disabled in the config. Note that Minecraft revalidates a respawn point when you die and falls back to the world spawn if the position is obstructed, without reporting it.
+Creating an arena also moves your respawn point to its start position, unless `setRespawnPoint` is disabled in the config.
+
+Minecraft revalidates a respawn point when you die, and falls back to the world spawn if the start position has become obstructed. When that happens it tells you **"Your home bed was missing or obstructed"**, which is misleading here because no bed is involved. If you die and land at world spawn after seeing that message, the arena start was blocked, not lost.
 
 **These commands are destructive and do not prompt.** See the warning in the README.
 

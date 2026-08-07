@@ -18,7 +18,7 @@ import net.minecraft.world.World;
  * <p>The goal is an outcome, light sufficient to prevent hostile spawning throughout the
  * interior, rather than a particular mechanism. Light sources are embedded in the <b>floor</b> on
  * a fixed grid rather than in the ceiling, because ceiling lighting fails in exactly the case
- * that matters: Minecraft's light level falls by one per block, so in a ten block tall arena a
+ * that matters: light falls by one per block through air, so in a ten block tall arena a
  * ceiling light leaves the floor at light 5, and hostile mobs spawn at 7 or below. Floor
  * lighting is independent of height.
  *
@@ -35,7 +35,11 @@ public final class ArenaBuilder {
      * block light level of 8 can never satisfy it. Light 8 is the first value at which hostile
      * spawning is impossible rather than merely unlikely.
      *
-     * <p>Light decays by one per block of travel. The worst case is the point diagonally
+     * <p>Light decays by the opacity of each block it crosses, floored at one, so through the
+     * air of an arena interior it is exactly one per block. Verified in {@code World.getRawLight},
+     * which clamps opacity to a minimum of one before subtracting it.
+     *
+     * <p>The worst case is the point diagonally
      * furthest from four sources, at spacing/2 on each axis and one block up: with a spacing of
      * 6 that is 3 + 3 + 1 = 7 blocks of travel, leaving light 8. Hostile mobs require 7 or
      * below, so 8 clears it by one. Widening the spacing to 8 would put the worst case at

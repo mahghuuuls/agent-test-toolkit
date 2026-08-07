@@ -275,7 +275,17 @@ public final class ArenaSubCommand implements SubCommand {
     /**
      * Moves the invoking player's respawn to the arena start.
      *
-     * <p>Forced, so it does not require a bed and is not silently discarded. Only the invoking
+     * <p>Forced, which is what lets a bare position work at all. Verified in the 1.12.2 sources:
+     * {@code EntityPlayer.getBedSpawnLocation} returns null immediately for a non-bed block
+     * unless {@code forceSpawn} is set, in which case it instead checks that the block and the
+     * one above it can be spawned in.
+     *
+     * <p>That check runs again on death, so an arena start that has since been obstructed still
+     * sends the player to world spawn. Minecraft reports that as
+     * {@code tile.bed.notValid}, "Your home bed was missing or obstructed", which is confusing
+     * here because no bed is involved. Documented in {@code docs/commands.md} for that reason.
+     *
+     * <p>Only the invoking
      * player is touched: relocating a bystander's respawn because someone else built an arena
      * would be a genuinely hostile side effect.
      *
