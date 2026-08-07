@@ -58,7 +58,7 @@ Named lists of commands in JSON, under `config/devtool/bundles/`, scanned recurs
 ```
 
 - **Per command tick delays**, measured from the previous command finishing, so inserting a command shifts what follows rather than compressing the gaps.
-- **Stop on failure**, on by default. A failure means the game raised a command error; a command that runs and changes nothing has succeeded, so a `kill` matching nothing does not halt a teardown.
+- **Stop on failure**, on by default. A failure means the game raised a command error; a command that runs and changes nothing has succeeded, so neither a `kill` matching nothing nor a `clear` on an empty inventory halts a teardown on its second run.
 - **Nesting.** A bundle can run another. The parent waits, and the child's failure counts as one failed command. Cycles are refused by name before anything runs.
 - **`BUNDLE_START` and `BUNDLE_END`** in the log, so events your setup caused can be told apart from events of the test that followed.
 
@@ -78,7 +78,7 @@ Eight categories, all off by default:
 
 Each can be narrowed to the dimension's arena or to a radius anchored where you stood when you applied it. One filter per category.
 
-`log status` matters more than it looks. An excluded event and an event that never happened are identical in the log, so it is the only thing that can tell you which you are looking at.
+An excluded event and an event that never happened look identical in the log. So every change to what is being recorded writes its own `LOG_CONFIG` record, as does `log status`, and each one carries the full enabled set. Any single line tells you what was being watched at that moment, without needing chat or the command history.
 
 ### Inspection
 

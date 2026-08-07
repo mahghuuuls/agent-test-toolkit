@@ -39,13 +39,19 @@ A filter is not optional housekeeping for the busy categories. It is the differe
 
 ### An excluded event and an event that never happened look identical
 
-Nothing is written when a filter excludes something. If you are missing a record you expected, check what is actually enabled before concluding the game did not do it:
+Nothing is written when a filter excludes something. Before concluding the game did not do something, check what was actually being recorded at the time.
+
+You do not need to run a command for this. Every change to the enabled set writes a `LOG_CONFIG` record, and each one carries the full set:
 
 ```
-devtool log status
+[DevToolkit][LOG_CONFIG] side=SERVER worldTick=1204 action=enable category=entity_spawn filter="radius=32.0 at 10.5,64.0,-3.5 dim=0" enabledCount=2 enabledCategories=block_place,entity_spawn filters="entity_spawn=radius=32.0 at 10.5,64.0,-3.5 dim=0"
 ```
 
-That command reports every enabled category and the filter on each. It exists precisely because absence is ambiguous.
+Search backwards from the gap in your log for the nearest `LOG_CONFIG`. Its `enabledCategories` and `filters` tell you what was being watched, so you can distinguish "the event did not happen" from "nothing was listening for it".
+
+`enabledCategories` is comma separated; `filters` is **semicolon** separated, because a filter description contains commas of its own.
+
+`devtool log status` writes one of these too, if you want a reading at a specific point rather than at the last change.
 
 ### Sessions group the evidence
 
@@ -152,7 +158,7 @@ Field names are camelCase, order is stable per event type, values containing whi
 
 **Commands need permission level 2.** In chat they take a leading slash, `/devtool ...`. In a server console they do not, `devtool ...`. Inside a bundle file they do not.
 
-**A bundle command fails only when the game raises a command error.** A command that runs and changes nothing has succeeded. `kill @e[type=zombie,r=10]` matching nothing counts as success, deliberately, so a teardown bundle survives a second run. Unknown command, missing permission and bad syntax all count as failure.
+**A bundle command fails only when the game raises a command error.** A command that runs and changes nothing has succeeded. `kill @e[type=zombie,r=10]` matching nothing, and `clear @p` on an already empty inventory, both count as success, deliberately, so a teardown bundle survives a second run. Unknown command, missing permission and bad syntax all count as failure.
 
 **Nothing is rolled back.** A bundle that stops half way leaves the world half prepared. `stopOnFailure` limits the damage; it does not undo it.
 
