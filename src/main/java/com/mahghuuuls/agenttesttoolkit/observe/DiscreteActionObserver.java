@@ -185,11 +185,10 @@ public final class DiscreteActionObserver {
      * Right-clicking an entity.
      *
      * <p>The opposite of the obvious choice. {@code EntityInteractSpecific} fires on
-     * <b>every</b> right-click on an entity;
-     * {@code EntityInteract} fires only when the specific event's result was not
-     * {@code SUCCESS}. Subscribing to {@code EntityInteract}, which reads as the more general
-     * name, would silently miss every <i>successful</i> interaction, and subscribing to both
-     * would double-record the unsuccessful ones.
+     * <b>every</b> right-click on an entity; {@code EntityInteract} fires only when the
+     * specific event's result was not {@code SUCCESS}. Subscribing to {@code EntityInteract},
+     * which reads as the more general name, would silently miss every <i>successful</i>
+     * interaction, and subscribing to both would double-record the unsuccessful ones.
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onEntityInteract(PlayerInteractEvent.EntityInteractSpecific event) {
