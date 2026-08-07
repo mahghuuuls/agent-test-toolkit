@@ -3,14 +3,14 @@ package com.mahghuuuls.agenttesttoolkit.bundle;
 /**
  * The result of dispatching one command.
  *
- * <p>REQ-016 defines Command Failure narrowly, as a raised command error and nothing else. A
+ * <p>Failure is defined narrowly, as a raised command error and nothing else. A
  * command that runs and affects nothing has <b>succeeded</b>. That distinction is the whole
  * reason this type exists rather than a bare boolean with an ad hoc convention: a bundle that
  * halts because {@code kill} found nothing to kill would make teardown bundles unusable on a
  * second run, which is precisely the repetitive manual work the toolkit exists to remove.
  *
- * <p>The detail is carried so a failure record can say what went wrong. REQ-110 forbids
- * reporting a failure without enough context to identify it.
+ * <p>The detail is carried so a failure record can say what went wrong. A failure is never
+ * reported without enough context to identify it.
  */
 public final class CommandOutcome {
 

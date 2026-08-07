@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * Reports a player's occupied inventory slots.
  *
- * <p>REQ-074. Empty slots are omitted: a creative-mode player carries 41 slots and listing the
+ * <p>Empty slots are omitted: a creative-mode player carries 41 slots and listing the
  * empty ones would bury the three that matter under noise, which is the opposite of what a
  * machine-readable log is for.
  *
@@ -47,7 +47,7 @@ public final class Inventories {
         if (slots.isEmpty()) {
             // An empty inventory still produces one record. Emitting nothing would be
             // indistinguishable from the command failing to run, which is exactly the
-            // ambiguity REQ-038 exists to remove.
+            // ambiguity an explicit zero exists to remove.
             records.add(base(player).add("occupiedSlots", 0));
             return records;
         }

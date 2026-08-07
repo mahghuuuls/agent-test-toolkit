@@ -13,12 +13,12 @@ import java.util.List;
  * per-command tick delays, which functions cannot express; they support stop-on-failure; and
  * they emit execution boundaries into the log.
  *
- * <p>Public documentation must state that difference rather than claim bundles are unavailable
- * in vanilla. REQ-143.
+ * <p>The public documentation states that difference rather than claiming bundles are
+ * unavailable in vanilla.
  *
- * <p>Deliberately not a scripting language. REQ-023 forbids variables, expressions,
- * conditionals, loops, arithmetic and placeholder expansion, and that boundary is a project
- * identity decision rather than a simplification to be revisited when convenient.
+ * <p>Deliberately not a scripting language. There are no variables, expressions, conditionals,
+ * loops, arithmetic or placeholder expansion, and that boundary is a project identity decision
+ * rather than a simplification to be revisited when convenient.
  */
 public final class BundleDefinition {
 
@@ -45,7 +45,7 @@ public final class BundleDefinition {
         return name;
     }
 
-    /** Optional human-readable description, or null. REQ-013. */
+    /** Optional human-readable description, or null. */
     public String getDescription() {
         return description;
     }
@@ -53,9 +53,9 @@ public final class BundleDefinition {
     /**
      * Whether execution stops after the first failed command.
      *
-     * <p>Defaults to enabled when the file omits it, per the owner decision of 2026-08-03.
-     * Setup bundles build on each other, so continuing past a failure usually produces a
-     * half-prepared environment that wastes the human's next test run.
+     * <p>Defaults to enabled when the file omits it. Setup bundles build on each other, so
+     * continuing past a failure usually produces a half-prepared environment that wastes the
+     * human's next test run.
      */
     public boolean isStopOnFailure() {
         return stopOnFailure;

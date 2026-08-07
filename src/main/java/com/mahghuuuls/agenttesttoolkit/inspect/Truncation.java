@@ -3,7 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.inspect;
 /**
  * Bounds a long value for the log, and says so when it does.
  *
- * <p>REQ-076 and the wider REQ-110 rule: truncation must never be silent. NBT is the one output
+ * <p>Truncation must never be silent. NBT is the one output
  * the toolkit produces that can be arbitrarily large, and a silently shortened tag is worse than
  * no output at all, because it looks complete. An agent comparing a truncated dump against
  * expected contents would conclude the game is wrong.

@@ -10,12 +10,12 @@ import java.nio.file.Files;
 /**
  * Writes example bundles the first time the toolkit runs, and never again.
  *
- * <p>REQ-149 and REQ-150. Two hazards shape this, both found by reasoning about how it would
- * interact with decisions already made rather than by testing it.
+ * <p>Two hazards shape this, both found by reasoning about how it would interact with
+ * decisions already made rather than by testing it.
  *
  * <h2>Names are prefixed because of our own conflict rule</h2>
  *
- * <p>REQ-012 makes a name defined in two files load from <b>neither</b>. A shipped bundle called
+ * <p>A name defined in two files loads from <b>neither</b>. A shipped bundle called
  * {@code teardown} would therefore not lose to an operator's own {@code teardown}, and would not
  * win: both would vanish, and the reported conflict would name a file they never wrote. Every
  * shipped name carries {@code example_} so a natural choice can never collide.
@@ -64,9 +64,9 @@ public final class ExampleBundles {
      *
      * <p>The portal examples earn their place twice over. They are genuinely repeated across
      * testing sessions, and they are the concrete demonstration that a capability which looks
-     * like it needs a command is a dozen {@code setblock} lines. REQ-143 requires public
-     * documentation to position the toolkit honestly against what vanilla already does, and
-     * this is that argument in runnable form.
+     * like it needs a command is a dozen {@code setblock} lines. The public documentation
+     * positions the toolkit honestly against what vanilla already does, and this is that
+     * argument in runnable form.
      */
     private static final String CONTENT =
             // No comment key at the top level. JSON has none, and every top-level entry here

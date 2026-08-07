@@ -9,7 +9,7 @@ import java.util.Collection;
 /**
  * Reports what this build actually supports.
  *
- * <p>REQ-082 exists because an agent otherwise assumes the documentation matches the runtime.
+ * <p>This exists because an agent otherwise assumes the documentation matches the runtime.
  * That assumption fails exactly when it matters most: an old jar in a modpack, or a feature
  * described in a README that was never built.
  *
@@ -20,8 +20,8 @@ import java.util.Collection;
  * claiming a feature after the feature was removed, and an agent has no way to check.
  *
  * <p>Takes plain collections rather than reading the command registry itself, because the
- * dependency rules forbid anything depending on {@code command}. The caller lives there and
- * passes what it has.
+ * {@code env} must not depend on {@code command}. The caller lives there and passes what it
+ * has.
  */
 public final class Capabilities {
 
@@ -32,8 +32,8 @@ public final class Capabilities {
      * Fills a record the caller has already stamped with context.
      *
      * <p>Takes the record rather than creating one so that {@code side} and {@code worldTick}
-     * still lead the output, per REQ-033's stable field order, without this class needing to
-     * know about command senders. Keeping it free of Minecraft types is what lets the
+     * still lead the output without this class needing to know about command senders.
+     * Keeping it free of Minecraft types is what lets the
      * no-drift property be tested at all.
      *
      * @param record           a record of type {@link EventType#CAPABILITIES}, already stamped

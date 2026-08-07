@@ -17,9 +17,9 @@ import com.mahghuuuls.agenttesttoolkit.bundle.CommandOutcome;
  * of zero therefore covers four different situations, and only the translation key separates
  * them.
  *
- * <p>Three keys mean a selector matched nothing. Those count as <b>success</b>, per the owner
- * decision of 2026-08-04 and REQ-016's intent that a command which runs and affects nothing has
- * succeeded. Without this a teardown bundle ending in {@code kill @e[name=...]} would halt on
+ * <p>Three keys mean a selector matched nothing. Those count as <b>success</b>: a command that
+ * runs and affects nothing has still run. Without this a teardown bundle ending in
+ * {@code kill @e[name=...]} would halt on
  * its second run, since {@code stopOnFailure} defaults to true; the toolkit exists to remove
  * exactly that kind of repeated manual fiddling.
  *
@@ -76,7 +76,7 @@ public final class CommandOutcomes {
             return "caller lacks permission";
         }
         if (translationKey == null) {
-            // Vanilla reported nothing usable. Said plainly rather than guessed at, per REQ-110.
+            // Vanilla reported nothing usable. Said plainly rather than guessed at.
             return "command reported no success and gave no reason";
         }
         return translationKey;

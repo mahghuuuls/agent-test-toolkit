@@ -10,7 +10,7 @@ import java.util.Collection;
 /**
  * Lists the subcommands this build actually provides.
  *
- * <p>REQ-006 requires help to reflect the installed build rather than the documentation.
+ * <p>Help reflects the installed build rather than the documentation.
  * That is why this reads the live registry instead of a hand maintained list: a feature
  * absent from the build cannot appear here, and a feature added cannot be forgotten.
  */

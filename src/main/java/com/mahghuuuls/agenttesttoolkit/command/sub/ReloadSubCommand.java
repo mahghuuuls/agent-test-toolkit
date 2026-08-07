@@ -13,10 +13,9 @@ import net.minecraft.util.text.TextComponentString;
 /**
  * Reloads bundle files and toolkit configuration from disk.
  *
- * <p>REQ-102 is specific about what reload must <b>not</b> do: it must not terminate an active
- * session, and it must not reset enabled logging categories or their filters. The owner
- * specification allowed an exception for implementation limitations; the requirement removed
- * that hedge, and this command honours it by simply never touching diagnostic state.
+ * <p>What reload must <b>not</b> do is the important part: it must not terminate an active
+ * session, and it must not reset enabled logging categories or their filters. This command
+ * honours that by simply never touching diagnostic state.
  *
  * <p>That matters in use. An agent edits a bundle mid-test, reloads, and must not silently lose
  * the session grouping the evidence it has already collected.
@@ -69,7 +68,7 @@ public final class ReloadSubCommand implements SubCommand {
                     "[DevToolkit] Load problems are recorded in the log."));
         }
 
-        // REQ-102: state the preservation explicitly. An agent should not have to run a second
+        // State the preservation explicitly. An agent should not have to run a second
         // command to find out whether reloading cost it its session.
         sender.sendMessage(new TextComponentString("[DevToolkit] Session "
                 + (sessionBefore == null ? "none" : "'" + sessionBefore.getName() + "' preserved")

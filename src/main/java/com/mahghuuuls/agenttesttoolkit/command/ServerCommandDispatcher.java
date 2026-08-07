@@ -19,7 +19,7 @@ public final class ServerCommandDispatcher implements CommandDispatcher {
     /**
      * Set for a player caller; null for the console or a command block.
      *
-     * <p>ARC-004: the sender is <b>re-resolved every time</b> rather than held. A bundle with
+     * <p>The sender is <b>re-resolved every time</b> rather than held. A bundle with
      * delays spans ticks, and a held {@code EntityPlayerMP} for a player who disconnected is
      * either a throw or, worse, a live-looking reference to a ghost that commands execute
      * against. Holding a UUID and looking it up costs a map read and cannot go stale.

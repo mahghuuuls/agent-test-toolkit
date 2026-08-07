@@ -22,7 +22,7 @@ import java.util.Locale;
  * Starts, stops, and reports the diagnostic session.
  *
  * <p>Sessions group records; they never judge them. There is deliberately no command here
- * that accepts an expected value or reports a result, per REQ-055.
+ * that accepts an expected value or reports a result.
  */
 public final class SessionSubCommand implements SubCommand {
 

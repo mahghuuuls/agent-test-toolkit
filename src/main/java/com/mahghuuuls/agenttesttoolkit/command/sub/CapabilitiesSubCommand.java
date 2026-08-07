@@ -17,7 +17,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Reports what this build supports. REQ-082.
+ * Reports what this build supports.
  *
  * <p>Everything reported is read from the live registry and the enums the rest of the code
  * uses, never from a hand-written list. That is the whole value: a capabilities command that

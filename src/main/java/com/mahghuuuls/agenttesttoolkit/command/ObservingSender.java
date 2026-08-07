@@ -21,15 +21,15 @@ import net.minecraft.world.World;
  * permission, bad syntax, and a selector that matched nothing, with no way to tell them apart
  * from the return value.
  *
- * <p>That last case must not count as a failure. REQ-016 defines failure as a raised command
- * error, but its stated intent is that a command which runs and affects nothing has succeeded,
- * and a bundle ending in {@code kill @e[name=...]} would otherwise halt on its second run under
- * the default {@code stopOnFailure}. Reading the key vanilla already sends is the only way to
+ * <p>That last case must not count as a failure. Failure means a raised command error; a
+ * command that runs and affects nothing has still run, and a bundle ending in
+ * {@code kill @e[name=...]} would otherwise halt on its second run under the default
+ * {@code stopOnFailure}. Reading the key vanilla already sends is the only way to
  * separate the two, so this wrapper captures it.
  *
  * <h2>Why this does not change permissions</h2>
  *
- * <p>IMP-013 forbids substituting a sender with different permissions. Every method here
+ * <p>A sender with different permissions must never be substituted. Every method here
  * delegates, including {@link #canUseCommand}, so the command manager sees exactly the
  * permissions, position, world and identity of the original caller. The wrapper observes; it
  * decides nothing. A command a caller could not type still fails when a bundle runs it.

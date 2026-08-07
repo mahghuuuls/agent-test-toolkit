@@ -24,8 +24,8 @@ import java.util.List;
  * Runs a loaded bundle's commands in order, as the caller.
  *
  * <p>The commands do not run inside this method. The execution is handed to the scheduler and
- * advanced on the server tick, per ARC-004, so that per-command delays in IMP-014 extend the
- * same machinery rather than replacing a loop written here.
+ * advanced on the server tick, which is what lets per-command delays and nested bundles extend
+ * the same machinery rather than replacing a loop written here.
  *
  * <p>Permission context is preserved by construction: the original sender is passed through to
  * the command manager. A bundle is a convenience for typing commands, never a way to run
@@ -83,8 +83,8 @@ public final class RunSubCommand implements SubCommand {
             String rejection = parent.getCallStack().rejectionReason(bundle.getName());
             if (rejection != null) {
                 // Thrown rather than reported quietly, so the command manager registers a
-                // failure and the parent counts it as a failed command. REQ-018 and REQ-019:
-                // a cycle or an over-deep chain must fail explicitly, and nothing may recurse.
+                // failure and the parent counts it as a failed command. A cycle or an
+                // over-deep chain must fail explicitly, and nothing may recurse.
                 ToolkitLog.error("Nested bundle refused", rejection);
                 throw new CommandException(rejection);
             }

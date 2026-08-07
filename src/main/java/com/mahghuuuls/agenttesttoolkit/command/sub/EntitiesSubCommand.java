@@ -29,10 +29,10 @@ import java.util.Locale;
 /**
  * Lists entities near the invoking player, one record each.
  *
- * <p>REQ-077. Deliberately not a query system: radius only, no sorting, no filtering, no
- * expression language. TellMe already lists entities for a human audience; the reason this
- * exists is machine-readable output in {@code latest.log} without an external dependency, and
- * public documentation must say that rather than claim a gap. REQ-143.
+ * <p>Deliberately not a query system: radius only, no sorting, no filtering, no expression
+ * language. TellMe already lists entities for a human audience; the reason this exists is
+ * machine-readable output in {@code latest.log} without an external dependency, and the public
+ * documentation says exactly that rather than claiming a gap.
  */
 public final class EntitiesSubCommand implements SubCommand {
 
@@ -96,7 +96,7 @@ public final class EntitiesSubCommand implements SubCommand {
         }
 
         if (matched.isEmpty()) {
-            // REQ-038: silence is ambiguous. "None found" must be distinguishable from the
+            // Silence is ambiguous. "None found" must be distinguishable from the
             // command not having run.
             LogRecord record = RecordContext.stamp(LogRecord.of(EventType.ENTITY_LIST), sender);
             SessionStamp.apply(record);

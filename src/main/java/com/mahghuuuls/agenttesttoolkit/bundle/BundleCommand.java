@@ -3,11 +3,11 @@ package com.mahghuuuls.agenttesttoolkit.bundle;
 /**
  * One command inside a bundle, with an optional delay before it runs.
  *
- * <p>REQ-015: the delay is measured in Minecraft ticks, relative to the completion of the
+ * <p>The delay is measured in Minecraft ticks, relative to the completion of the
  * preceding command in the same bundle rather than from the bundle's start. Relative composes:
  * inserting a command shifts everything after it, which is what someone editing a list expects.
  *
- * <p>Execution belongs to IMP-013 and IMP-014. This is only the parsed form.
+ * <p>This is only the parsed form; the scheduler owns execution.
  */
 public final class BundleCommand {
 

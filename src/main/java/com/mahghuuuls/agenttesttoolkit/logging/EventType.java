@@ -3,7 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.logging;
 /**
  * The complete, closed set of toolkit event type names.
  *
- * <p>This vocabulary is fixed by requirement REQ-034. Near-synonyms for an existing concept
+ * <p>This vocabulary is closed. Near-synonyms for an existing concept
  * are forbidden: there is one name for one event, and it does not change. An agent parses
  * these names, so stability matters more than expressiveness.
  *

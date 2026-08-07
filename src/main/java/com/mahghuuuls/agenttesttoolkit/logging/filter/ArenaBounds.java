@@ -3,7 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.logging.filter;
 /**
  * Supplies the current arena bounds for a dimension, read at evaluation time.
  *
- * <p>ARC-007 in one interface: filters query the arena, and the arena knows nothing about
+ * <p>The whole seam in one interface: filters query the arena, and the arena knows nothing about
  * filters. This is the only seam between them, and it points in the permitted direction.
  *
  * <p>Read live rather than captured when the filter is applied. If the arena is recreated

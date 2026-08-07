@@ -3,7 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.logging.filter;
 /**
  * Admits events inside the arena of the dimension the filter was applied in.
  *
- * <p>REQ-045. Bounds are resolved through {@link ArenaBounds} at evaluation time rather than
+ * <p>Bounds are resolved through {@link ArenaBounds} at evaluation time rather than
  * captured when the filter was applied, so recreating the arena moves the filtered region with
  * it. See {@link ArenaBounds} for why that matters.
  *

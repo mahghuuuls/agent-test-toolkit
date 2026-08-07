@@ -73,7 +73,7 @@ public final class ToolkitConfigLoader {
         } catch (RuntimeException e) {
             // A malformed configuration must not stop the toolkit loading. A toolkit that
             // refuses to start is useless for diagnosing whatever was actually being tested,
-            // so the failure is reported and defaults are used. REQ-110 forbids silence.
+            // so the failure is reported and defaults are used, never silently swallowed.
             problems.add("failed to read configuration, using defaults: "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
             current = ToolkitConfig.DEFAULTS;
@@ -98,7 +98,7 @@ public final class ToolkitConfigLoader {
         return load(gameConfigDir);
     }
 
-    /** Writes each problem as its own record. REQ-110: individually, never summarised away. */
+    /** Writes each problem as its own record, never summarised away. */
     public static void reportProblems(List<String> problems) {
         for (String problem : problems) {
             ToolkitLog.error("Configuration problem", problem);

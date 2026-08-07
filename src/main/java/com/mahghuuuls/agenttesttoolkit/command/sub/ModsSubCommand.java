@@ -11,7 +11,7 @@ import net.minecraft.util.text.TextComponentString;
 import java.util.List;
 
 /**
- * Lists every loaded mod to the log. REQ-081.
+ * Lists every loaded mod to the log.
  *
  * <p>Separate from {@code environment} because the intended runtimes carry 350 to 389 mods.
  * Folding several hundred entries into the environment summary would make the summary useless

@@ -21,7 +21,7 @@ import java.util.Locale;
 /**
  * Lists loaded bundles and shows what one contains.
  *
- * <p>REQ-021. {@code show} matters more than it looks: an agent that wrote a bundle file has no
+ * <p>{@code show} matters more than it looks: an agent that wrote a bundle file has no
  * other way to confirm the toolkit parsed it the way it intended, and a silently
  * misinterpreted delay or a dropped command would only surface as a confusing test result.
  */

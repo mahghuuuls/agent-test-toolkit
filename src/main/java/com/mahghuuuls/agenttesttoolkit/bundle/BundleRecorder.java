@@ -49,7 +49,7 @@ public final class BundleRecorder implements BundleExecution.Listener {
     /**
      * Reports a bundle abandoned because the server stopped.
      *
-     * <p>ARC-002 discards in-flight executions on shutdown. Doing so silently would leave a
+     * <p>In-flight executions are discarded on shutdown. Doing so silently would leave a
      * {@code BUNDLE_START} with no matching end, which is exactly the unpaired boundary the
      * empty-bundle case was fixed to avoid, and an agent reading the log would be left
      * wondering whether the bundle hung.
@@ -84,7 +84,7 @@ public final class BundleRecorder implements BundleExecution.Listener {
         record.add("stoppedEarly", execution.isStoppedEarly());
         record.add("durationTicks", execution.getDurationTicks());
         if (execution.isSenderLost()) {
-            // REQ-112 requires this to be stated, not inferred. A bundle that stops with no
+            // Stated, not inferred. A bundle that stops with no
             // failure record and no remaining commands would otherwise look like a clean run
             // that happened to be short.
             record.add("senderLost", true);

@@ -8,7 +8,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.text.TextComponentString;
 
 /**
- * Reports what the toolkit is running inside. REQ-080.
+ * Reports what the toolkit is running inside.
  *
  * <p>The mod list is not included. The runtimes this targets carry several hundred mods, and
  * folding them in would make the summary unusable for the case it exists to serve. See

@@ -3,7 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.proxy;
 /**
  * The server side of the sided proxy, and the reason the split exists.
  *
- * <p>REQ-147. Client only classes must never be reachable from common code, because a
+ * <p>Client only classes must never be reachable from common code, because a
  * dedicated server does not have them: touching one throws {@code NoClassDefFoundError} at
  * <b>load time</b>, before anything can catch it, and the server simply fails to start. It is
  * the most common way a Forge 1.12.2 mod breaks a dedicated server.

@@ -3,7 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.logging.filter;
 /**
  * Admits events within a radius of a fixed point.
  *
- * <p>REQ-046 anchors the radius to the player who applied the filter, captured once rather than
+ * <p>The radius is anchored to the player who applied the filter, captured once rather than
  * following them. Following the player would mean the filtered region moved during the test,
  * so an event could be recorded or not depending on where the operator happened to be standing
  * when it fired. A fixed anchor is reproducible; a moving one is not.

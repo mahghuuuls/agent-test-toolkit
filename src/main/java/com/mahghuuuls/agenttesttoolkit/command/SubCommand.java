@@ -28,7 +28,7 @@ public interface SubCommand {
     /**
      * Whether this subcommand needs a player sender.
      *
-     * <p>REQ-005: a subcommand requiring a player must fail with an explicit error when
+     * <p>A subcommand requiring a player must fail with an explicit error when
      * invoked from the console or a command block, rather than failing obscurely later.
      */
     boolean requiresPlayer();

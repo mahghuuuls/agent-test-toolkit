@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 
 /**
- * Runs a configured bundle when an operator joins. REQ-145.
+ * Runs a configured bundle when an operator joins.
  *
  * <h2>Two gates, not one</h2>
  *
@@ -44,8 +44,8 @@ public final class JoinAutomation {
         String name = config.getJoinBundleName();
         if (name.isEmpty()) {
             // Enabled with nothing configured. Reported rather than ignored: someone who turned
-            // this on and saw nothing happen deserves to know why, and REQ-110 forbids a silent
-            // no-op where the operator asked for an action.
+            // this on and saw nothing happen deserves to know why, and a silent no-op where
+            // the operator asked for an action is never acceptable.
             ToolkitLog.error("Join execution is enabled but no bundle is configured",
                     "set join.bundle in devtool.cfg");
             return;
@@ -69,7 +69,7 @@ public final class JoinAutomation {
             BundleRecorder.recordStart(execution);
             Bundles.scheduler().submit(execution);
         } catch (RuntimeException e) {
-            // REQ-145: a failure here must never prevent the join from completing. A player
+            // A failure here must never prevent the join from completing. A player
             // kept out of their own world by a diagnostic tool is a far worse outcome than a
             // setup routine that did not run.
             ToolkitLog.error("Join bundle could not be started",

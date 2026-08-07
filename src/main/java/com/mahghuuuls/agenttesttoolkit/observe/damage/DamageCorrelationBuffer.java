@@ -13,7 +13,7 @@ import java.util.List;
  * or hits an invulnerable target never reaches it. Emitting there would silently drop exactly
  * the case an agent most needs, where a mod believes it dealt damage and nothing happened.
  * Holding entries and flushing at the end of the tick means every observed attempt produces a
- * record, including the ones that went nowhere. ARC-003.
+ * record, including the ones that went nowhere.
  *
  * <h2>Why a list rather than one slot per target</h2>
  *
@@ -73,8 +73,8 @@ public final class DamageCorrelationBuffer<T> {
      * about to be unloaded, and the observer is registered permanently, so without this a
      * crash between the attack stage and the tick-end flush would leave stale entries to be
      * emitted on the first tick of whatever world loads next, describing a dimension and
-     * entity that no longer exist. ARC-002 establishes this precedent for in-flight bundle
-     * executions, which are the same kind of server-bound transient state.
+     * entity that no longer exist. In-flight bundle executions are discarded for the same
+     * reason: both are server-bound transient state.
      *
      * @return how many entries were discarded
      */
