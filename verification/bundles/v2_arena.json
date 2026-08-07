@@ -1,0 +1,109 @@
+{
+  "v2_arena_lifecycle": {
+    "description": "Full arena cycle at an explicit size. ARENA_CREATE must report blocksChanged well above zero and respawnSet=true.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v2_lifecycle_BEGIN",
+      "devtool arena create 9 5 9 minecraft:stone",
+      "devtool arena info",
+      "devtool arena reset",
+      "devtool arena info",
+      "devtool arena clear",
+      "devtool arena info",
+      "devtool mark v2_lifecycle_END"
+    ]
+  },
+
+  "v2_arena_defaults": {
+    "description": "No size given, so the configured default 21x11x21 quartz applies. Check the reported dimensions match the config.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v2_defaults_BEGIN",
+      "devtool arena create",
+      "devtool arena info",
+      "devtool mark v2_defaults_END"
+    ]
+  },
+
+  "v2_arena_replace": {
+    "description": "One arena per dimension. Creating a second must replace the record, not add one.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v2_replace_BEGIN",
+      "devtool arena create 7 4 7 minecraft:stone",
+      "devtool arena info",
+      "devtool arena create 11 6 11 minecraft:glass",
+      "devtool arena info",
+      "devtool mark v2_replace_END"
+    ]
+  },
+
+  "v2_arena_boundary": {
+    "description": "64 is the configured maximum and must succeed; 65 must fail. Run them together so the pair is visible in one place.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v2_boundary_BEGIN",
+      "devtool arena create 64 5 5 minecraft:stone",
+      "devtool arena create 65 5 5 minecraft:stone",
+      "devtool arena create 5 65 5 minecraft:stone",
+      "devtool arena create 5 5 65 minecraft:stone",
+      "devtool mark v2_boundary_END"
+    ]
+  },
+
+  "v2_arena_smallest": {
+    "description": "A one-block interior. The centring arithmetic is most likely to be wrong at the extreme.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v2_smallest_BEGIN",
+      "devtool arena create 3 3 3 minecraft:stone",
+      "devtool arena info",
+      "devtool mark v2_smallest_END"
+    ]
+  },
+
+  "v2_arena_even_sizes": {
+    "description": "Even dimensions round one way and must do so consistently. Compare the two info records.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v2_even_BEGIN",
+      "devtool arena create 10 6 10 minecraft:stone",
+      "devtool arena info",
+      "devtool arena create 10 6 10 minecraft:stone",
+      "devtool arena info",
+      "devtool mark v2_even_END"
+    ]
+  },
+
+  "v2_arena_reset_idempotent": {
+    "description": "Reset twice must leave the same state. A setup bundle may reset on every run.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v2_idempotent_BEGIN",
+      "devtool arena create 9 5 9 minecraft:stone",
+      "summon minecraft:pig ~ ~1 ~",
+      "summon minecraft:pig ~ ~1 ~",
+      "devtool arena reset",
+      "devtool arena reset",
+      "devtool arena info",
+      "devtool mark v2_idempotent_END"
+    ]
+  },
+
+  "v2_arena_clears_entities": {
+    "description": "Reset must remove non-player entities inside the bounds and leave the player alone.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v2_entities_BEGIN",
+      "devtool arena create 11 6 11 minecraft:stone",
+      "summon minecraft:pig ~ ~1 ~",
+      "summon minecraft:pig ~ ~1 ~",
+      "summon minecraft:chicken ~ ~1 ~",
+      "devtool entities nearby 8",
+      "devtool arena reset",
+      "devtool entities nearby 8",
+      "devtool inspect player",
+      "devtool mark v2_entities_END"
+    ]
+  }
+}

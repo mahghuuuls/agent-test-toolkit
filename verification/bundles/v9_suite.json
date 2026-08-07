@@ -1,0 +1,81 @@
+{
+  "v9_suite_fast": {
+    "description": "Everything that needs no delays and no manual action. One command to sweep the command surface. Depth stays at 2, so the nesting limit is not involved.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v9_SUITE_FAST_BEGIN",
+      "devtool run v1_readonly",
+      "devtool run v1_player_sender",
+      "devtool run v1_session",
+      "devtool run v1_session_replace",
+      "devtool run v1_reload_preserves",
+      "devtool run v2_arena_lifecycle",
+      "devtool run v2_arena_defaults",
+      "devtool run v2_arena_replace",
+      "devtool run v2_arena_boundary",
+      "devtool run v2_arena_smallest",
+      "devtool run v2_arena_even_sizes",
+      "devtool run v3_all_categories_on",
+      "devtool run v3_toggle_idempotent",
+      "devtool run v3_radius_filter",
+      "devtool run v3_arena_filter",
+      "devtool run v3_filter_survives_disable",
+      "devtool run v3_rejected_filter_changes_nothing",
+      "devtool run v6_inspect_self_variants",
+      "devtool run v6_entities_radii",
+      "devtool mark v9_SUITE_FAST_END"
+    ]
+  },
+
+  "v9_suite_failures": {
+    "description": "Every deliberate-failure bundle. Each child failure counts as one failed command here, so expect this parent to report several failures. That is correct.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v9_SUITE_FAILURES_BEGIN",
+      "devtool run v7_false_success",
+      "devtool run v7_must_fail_devtool",
+      "devtool run v7_must_fail_selectors",
+      "devtool run v7_relative_coords_succeed",
+      "devtool run v7_must_fail_vanilla",
+      "devtool run v7_must_succeed_no_effect",
+      "devtool run v7_mixed",
+      "devtool mark v9_SUITE_FAILURES_END"
+    ]
+  },
+
+  "v9_suite_mechanics": {
+    "description": "Delays, nesting, cycles and stop-on-failure. Takes a few seconds because of the delays.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v9_SUITE_MECHANICS_BEGIN",
+      "devtool run v4_delay_spacing",
+      "devtool run v4_delay_end_is_last",
+      "devtool run v4_delay_zero",
+      "devtool run v4_nest_parent",
+      "devtool run v4_nest_delayed_child",
+      "devtool run v4_child_failure_counts_once",
+      "devtool run v4_stop_on_failure_true",
+      "devtool run v4_stop_on_failure_false",
+      "devtool run v4_cycle_a",
+      "devtool run v4_self_cycle",
+      "devtool run v4_empty",
+      "devtool mark v9_SUITE_MECHANICS_END"
+    ]
+  },
+
+  "v9_suite_world": {
+    "description": "The ones that place blocks and summon entities. Run standing somewhere disposable near world spawn.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v9_SUITE_WORLD_BEGIN",
+      "devtool run v2_arena_reset_idempotent",
+      "devtool run v2_arena_clears_entities",
+      "devtool run v6_inspect_block",
+      "devtool run v6_inspect_entity",
+      "devtool run v6_inventory_states",
+      "devtool run v6_nbt_truncation",
+      "devtool run v8_spawn_noise",
+      "devtool mark v9_SUITE_WORLD_END"
+    ]
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "v8_observe_setup": {
+    "description": "Arms every observer category and builds an arena to act inside. Run this, then perform the manual actions in the checklist, then run v8_observe_teardown.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool session start v8_observers",
+      "devtool arena create 21 8 21 minecraft:stone",
+      "devtool log block_place on",
+      "devtool log block_break on",
+      "devtool log entity_spawn on",
+      "devtool log entity_death on",
+      "devtool log entity_damage on",
+      "devtool log player_interaction on",
+      "devtool log entity_interaction on",
+      "devtool log item_use on",
+      "devtool log status",
+      "clear @p",
+      "give @p minecraft:stone 64",
+      "give @p minecraft:diamond_sword 1",
+      "give @p minecraft:bread 16",
+      "give @p minecraft:wooden_door 4",
+      "give @p minecraft:spawn_egg 8 90",
+      "devtool mark v8_MANUAL_ACTIONS_START_HERE"
+    ]
+  },
+
+  "v8_observe_teardown": {
+    "description": "Closes the manual observation window and disables everything.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v8_MANUAL_ACTIONS_END_HERE",
+      "devtool log status",
+      "devtool log all off",
+      "devtool session stop"
+    ]
+  },
+
+  "v8_spawn_noise": {
+    "description": "Items and experience orbs are excluded from spawn records by default. Summons both plus a mob: only the mob should appear as a spawn.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool log all off",
+      "devtool log entity_spawn on",
+      "devtool mark v8_spawnnoise_BEGIN",
+      "summon minecraft:item ~ ~1 ~ {Item:{id:\"minecraft:stone\",Count:1b}}",
+      "summon minecraft:xp_orb ~ ~1 ~ {Value:5s}",
+      "summon minecraft:pig ~ ~1 ~ {CustomName:\"v8noise\"}",
+      "devtool mark v8_spawnnoise_END",
+      "kill @e[name=v8noise]",
+      "devtool log all off"
+    ]
+  },
+
+  "v8_damage_correlation": {
+    "description": "One damage attempt must produce exactly ONE record, not three. Summons a pig and hurts it with a command.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool log all off",
+      "devtool log entity_damage on",
+      "devtool log entity_death on",
+      "devtool mark v8_damage_BEGIN",
+      "summon minecraft:pig ~ ~1 ~ {CustomName:\"v8dmg\",Health:20.0f}",
+      { "command": "effect @e[name=v8dmg] minecraft:instant_damage 1 0", "delayTicks": 20 },
+      { "command": "devtool mark v8_damage_END", "delayTicks": 20 },
+      "kill @e[name=v8dmg]",
+      "devtool log all off"
+    ]
+  },
+
+  "v8_death_single_record": {
+    "description": "A player death travels a path that posts the death event twice. This kills a mob and then the player: each must produce exactly one ENTITY_DEATH record.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool log all off",
+      "devtool log entity_death on",
+      "devtool mark v8_death_BEGIN",
+      "summon minecraft:pig ~ ~1 ~ {CustomName:\"v8death\"}",
+      { "command": "kill @e[name=v8death]", "delayTicks": 10 },
+      { "command": "devtool mark v8_death_MOB_DONE_PLAYER_NEXT", "delayTicks": 10 },
+      { "command": "kill @p", "delayTicks": 10 },
+      { "command": "devtool mark v8_death_END", "delayTicks": 20 },
+      "devtool log all off"
+    ]
+  }
+}

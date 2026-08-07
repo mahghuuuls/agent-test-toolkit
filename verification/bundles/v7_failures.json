@@ -1,0 +1,90 @@
+{
+  "v7_false_success": {
+    "description": "ISOLATED regression check for the commands that report success while doing nothing. Correct is executed=4 failed=2. Any lower failed count means a command reported success for work it never did.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v7_falsesuccess_BEGIN",
+      "devtool notasubcommand",
+      "devtool session notanaction",
+      "devtool mark v7_falsesuccess_END"
+    ]
+  },
+
+  "v7_must_fail_devtool": {
+    "description": "Every toolkit command here must be counted as failed. Expect executed=11 failed=11.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v7_devtool_BEGIN",
+      "devtool notasubcommand",
+      "devtool arena notanaction",
+      "devtool arena create 9999 9999 9999",
+      "devtool session notanaction",
+      "devtool log notacategory on",
+      "devtool log block_place on notafilter",
+      "devtool log block_place on radius notanumber",
+      "devtool bundle show does_not_exist",
+      "devtool run does_not_exist",
+      "devtool inspect notatarget",
+      "devtool nbt notatarget",
+      "devtool mark v7_devtool_END"
+    ]
+  },
+
+  "v7_must_fail_selectors": {
+    "description": "A selector matching nothing is an error, not an invitation to pick one. Expect executed=4 failed=2.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v7_selectors_BEGIN",
+      "devtool inspect entity @e[name=absolutely_no_entity_named_this]",
+      "devtool nbt entity @e[name=absolutely_no_entity_named_this]",
+      "devtool mark v7_selectors_END"
+    ]
+  },
+
+  "v7_relative_coords_succeed": {
+    "description": "Relative coordinates from a PLAYER sender resolve against their position and must SUCCEED. Only a console sender, which has no meaningful position, is refused. Expect executed=4 failed=0.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v7_relative_BEGIN",
+      "devtool inspect block ~ ~ ~",
+      "devtool nbt block ~ ~ ~",
+      "devtool mark v7_relative_END"
+    ]
+  },
+
+  "v7_must_fail_vanilla": {
+    "description": "Vanilla command failures must be classified as failures too. Expect all three failed.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v7_vanilla_BEGIN",
+      "thisisnotavanillacommand",
+      "setblock 0 100 0 minecraft:not_a_real_block",
+      "gamemode notamode @p",
+      "devtool mark v7_vanilla_END"
+    ]
+  },
+
+  "v7_must_succeed_no_effect": {
+    "description": "The opposite rule. A command that runs and changes nothing has SUCCEEDED. Expect executed=3 failed=0. If this reports a failure, teardown bundles become unusable on their second run.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v7_noeffect_BEGIN",
+      "kill @e[name=nothing_is_named_this_xyz]",
+      "devtool mark v7_noeffect_END"
+    ]
+  },
+
+  "v7_mixed": {
+    "description": "Failures interleaved with successes, to confirm the counters do not drift. Expect executed=7 failed=3.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v7_mixed_1_ok",
+      "devtool notasubcommand",
+      "devtool mark v7_mixed_2_ok",
+      "devtool run does_not_exist",
+      "devtool mark v7_mixed_3_ok",
+      "devtool arena create 9999 9999 9999",
+      "devtool mark v7_mixed_4_ok"
+    ]
+  }
+}

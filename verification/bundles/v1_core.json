@@ -1,0 +1,76 @@
+{
+  "v1_readonly": {
+    "description": "Every read-only command. Each must emit its own record between the two marks.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v1_readonly_BEGIN",
+      "devtool environment",
+      "devtool capabilities",
+      "devtool mods",
+      "devtool help",
+      "devtool session status",
+      "devtool log status",
+      "devtool bundle list",
+      "devtool arena info",
+      "devtool mark v1_readonly_END"
+    ]
+  },
+
+  "v1_player_sender": {
+    "description": "The commands that silently did nothing when run from a bundle. Every one needs a real player behind a wrapped sender.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v1_player_sender_BEGIN",
+      "devtool inspect player",
+      "devtool inspect inventory",
+      "devtool entities nearby 8",
+      "devtool nbt held",
+      "devtool mark v1_player_sender_END"
+    ]
+  },
+
+  "v1_session": {
+    "description": "Session lifecycle. Records after the start must carry session and sessionTick; records after the stop must not.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v1_session_BEFORE_START",
+      "devtool session start v1_session_test",
+      "devtool session status",
+      "devtool mark v1_session_INSIDE",
+      "devtool environment",
+      "devtool session stop",
+      "devtool mark v1_session_AFTER_STOP",
+      "devtool session status"
+    ]
+  },
+
+  "v1_session_replace": {
+    "description": "Starting a session while one is active must stop the previous one first, emitting its SESSION_STOP, rather than erroring.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool session start v1_first",
+      "devtool mark v1_inside_first",
+      "devtool session start v1_second",
+      "devtool mark v1_inside_second",
+      "devtool session stop"
+    ]
+  },
+
+  "v1_reload_preserves": {
+    "description": "Reload must not disturb an active session or enabled categories. Compare status before and after.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool session start v1_reload_probe",
+      "devtool log block_place on",
+      "devtool mark v1_reload_BEFORE",
+      "devtool session status",
+      "devtool log status",
+      "devtool reload",
+      "devtool mark v1_reload_AFTER",
+      "devtool session status",
+      "devtool log status",
+      "devtool log all off",
+      "devtool session stop"
+    ]
+  }
+}

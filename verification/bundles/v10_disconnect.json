@@ -1,0 +1,33 @@
+{
+  "v10_disconnect_child": {
+    "description": "Called by v10_disconnect_parent. Fifteen seconds of marks, five seconds apart, so there is time to disconnect while it is running.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v10_child_AT_00s",
+      { "command": "devtool mark v10_child_AT_15s", "delayTicks": 300 },
+      { "command": "devtool mark v10_child_AT_30s", "delayTicks": 300 },
+      { "command": "devtool mark v10_child_AT_45s", "delayTicks": 300 }
+    ]
+  },
+
+  "v10_disconnect_parent": {
+    "description": "The nested-sender check. A nested execution used to hold the parent's wrapped sender instead of re-resolving the player by UUID, so isSenderAvailable kept answering true after the player had gone and the child ran to completion against nobody. Start this, then quit to the server list within about five seconds. The child must stop with senderLost=true rather than finish.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v10_parent_BEGIN",
+      "devtool run v10_disconnect_child",
+      "devtool mark v10_parent_AFTER_CHILD"
+    ]
+  },
+
+  "v10_disconnect_flat": {
+    "description": "The same shape without nesting, as a control. This path always re-resolved correctly, so it should behave identically. If the nested one differs from this, the difference is the defect.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v10_flat_AT_00s",
+      { "command": "devtool mark v10_flat_AT_15s", "delayTicks": 300 },
+      { "command": "devtool mark v10_flat_AT_30s", "delayTicks": 300 },
+      { "command": "devtool mark v10_flat_AT_45s", "delayTicks": 300 }
+    ]
+  }
+}

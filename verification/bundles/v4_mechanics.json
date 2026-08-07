@@ -1,0 +1,142 @@
+{
+  "v4_delay_spacing": {
+    "description": "Two 20-tick delays must land about 40 ticks apart in total, not together. BUNDLE_END durationTicks should be near 40, not near 20.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v4_delay_t0",
+      { "command": "devtool mark v4_delay_t20", "delayTicks": 20 },
+      { "command": "devtool mark v4_delay_t40", "delayTicks": 20 }
+    ]
+  },
+
+  "v4_delay_end_is_last": {
+    "description": "BUNDLE_END must come after the final delayed command, never before it.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v4_end_first",
+      { "command": "devtool mark v4_end_LAST_BEFORE_BUNDLE_END", "delayTicks": 40 }
+    ]
+  },
+
+  "v4_delay_zero": {
+    "description": "An explicit zero delay must behave exactly like no delay. Duration should be about 0.",
+    "stopOnFailure": true,
+    "commands": [
+      { "command": "devtool mark v4_zero_a", "delayTicks": 0 },
+      { "command": "devtool mark v4_zero_b", "delayTicks": 0 }
+    ]
+  },
+
+  "v4_nest_child": {
+    "description": "Called by v4_nest_parent.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v4_child_ran",
+      "devtool inspect player"
+    ]
+  },
+
+  "v4_nest_parent": {
+    "description": "Parent must park until the child finishes. Order must be parent_before, child_ran, parent_after.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v4_parent_BEFORE",
+      "devtool run v4_nest_child",
+      "devtool mark v4_parent_AFTER"
+    ]
+  },
+
+  "v4_nest_delayed_child": {
+    "description": "A child that spans ticks must still block the parent. parent_AFTER must appear after the child's delayed mark.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v4_delayparent_BEFORE",
+      "devtool run v4_delayed_child",
+      "devtool mark v4_delayparent_AFTER"
+    ]
+  },
+
+  "v4_delayed_child": {
+    "description": "Called by v4_nest_delayed_child.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v4_delaychild_first",
+      { "command": "devtool mark v4_delaychild_LAST", "delayTicks": 30 }
+    ]
+  },
+
+  "v4_child_failure_counts_once": {
+    "description": "A failing child must count as exactly ONE failed command in the parent. Parent has stopOnFailure false so it continues.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v4_childfail_BEFORE",
+      "devtool run v4_failing_child",
+      "devtool mark v4_childfail_AFTER"
+    ]
+  },
+
+  "v4_failing_child": {
+    "description": "Called by v4_child_failure_counts_once. Fails deliberately.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v4_failchild_ran",
+      "devtool notasubcommand_child",
+      "devtool mark v4_failchild_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v4_stop_on_failure_true": {
+    "description": "Must halt at the bad command. The mark after it must NOT appear, and stoppedEarly must be true.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark v4_stop_BEFORE",
+      "devtool arena create 9999 9999 9999",
+      "devtool mark v4_stop_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v4_stop_on_failure_false": {
+    "description": "Must run past the bad command. Both marks must appear and failed must be 1.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v4_continue_BEFORE",
+      "devtool arena create 9999 9999 9999",
+      "devtool mark v4_continue_AFTER"
+    ]
+  },
+
+  "v4_cycle_a": {
+    "description": "Calls b, which calls back into a. The cycle must be refused explicitly, with no recursion and no crash.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v4_cycle_BEGIN",
+      "devtool run v4_cycle_b",
+      "devtool mark v4_cycle_END"
+    ]
+  },
+
+  "v4_cycle_b": {
+    "description": "Calls back into a.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v4_cycle_b_ran",
+      "devtool run v4_cycle_a"
+    ]
+  },
+
+  "v4_self_cycle": {
+    "description": "A bundle that calls itself. The simplest cycle, must be refused.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v4_self_BEGIN",
+      "devtool run v4_self_cycle",
+      "devtool mark v4_self_END"
+    ]
+  },
+
+  "v4_empty": {
+    "description": "An empty command list is legal. It must still emit a matching BUNDLE_START and BUNDLE_END pair.",
+    "stopOnFailure": true,
+    "commands": []
+  }
+}

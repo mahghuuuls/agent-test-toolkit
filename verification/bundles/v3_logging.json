@@ -1,0 +1,93 @@
+{
+  "v3_all_categories_on": {
+    "description": "Enable every category, confirm status lists all eight, then disable all.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v3_all_on_BEGIN",
+      "devtool log block_place on",
+      "devtool log block_break on",
+      "devtool log entity_spawn on",
+      "devtool log entity_death on",
+      "devtool log entity_damage on",
+      "devtool log player_interaction on",
+      "devtool log entity_interaction on",
+      "devtool log item_use on",
+      "devtool log status",
+      "devtool log all off",
+      "devtool log status",
+      "devtool mark v3_all_on_END"
+    ]
+  },
+
+  "v3_toggle_idempotent": {
+    "description": "Enabling twice and disabling twice must be harmless and must not double-report.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v3_toggle_BEGIN",
+      "devtool log block_place on",
+      "devtool log block_place on",
+      "devtool log status",
+      "devtool log block_place off",
+      "devtool log block_place off",
+      "devtool log status",
+      "devtool mark v3_toggle_END"
+    ]
+  },
+
+  "v3_radius_filter": {
+    "description": "Radius filter applies, is reported by status, and survives until cleared.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v3_radius_BEGIN",
+      "devtool log block_place on radius 12",
+      "devtool log status",
+      "devtool log block_break on radius 0",
+      "devtool log status",
+      "devtool log all off",
+      "devtool log status",
+      "devtool mark v3_radius_END"
+    ]
+  },
+
+  "v3_arena_filter": {
+    "description": "Arena filter needs an arena. Creates one first, applies the filter, then confirms status names it.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v3_arenafilter_BEGIN",
+      "devtool arena create 15 6 15 minecraft:stone",
+      "devtool log entity_spawn on arena",
+      "devtool log status",
+      "devtool log all off",
+      "devtool mark v3_arenafilter_END"
+    ]
+  },
+
+  "v3_filter_survives_disable": {
+    "description": "A filter is deliberately NOT cleared by a plain off. Re-enabling must bring the operator's filter back.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v3_survives_BEGIN",
+      "devtool log block_place on radius 20",
+      "devtool log status",
+      "devtool log block_place off",
+      "devtool log block_place on",
+      "devtool log status",
+      "devtool log all off",
+      "devtool log status",
+      "devtool mark v3_survives_END"
+    ]
+  },
+
+  "v3_rejected_filter_changes_nothing": {
+    "description": "A rejected filter must leave the category exactly as it was. The arena filter here is applied with no arena present, so it must fail and block_break must stay OFF.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v3_rejected_BEGIN",
+      "devtool arena clear",
+      "devtool log all off",
+      "devtool log block_break on arena",
+      "devtool log status",
+      "devtool mark v3_rejected_END"
+    ]
+  }
+}

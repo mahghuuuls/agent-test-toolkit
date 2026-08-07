@@ -1,0 +1,81 @@
+{
+  "v6_inspect_block": {
+    "description": "Places a chest two blocks above the player, inspects it and dumps its NBT, then removes it. Position independent, so it works wherever you are standing.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v6_block_BEGIN",
+      "setblock ~ ~2 ~ minecraft:chest",
+      "devtool inspect block ~ ~2 ~",
+      "devtool nbt block ~ ~2 ~",
+      "setblock ~ ~2 ~ minecraft:air",
+      "devtool mark v6_block_END"
+    ]
+  },
+
+  "v6_inspect_entity": {
+    "description": "Summons a named pig, inspects it by selector, dumps its NBT, then removes it.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v6_entity_BEGIN",
+      "summon minecraft:pig ~ ~1 ~ {CustomName:\"v6probe\"}",
+      "devtool entities nearby 32",
+      "devtool inspect entity @e[name=v6probe]",
+      "devtool nbt entity @e[name=v6probe]",
+      "kill @e[name=v6probe]",
+      "devtool mark v6_entity_END"
+    ]
+  },
+
+  "v6_inspect_self_variants": {
+    "description": "Player inspection with and without an explicit selector. Both must produce a PLAYER_INSPECT record.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v6_self_BEGIN",
+      "devtool inspect player",
+      "devtool inspect player @p",
+      "devtool inspect inventory",
+      "devtool inspect inventory @p",
+      "devtool mark v6_self_END"
+    ]
+  },
+
+  "v6_inventory_states": {
+    "description": "Inventory with items and after clearing. occupiedSlots must be an explicit number in both cases, including zero.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v6_inv_BEGIN",
+      "clear @p",
+      "devtool inspect inventory",
+      "give @p minecraft:diamond_sword 1",
+      "give @p minecraft:stone 64",
+      "devtool inspect inventory",
+      "devtool nbt held",
+      "devtool mark v6_inv_END"
+    ]
+  },
+
+  "v6_entities_radii": {
+    "description": "Entity listing at several radii. Counts should grow, and an empty result must still emit a record with an explicit count.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v6_radii_BEGIN",
+      "devtool entities nearby 0",
+      "devtool entities nearby 4",
+      "devtool entities nearby 16",
+      "devtool entities nearby 64",
+      "devtool mark v6_radii_END"
+    ]
+  },
+
+  "v6_nbt_truncation": {
+    "description": "Gives an item with a large NBT tag to push the dump toward the 8192 limit. If truncated is true, truncated and the two lengths must all be present.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark v6_trunc_BEGIN",
+      "clear @p",
+      "give @p minecraft:written_book 1 0 {title:\"t\",author:\"a\",pages:[\"{\\\"text\\\":\\\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\\\"}\"]}",
+      "devtool nbt held",
+      "devtool mark v6_trunc_END"
+    ]
+  }
+}
