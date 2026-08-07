@@ -29,13 +29,15 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
  * <p>Grouped in one class because they share the same shape: gate, stamp, record. Splitting them
  * per category would multiply the boilerplate without separating anything that varies.
  *
- * <p>Every event choice here was settled by IMP-004 against the Forge 1.12.2 sources, and three
+ * <p>Every event choice here was settled against the Forge 1.12.2 sources, and three
  * of them are counter-intuitive enough that the reasoning is repeated at each handler. Picking
  * the obvious event instead would produce a log that is quietly wrong rather than obviously
  * broken, which is the worst failure mode this project has.
  *
- * <p>ARC-006: registered permanently, gated on a boolean. Dependency rule 3: this package reads
- * only {@code logging} and {@code state}.
+ * <p>Handlers are registered once at startup and left registered, gated on a boolean rather
+ * than subscribed and unsubscribed as categories are toggled. This package reads only
+ * {@code logging} and {@code state}, and must not grow a dependency on {@code command} or
+ * {@code session}.
  */
 public final class DiscreteActionObserver {
 
@@ -47,7 +49,7 @@ public final class DiscreteActionObserver {
      * {@code EntityInteractSpecific} <b>twice</b>, in the same tick, differing only by hand. The
      * log showed exact pairs at eight consecutive ticks.
      *
-     * <p>REQ-036 asks for one record per logical action, and two hands attempting one click is
+     * <p>The log carries one record per logical action, and two hands attempting one click is
      * one action. Carrying a {@code hand} field and calling it explained would have been an
      * excuse rather than a fix: an agent counting interactions would still count double.
      *
@@ -98,7 +100,7 @@ public final class DiscreteActionObserver {
     /**
      * Entity death.
      *
-     * <p>IMP-004 correction 4: one player death travelling the {@code EntityPlayer} path posts
+     * <p>Verified in the sources: one player death travelling the {@code EntityPlayer} path posts
      * {@code LivingDeathEvent} <b>twice</b>. A mob death posts once, and a server player death
      * through {@code EntityPlayerMP} posts once. The server-side filter is therefore not
      * defensive boilerplate here, it is what keeps player deaths from being recorded twice.
@@ -141,7 +143,7 @@ public final class DiscreteActionObserver {
     /**
      * Left-clicking a block.
      *
-     * <p>IMP-004 correction: when a {@code LeftClickBlock} is <b>cancelled</b> and the player
+     * <p>Verified in the sources: when a {@code LeftClickBlock} is <b>cancelled</b> and the player
      * holds the mouse down, the event keeps firing, because of how vanilla calls the left-click
      * handlers. Recording cancelled events would therefore emit a stream of records for one
      * held button. Skipping cancelled events removes that entirely, and is also correct on its
@@ -182,7 +184,7 @@ public final class DiscreteActionObserver {
     /**
      * Right-clicking an entity.
      *
-     * <p>IMP-004 correction 2, and the opposite of the obvious choice.
+     * <p>The opposite of the obvious choice.
      * {@code EntityInteractSpecific} fires on <b>every</b> right-click on an entity;
      * {@code EntityInteract} fires only when the specific event's result was not
      * {@code SUCCESS}. Subscribing to {@code EntityInteract}, which reads as the more general

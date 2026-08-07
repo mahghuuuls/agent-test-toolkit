@@ -7,14 +7,14 @@ import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
  *
  * <h2>Why this lives in {@code state}</h2>
  *
- * <p>REQ-053 requires session identity on records emitted from everywhere, including event
- * observers. Dependency rule 3 forbids {@code observe} from depending on {@code session}, so
- * observers cannot call the session package directly.
+ * <p>Records emitted from anywhere carry the session identity, including those from event
+ * observers. But {@code observe} is not allowed to depend on {@code session}, so observers
+ * cannot call the session package directly.
  *
  * <p>The obvious alternative, putting this next to {@code RecordContext} in {@code logging},
- * does not work either: it would make {@code logging} read {@code state}, and rule 2 permits
- * that dependency only in the direction {@code state} to {@code logging}. Placing it the other
- * way would recreate the package cycle that IMP-002's review already had to remove once.
+ * does not work either: it would make {@code logging} read {@code state}, and that dependency
+ * is only allowed in the direction {@code state} to {@code logging}. Placing it the other way
+ * would recreate a package cycle that an earlier review already had to remove once.
  *
  * <p>{@code state} is the one package that can legally do this. It already depends on
  * {@code logging}, and every subsystem may depend on it. Reading the current session and
@@ -30,8 +30,8 @@ public final class SessionStamp {
     /**
      * Adds {@code session} and {@code sessionTick} when a session is active.
      *
-     * <p>REQ-053 and REQ-054: with no session active both fields are omitted entirely rather
-     * than filled with a placeholder, and whatever is being recorded still works.
+     * <p>With no session active both fields are omitted entirely rather than filled with a
+     * placeholder, and whatever is being recorded still works.
      *
      * @return the same record, for chaining
      */

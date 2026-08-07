@@ -33,12 +33,18 @@ import java.util.Map;
 /**
  * The toolkit's single root command.
  *
- * <p>REQ-001 fixes one root command plus one unique alias. The alias is insurance: in a pack
- * of several hundred mods a generic name like {@code devtool} could plausibly be claimed by
- * another mod, and a tester who cannot reach the root command has no way to diagnose why.
- * Whether the alias actually survives such a collision is still open, tracked as IMP-019.
+ * <p>One root command plus one unique alias. The alias is insurance: in a pack of several
+ * hundred mods a generic name like {@code devtool} could plausibly be claimed by another mod,
+ * and a tester who cannot reach the root command has no way to diagnose why.
  *
- * <p>Every subcommand requires operator permission and there is exactly one tier, per REQ-003.
+ * <p>The alias does survive that collision, which was checked rather than assumed.
+ * {@code CommandHandler#registerCommand} puts a command's primary name into the map
+ * unconditionally, so a mod registering its own {@code devtool} after this one replaces the
+ * root. Aliases are guarded: an alias is only stored when the existing entry is absent or is
+ * not itself some command's primary name. So {@code /att} keeps reaching this command, and
+ * conversely this mod's alias can never displace another mod's real command.
+ *
+ * <p>Every subcommand requires operator permission and there is exactly one tier.
  * Permission level 2 is used, matching vanilla gameplay commands such as {@code /gamemode}
  * and {@code /summon}, which is the level a tester already holds.
  */
@@ -98,13 +104,13 @@ public final class DevToolCommand extends CommandBase {
 
     @Override
     public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-        // REQ-002: the bare command behaves as help rather than as an error. An agent or a
+        // The bare command behaves as help rather than as an error. An agent or a
         // human who types the root name should be shown the way forward, not a usage failure.
         String name = (args.length == 0) ? "help" : args[0].toLowerCase(java.util.Locale.ROOT);
 
         SubCommand sub = subCommands.get(name);
         if (sub == null) {
-            // REQ-110: never silent. The error reaches the log with enough context to identify
+            // Never silent. The error reaches the log with enough context to identify
             // the cause, and the sender gets a short message.
             ToolkitLog.error("Unknown subcommand", name);
             sender.sendMessage(new TextComponentString(
@@ -112,7 +118,7 @@ public final class DevToolCommand extends CommandBase {
             return;
         }
 
-        // REQ-005: fail explicitly rather than obscurely when a player sender is required.
+        // Fail explicitly rather than obscurely when a player sender is required.
         if (sub.requiresPlayer() && !Senders.isPlayer(sender)) {
             ToolkitLog.error("Subcommand requires a player sender", sub.getName());
             sender.sendMessage(new TextComponentString(

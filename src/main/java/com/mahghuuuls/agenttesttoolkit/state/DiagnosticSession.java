@@ -4,7 +4,7 @@ package com.mahghuuuls.agenttesttoolkit.state;
  * One named grouping of toolkit records belonging to a single manual test attempt.
  *
  * <p>A session asserts nothing. It has no expected result, no verdict, and no pass or fail
- * concept, per REQ-055 and the project's facts-not-conclusions boundary. Its only job is to
+ * concept: the toolkit records facts and leaves conclusions to the reader. Its only job is to
  * let a human or an agent find the region of {@code latest.log} that belongs to one attempt.
  *
  * <p>The tick counter advances once per server tick while a server is running. It therefore
@@ -14,9 +14,9 @@ package com.mahghuuuls.agenttesttoolkit.state;
  *
  * <p>Lives in {@code state} rather than {@code session} to keep the dependency graph acyclic.
  * {@code ToolkitState} holds one of these, and {@code session} depends on {@code state}; if
- * this class lived in {@code session} the two packages would depend on each other, violating
- * dependency rule 6. The architecture already assigns "active session" to {@code state} as
- * data, while {@code session} keeps the lifecycle rules that operate on it.
+ * this class lived in {@code session} the two packages would depend on each other. The split
+ * is deliberate: {@code state} holds "active session" as data, while {@code session} keeps the
+ * lifecycle rules that operate on it.
  *
  * <p>Deliberately free of Minecraft types so its behavior is unit testable without a game.
  */

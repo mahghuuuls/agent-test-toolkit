@@ -7,18 +7,18 @@ import net.minecraft.world.World;
  * Stamps the runtime context fields that every record carries: the logical side and the
  * world tick.
  *
- * <p>REQ-041 fixes {@code side}. In v1 the toolkit only observes the logical server, so the
+ * <p>{@code side} is the logical side. This version only observes the logical server, so the
  * value is effectively constant, but it is emitted anyway so the format does not change when
  * client side observation is added.
  *
- * <p>REQ-043 fixes {@code worldTick}, taken from the dimension in which the event occurred.
+ * <p>{@code worldTick} is taken from the dimension in which the event occurred.
  * Dimensions keep independent tick counts, so a single global counter would be wrong: an
  * event in the Nether and one in the Overworld are not comparable through a shared clock.
  *
- * <p>Lives in {@code logging} rather than {@code command} on purpose. The event handlers
- * added by IMP-005 need exactly this, and dependency rule 3 forbids {@code observe} from
- * depending on {@code command}. Every subsystem may depend on {@code logging}, so this is the
- * only placement that serves both without duplicating the logic or breaking the rule.
+ * <p>Lives in {@code logging} rather than {@code command} on purpose. The event handlers in
+ * {@code observe} need exactly this, and {@code observe} is not allowed to depend on
+ * {@code command}. Every subsystem may depend on {@code logging}, so this is the only
+ * placement that serves both without duplicating the logic or breaking the dependency graph.
  */
 public final class RecordContext {
 
@@ -51,8 +51,8 @@ public final class RecordContext {
     /**
      * Adds {@code side} and, when a world is available, {@code worldTick}.
      *
-     * <p>Called first when building a record so these fields lead consistently, satisfying
-     * the stable field order in REQ-033.
+     * <p>Called first when building a record so these fields lead consistently, which is what
+     * keeps field order stable across every event type.
      */
     public static LogRecord stamp(LogRecord record, ICommandSender sender) {
         return stamp(record, snapshot(sender));
@@ -80,7 +80,7 @@ public final class RecordContext {
      *
      * <p>Exists so components that must stay free of Minecraft types can still stamp records
      * correctly. {@code SessionManager} previously took a bare tick value, which meant it was
-     * structurally unable to emit {@code side} at all and silently violated REQ-041 on two
+     * structurally unable to emit {@code side} at all, and silently omitted it on two
      * event types. Passing the whole context instead of one field makes that failure mode
      * impossible rather than merely fixed.
      */
