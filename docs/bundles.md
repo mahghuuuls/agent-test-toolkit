@@ -77,3 +77,11 @@ This boundary is a project identity decision, not a simplification waiting to be
 ## Permissions
 
 A bundle runs as whoever ran it. Commands the caller could not type themselves fail exactly as if they had typed them. A bundle is a convenience for typing, never a way to widen what the caller can do.
+
+This covers identity as well as permission. The command receives the caller's own sender object, so a command that acts on "the player who sent this" works with the argument omitted:
+
+```
+gamemode creative
+```
+
+**This changed in 1.0.1.** In 1.0.0 the sender was substituted for a wrapper in order to read failure messages, and the eight vanilla commands that check their sender's concrete type failed with `commands.generic.player.unspecified` whenever their player argument was left out: `clear`, `gamemode`, `kill`, `scoreboard`, `setworldspawn`, `spawnpoint`, `tp`, `xp`. An explicit selector was the workaround and still works.

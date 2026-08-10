@@ -6,27 +6,27 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 /**
- * Resolves the player behind a command sender, wrapped or not.
+ * Resolves the player behind a command sender.
  *
  * <h2>Why this exists</h2>
  *
- * <p>Bundle commands are dispatched through {@link ObservingSender}, a wrapper that reads the
- * translation key vanilla sends so a selector matching nothing can be told apart from a real
- * failure. The wrapper delegates everything faithfully, including permissions.
+ * <p>A sender is not always the player, and it is not always an entity. The toolkit's own
+ * subcommands need one answer to "is there a player here, and who", covering a player sending
+ * directly, an entity-backed sender, the server console, and a command block. Asking
+ * {@code getCommandSenderEntity()} rather than testing a type covers all four, and gives null
+ * rather than throwing for the two that have no player.
  *
- * <p>But it is not an {@code EntityPlayer}, and <b>{@code sender instanceof EntityPlayer} is
- * therefore false for every command a bundle runs.</b> That silently broke `arena create`,
- * `arena reset`, `inspect player`, `inspect inventory`, `entities nearby` and `nbt held` when
- * called from a bundle, which is where they are most useful.
+ * <h2>What this is no longer for</h2>
  *
- * <p>Worse, it broke them <i>quietly</i>. The affected commands report the problem and return
- * normally rather than throwing, and Forge counts a normal return as success, so a bundle
- * reported {@code executed=11 failed=0} while doing nothing. The error was in the log the whole
- * time; the bundle's own summary contradicted it.
+ * <p>This class was previously also load-bearing for a defect: bundle commands were dispatched
+ * through a wrapper that was not an {@code EntityPlayer}, so {@code instanceof} was false for
+ * every command a bundle ran, and routing the question through here was what hid that. The
+ * wrapper is gone. Bundle commands now run as the caller's own object, so a direct type test
+ * would work too.
  *
- * <p>{@code getCommandSenderEntity()} is the right question to ask. An entity returns itself,
- * and the wrapper passes the call through, so this works for a direct sender and a wrapped one
- * alike. Nothing else needs to know the wrapper exists.
+ * <p>It is kept because the question is still worth having one answer to, not because anything
+ * is being worked around. <b>Do not reintroduce a substitute sender to make this necessary
+ * again.</b> See ARC-008.
  */
 public final class Senders {
 

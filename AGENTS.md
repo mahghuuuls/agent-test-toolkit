@@ -73,7 +73,8 @@ Rules that matter to you:
 - `example_` is reserved for the bundles the toolkit ships.
 - **Not a scripting language.** No variables, conditionals, loops, or substitution. `say ${player}` prints the literal `${player}`. If you want a variable, write two bundles.
 - **Nesting works**: a command may be `devtool run other_bundle`. The parent waits; the child's whole outcome counts as one command. Cycles and nesting past depth 10 are refused before anything runs.
-- A bundle runs **as whoever ran it**. It is a convenience for typing, never a way to widen permissions.
+- A bundle runs **as whoever ran it**, fully. Permissions, position, world, and sender identity are the caller's own, so a command may omit its player argument exactly as if typed in chat: `gamemode creative` works, and so do bare `clear`, `kill`, `tp`, `xp`, `spawnpoint`, `setworldspawn` and `scoreboard`. A bundle is a convenience for typing, never a way to widen permissions.
+- **In 1.0.0 that was not true.** Those eight commands failed with `commands.generic.player.unspecified` when their player argument was omitted, because the sender was substituted. Fixed in 1.0.1. If you are writing for 1.0.0, pass an explicit selector such as `@p`.
 
 ### Split setup from teardown
 

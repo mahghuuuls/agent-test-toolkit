@@ -1,0 +1,25 @@
+{
+  "v11_sender_identity": {
+    "description": "ADT-002 regression check. A bundle command that omits its player argument must run as the caller. Establishes survival first so the log proves a transition rather than a final value. On a build carrying the defect this stops at the bare gamemode command and the DONE mark is absent.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start sender_identity",
+      "gamemode survival @p",
+      "devtool inspect player",
+      "devtool mark BARE_GAMEMODE_NEXT",
+      "gamemode creative",
+      "devtool mark BARE_GAMEMODE_DONE",
+      "devtool inspect player"
+    ]
+  },
+  "v11_sender_identity_control": {
+    "description": "Control for v11. The same command with an explicit selector must succeed on every build, defect present or not. Distinguishes a broken bare-argument path from a broken command, a non-operator caller, or broken bundle execution.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark CONTROL_NEXT",
+      "gamemode creative @p",
+      "devtool mark CONTROL_DONE",
+      "devtool inspect player"
+    ]
+  }
+}

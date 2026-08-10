@@ -6,15 +6,21 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
 
 /**
- * Runs bundle commands through the server's own command manager, as the original caller.
+ * Runs bundle commands as the original caller.
  *
- * <p>The caller is passed through rather than replaced, wrapped only for observation, so
- * permission context is preserved by construction. A bundle cannot run a command its caller
- * could not have typed, and no code here has to remember to check that.
+ * <p>This class owns <b>who</b> a command runs as across the life of a bundle, which spans
+ * ticks. {@link CommandRunner} owns <b>how</b> one command is run. Keeping them apart means the
+ * sender-lifetime rule below is readable without also reading dispatch.
+ *
+ * <p>The caller's own object is passed through, never replaced. Permission context is preserved
+ * by construction, and so is sender identity: a vanilla command that inspects its sender's
+ * concrete type sees exactly what it would have seen had the caller typed the command.
  */
 public final class ServerCommandDispatcher implements CommandDispatcher {
 
     private final MinecraftServer server;
+
+    private final CommandRunner runner;
 
     /**
      * Set for a player caller; null for the console or a command block.
@@ -34,11 +40,12 @@ public final class ServerCommandDispatcher implements CommandDispatcher {
             throw new IllegalArgumentException("server must not be null");
         }
         this.server = server;
-        // Senders, not a bare instanceof. A nested bundle is dispatched with the parent's
-        // ObservingSender, which wraps the player rather than being one, so a direct
-        // instanceof reports false and the wrapper gets held as a fixed sender. The UUID would
-        // then never be resolved again and isSenderAvailable would keep answering true after
-        // the player had gone, which is exactly what re-resolving exists to prevent.
+        this.runner = new CommandRunner(server);
+        // Senders rather than a bare instanceof. The sender reaching a nested bundle is whatever
+        // the parent was constructed with, and resolving it through one helper keeps this
+        // correct without depending on what that happens to be. Getting it wrong would hold a
+        // fixed sender whose UUID is never re-resolved, so isSenderAvailable would keep
+        // answering true after the player had gone, which is what re-resolving exists to prevent.
         net.minecraft.entity.player.EntityPlayer player = Senders.asPlayer(originalSender);
         if (player != null) {
             this.playerId = player.getUniqueID();
@@ -69,19 +76,9 @@ public final class ServerCommandDispatcher implements CommandDispatcher {
         if (current == null) {
             return CommandOutcome.failure("caller is no longer available");
         }
-        // Wrapped fresh each dispatch, since the underlying sender may be a different object
-        // than last tick. The wrapper only observes; permissions come from the real sender.
-        ObservingSender sender = new ObservingSender(current);
-        try {
-            int count = server.getCommandManager().executeCommand(sender, command);
-            return CommandOutcomes.classify(count, sender.getLastTranslationKey());
-        } catch (RuntimeException e) {
-            // executeCommand swallows CommandException but not unchecked throwables, and the
-            // Forge CommandEvent path rethrows them deliberately. A misbehaving command from
-            // any mod would otherwise propagate into the server tick and take the world down,
-            // which is a poor trade for a diagnostic tool. Reported as a failure instead.
-            return CommandOutcome.failure(e.getClass().getSimpleName()
-                    + (e.getMessage() == null ? "" : ": " + e.getMessage()));
-        }
+        // The caller's own object, resolved fresh, handed straight to the runner. Nothing
+        // wraps or substitutes it, which is what lets a command inspect its sender's concrete
+        // type and see the truth.
+        return runner.run(current, command);
     }
 }
