@@ -144,6 +144,33 @@ Two parts of this overlap things that exist. The honest comparison matters more 
 
 **Inspection against TellMe.** TellMe covers comparable ground and does it well for a human audience. This is not filling a gap. Output lands in `latest.log` next to Forge and your own mod's output rather than in separate dump files, targeting is by deterministic selector rather than interactive right click, and the format is meant for parsing rather than reading. If you are reading it yourself, TellMe is likely the better tool.
 
+## Installing
+
+Two places carry released builds:
+
+- **CurseForge.** The project page is titled **Agent Diagnostics Toolkit**, not Agent Test Toolkit. That platform reserves `Test` as a release-stage word, so the page had to be named differently. Same mod, same `agenttesttoolkit` mod id, same jar.
+- **GitHub Releases**, on this repository, with the jar attached to the tag.
+
+Each release records the SHA-256 of its jar in the release notes. To check what you downloaded:
+
+```bash
+sha256sum agenttesttoolkit-1.0.0.jar
+```
+
+```powershell
+Get-FileHash agenttesttoolkit-1.0.0.jar -Algorithm SHA256
+```
+
+A version tag on its own is **not** a release. If you find a tag with no attached artifact, the jar for that version was never published, and building from source is the only way to obtain it. That is worth avoiding: an early consumer of this toolkit had to resolve the tag, build it, run its tests, inspect the jar and hash it themselves, purely to get a runtime that should have been a download.
+
+Building from source needs a JDK and produces `build/libs/agenttesttoolkit-<version>.jar`:
+
+```bash
+./gradlew clean build
+```
+
+The build is reproducible from a given commit. Building the same revision twice produces a byte-identical jar, so a checksum published against a revision can be re-derived rather than taken on trust.
+
 ## Requirements
 
 Minecraft 1.12.2 with Forge. Everything the toolkit records happens on the server, so that is where it needs to be installed. In singleplayer that means installing it normally. The optional brightness and music defaults are the only part that acts on a client, and they need it installed there too.
