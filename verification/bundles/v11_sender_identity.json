@@ -12,6 +12,16 @@
       "devtool inspect player"
     ]
   },
+  "v11_sender_identity_console": {
+    "description": "Run this from the server console, not from chat. A command needing a player must still be refused when there is no player, exactly as if typed at the console. Proves the correction restored sender identity rather than blanket-granting a player to everything.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark CONSOLE_BARE_NEXT",
+      "gamemode creative",
+      "devtool mark CONSOLE_BARE_SHOULD_NOT_APPEAR"
+    ]
+  },
+
   "v11_sender_identity_control": {
     "description": "Control for v11. The same command with an explicit selector must succeed on every build, defect present or not. Distinguishes a broken bare-argument path from a broken command, a non-operator caller, or broken bundle execution.",
     "stopOnFailure": true,
