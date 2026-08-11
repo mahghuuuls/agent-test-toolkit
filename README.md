@@ -154,11 +154,11 @@ Two places carry released builds:
 Each release records the SHA-256 of its jar in the release notes. To check what you downloaded:
 
 ```bash
-sha256sum agenttesttoolkit-1.0.0.jar
+sha256sum agenttesttoolkit-<version>.jar
 ```
 
 ```powershell
-Get-FileHash agenttesttoolkit-1.0.0.jar -Algorithm SHA256
+Get-FileHash agenttesttoolkit-<version>.jar -Algorithm SHA256
 ```
 
 A version tag on its own is **not** a release. If you find a tag with no attached artifact, the jar for that version was never published, and building from source is the only way to obtain it. That is worth avoiding: an early consumer of this toolkit had to resolve the tag, build it, run its tests, inspect the jar and hash it themselves, purely to get a runtime that should have been a download.
