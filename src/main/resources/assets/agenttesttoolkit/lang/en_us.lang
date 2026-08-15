@@ -1,0 +1,7 @@
+# Agent Test Toolkit has no translated strings.
+#
+# Every message it produces is either a log record with a fixed English field
+# vocabulary, which must not vary by locale because it is parsed, or a chat
+# reply prefixed [DevToolkit]. Forge still asks for this file and warns when it
+# is absent, so it exists to keep the toolkit from adding noise about itself to
+# the log it is meant to make trustworthy.

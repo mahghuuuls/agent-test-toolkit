@@ -172,6 +172,10 @@ Start a session in every setup bundle. Without one you are searching a log; with
 | `devtool nbt block <x> <y> <z>` | Raw NBT for a tile entity |
 | `devtool nbt held` | Raw NBT for the held item |
 
+**`inspect block` does not report container contents.** It answers what a block *is*: id, metadata, blockstate, tile entity class. For what is *inside* a chest, use `nbt block`, which writes the tile entity's raw NBT including every occupied slot. Two commands, two questions, and mistaking one for the other has already cost an external project a workaround it did not need.
+
+A container whose loot table has not rolled writes a `LootTable` reference instead of items, so `nbt block` also distinguishes "loot not generated yet" from "these are the contents".
+
 **A selector matching more than one entity is an error, not an invitation to pick one.** Name your fixtures on summon and select on the name:
 
 ```
@@ -295,6 +299,17 @@ Before trusting a "done":
 Minecraft renames it to a dated `.gz` archive **every time a process starts**. If a restart happens and you then read `latest.log`, you are reading a different file from the one your test wrote to, and you will conclude nothing was recorded.
 
 A client and a dedicated server started from the same directory share `run/logs/`, so the second to start archives the first one's log.
+
+**The combined file can also be corrupted.** Two processes writing one Log4j file, on Windows in particular, can leave **NUL bytes** in it. One reported session had 6,377 NUL bytes in 43,542 retained bytes. Standard tooling then treats the file as binary and declines to search it, which looks exactly like "there are no records" rather than "this file needs different handling".
+
+Running two processes from one directory:
+
+- Read with a binary-tolerant tool. `rg -a` finds records where plain `rg` reports nothing.
+- Retain **both** the current log and the dated archive. Neither alone holds the whole session.
+- Attribute lines by thread, `[Server thread]` against `[Client thread]`, since both streams interleave.
+- Use **separate directories** for client and server where the build allows it. That avoids all of the above.
+
+The toolkit cannot fix this. It writes through the game's own logger, which is precisely what puts its records on one timeline with Forge and the mod under test.
 
 So: read the log **before** anything restarts, and copy it to a scenario-named path if it needs to outlive the session. Hashing a file that is later overwritten proves nothing unless the bytes were kept too.
 

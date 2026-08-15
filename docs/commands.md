@@ -91,3 +91,18 @@ A selector matching more than one entity is an error, not an invitation to pick 
 NBT goes to the log, never to chat, and is truncated at `maxNbtOutputLength` characters. Truncation is always reported along with the original length, so you can tell whether raising the limit would recover the rest.
 
 Inspection reports what Minecraft and Forge expose. A modded tile entity's class is named; its contents are not interpreted.
+
+### Two commands inspect a block, and they answer different questions
+
+`inspect block` reports **identity and state**: the block id, metadata, blockstate, and the tile entity class. It does **not** report what is inside a container. That is by design, and it is easy to mistake for the whole answer.
+
+`nbt block` reports the tile entity's **raw NBT**, which for a container includes every occupied slot with its item id, count, damage and per-item NBT. If you want to know what is in a chest, this is the command.
+
+```
+devtool inspect block 10 64 -3
+devtool nbt block 10 64 -3
+```
+
+One useful consequence: a container whose loot table has not yet rolled writes a `LootTable` reference **instead of** items. So `nbt block` tells "the loot has not been generated yet" apart from "these are the generated contents", which no slot listing would show you.
+
+NBT output is truncated at `maxNbtOutputLength`, and truncation is always reported with the original length, so a large container may need that limit raised.
