@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.1.0
+
+### Added
+
+- **A bundle command can declare failures it expects.** An idempotent reset such as `effect @s clear` fails when there is nothing to clear, and that halted the whole bundle. Declare the failure on that command and it is tolerated:
+
+  ```json
+  { "command": "effect @s clear", "toleratedFailures": ["commands.effect.failure.notActive.all"] }
+  ```
+
+  It tolerates **that key only**. A typo in the same command still fails the bundle, which turning off `stopOnFailure` would not have given you. The key is the `detail` field of the `ERROR` record, and a tolerated failure is recorded as a success carrying a note that names it, so it never reads as a command that simply worked.
+
+- **`devtool inspect container <x> <y> <z>`** reports a container's occupied slots as one record each, with slot index, item, count, metadata and whether item NBT exists. Works with vanilla containers and modded blocks that expose Forge's item handler. Output is bounded, and truncation is reported on every record rather than silently.
+
+### Fixed
+
+- No more `Missing English translation for agenttesttoolkit` on startup. The mod has no translated strings, but a tool whose purpose is a clean log should not add noise about itself.
+
+### Documentation
+
+- **Block inspection does not report container contents, and now says so.** `inspect block` answers what a block is. For what is inside it, use `nbt block`, which has always written the full tile entity NBT including every slot. Neither command pointed at the other, and a project using the toolkit built a workaround for a problem that did not exist.
+
+  Related: a container whose loot table has not yet rolled writes a `LootTable` reference instead of items, so `nbt block` distinguishes "loot not generated yet" from the generated contents.
+
+- **Running a client and a dedicated server from one directory can corrupt the shared log.** The combined file can contain NUL bytes, and standard search tools then report no matches rather than saying the file is unreadable. Documented along with the practice that works: binary-tolerant reading, retaining both the current and rotated logs, and separate directories where the build allows.
+
+### Notes
+
+- No change to existing behaviour. Bundles written for 1.0.1 work unchanged, and a command without `toleratedFailures` behaves exactly as before.
+
 ## 1.0.1
 
 ### Fixed

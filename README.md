@@ -88,12 +88,15 @@ An excluded event and an event that never happened look identical in the log. So
 /devtool inspect player
 /devtool inspect entity @e[name=target]
 /devtool inspect block ~ ~-1 ~
+/devtool inspect container 10 64 -3
 /devtool inspect inventory
 /devtool entities nearby 20
 /devtool nbt held
 ```
 
 Structured records rather than chat output. A selector matching more than one entity is an error rather than an invitation to pick one, so name your fixtures and select on the name.
+
+`inspect block` answers what a block **is**: id, metadata, blockstate, tile entity class. `inspect container` answers what is **in** it, one record per occupied slot. For the raw tile entity tag, including a loot table that has not yet rolled, use `nbt block`.
 
 NBT goes to the log, bounded by a configurable limit, and truncation is always reported along with the original length.
 
