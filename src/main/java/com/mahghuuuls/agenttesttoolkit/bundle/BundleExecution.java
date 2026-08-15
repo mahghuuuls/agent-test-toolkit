@@ -156,7 +156,8 @@ public final class BundleExecution {
             position++;
             executed++;
 
-            CommandOutcome outcome = dispatcher.dispatch(command.getCommand());
+            CommandOutcome outcome =
+                    dispatcher.dispatch(command.getCommand(), command.getToleratedFailures());
 
             // The next command's delay is measured from *now*, the completion of this one,
             // rather than from the bundle's start. That is the behaviour someone editing a

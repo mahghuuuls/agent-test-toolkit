@@ -13,8 +13,18 @@ public final class BundleCommand {
 
     private final String command;
     private final int delayTicks;
+    private final java.util.Set<String> toleratedFailures;
 
     public BundleCommand(String command, int delayTicks) {
+        this(command, delayTicks, java.util.Collections.<String>emptySet());
+    }
+
+    /**
+     * @param toleratedFailures translation keys this command may fail with without failing the
+     *                          bundle. Empty for almost every command
+     */
+    public BundleCommand(String command, int delayTicks,
+                         java.util.Collection<String> toleratedFailures) {
         if (command == null || command.trim().isEmpty()) {
             throw new IllegalArgumentException("command must not be null or blank");
         }
@@ -23,6 +33,21 @@ public final class BundleCommand {
         }
         this.command = command.trim();
         this.delayTicks = delayTicks;
+        this.toleratedFailures = toleratedFailures == null || toleratedFailures.isEmpty()
+                ? java.util.Collections.<String>emptySet()
+                : java.util.Collections.unmodifiableSet(
+                        new java.util.LinkedHashSet<String>(toleratedFailures));
+    }
+
+    /**
+     * Failures this command declares it expects.
+     *
+     * <p>Empty by default, which is the behaviour every bundle written before this existed
+     * relies on. A key here tolerates only that key; any other failure still fails, so a typo
+     * in this command is not silenced along with the expected outcome.
+     */
+    public java.util.Set<String> getToleratedFailures() {
+        return toleratedFailures;
     }
 
     public String getCommand() {

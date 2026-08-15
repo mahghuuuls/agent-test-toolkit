@@ -72,6 +72,11 @@ public final class ServerCommandDispatcher implements CommandDispatcher {
 
     @Override
     public CommandOutcome dispatch(String command) {
+        return dispatch(command, java.util.Collections.<String>emptySet());
+    }
+
+    @Override
+    public CommandOutcome dispatch(String command, java.util.Collection<String> tolerated) {
         ICommandSender current = resolve();
         if (current == null) {
             return CommandOutcome.failure("caller is no longer available");
@@ -79,6 +84,6 @@ public final class ServerCommandDispatcher implements CommandDispatcher {
         // The caller's own object, resolved fresh, handed straight to the runner. Nothing
         // wraps or substitutes it, which is what lets a command inspect its sender's concrete
         // type and see the truth.
-        return runner.run(current, command);
+        return runner.run(current, command, tolerated);
     }
 }

@@ -68,6 +68,7 @@ Rules that matter to you:
 - **Commands take no leading slash inside a bundle.** In chat a person types `/devtool run x`; in the file it is `devtool run x`.
 - `stopOnFailure` defaults to **true**. Leave it true for setup, so a broken step does not produce a half-prepared world you then test in.
 - `delayTicks` is measured from the **previous command finishing**, not from the bundle's start. Two commands with `delayTicks: 20` put the second 40 ticks in. 20 ticks per second.
+- **`toleratedFailures` lets one command fail without stopping the bundle**, for the specific reasons you name. An idempotent reset like `effect @s clear` fails when there is nothing to clear; declare `["commands.effect.failure.notActive.all"]` on that command and it will be tolerated, while a typo in the same command still fails. Find the key in the `detail` field of the `ERROR` record. A tolerated failure is recorded as a success carrying a note that names the key, so it never reads as a command that simply worked.
 - **No comments.** JSON has none, and a `"_comment"` key at the top level fails the *entire file*, because every top-level entry must be a bundle. Use `description`.
 - **A duplicate name loads from neither file**, and the error names both. Prefix your bundles so they cannot collide: `feat_`, or the feature's name.
 - `example_` is reserved for the bundles the toolkit ships.

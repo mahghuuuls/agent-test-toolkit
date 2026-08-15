@@ -21,6 +21,18 @@ public interface CommandDispatcher {
     CommandOutcome dispatch(String command);
 
     /**
+     * Runs a command that declares failures it expects.
+     *
+     * <p>Defaults to ignoring the declaration, so an implementation that does not support
+     * tolerance still behaves exactly as before rather than failing to compile. The real
+     * dispatcher overrides this; a declaration that reached an implementation which ignored it
+     * would produce a stricter result, never a laxer one.
+     */
+    default CommandOutcome dispatch(String command, java.util.Collection<String> tolerated) {
+        return dispatch(command);
+    }
+
+    /**
      * Whether the original caller can still be reached.
      *
      * <p>Asked before every batch of commands rather than assumed once, because a

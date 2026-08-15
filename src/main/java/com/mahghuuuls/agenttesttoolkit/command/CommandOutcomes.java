@@ -59,8 +59,33 @@ public final class CommandOutcomes {
      * @param translationKey the key of the last message sent to the sender, or null
      */
     public static CommandOutcome classify(int executionCount, String translationKey) {
+        return classify(executionCount, translationKey, java.util.Collections.<String>emptySet());
+    }
+
+    /**
+     * As {@link #classify(int, String)}, plus failures the bundle author declared they expect.
+     *
+     * <p>The built-in tolerated set covers no-op cases that are universal: a selector matching
+     * nobody, an already empty inventory. It grew by one key each time somebody was bitten,
+     * which does not scale and leaves the next person to discover the next key. A declared set
+     * moves the decision to the author, who knows what their command is for.
+     *
+     * <p>Declared keys are matched against the raw translation key <b>before</b> it is described,
+     * because {@link #describe} rewrites two of them into prose. Matching after would make
+     * those two untolerable by accident rather than by decision.
+     *
+     * @param declared translation keys this command is permitted to fail with. Anything else is
+     *                 still a failure, including on this same command, so a typo is not silenced
+     */
+    public static CommandOutcome classify(int executionCount, String translationKey,
+                                          java.util.Collection<String> declared) {
         if (executionCount > 0) {
             return CommandOutcome.success();
+        }
+        if (translationKey != null && declared != null && declared.contains(translationKey)) {
+            // Named rather than summarised. A reader must be able to tell a tolerated failure
+            // from a command that simply worked, and to see which failure was expected.
+            return CommandOutcome.success("tolerated failure: " + translationKey);
         }
         if (isMatchedNothing(translationKey)) {
             // Recorded as a note rather than discarded. An agent looking at a bundle that

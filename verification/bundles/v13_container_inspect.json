@@ -1,0 +1,38 @@
+{
+  "v13_container_inspect": {
+    "description": "Places a chest with known contents and a second empty chest, then inspects both. Contents are set by the bundle so the expected result is known before the run rather than read off the screen afterwards.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start container_check",
+      "setblock ~2 ~ ~ minecraft:chest 2 replace {Items:[{Slot:0b,id:\"minecraft:diamond\",Count:5b,Damage:0s},{Slot:3b,id:\"minecraft:stone\",Count:64b,Damage:0s}]}",
+      "setblock ~2 ~ ~3 minecraft:chest 2 replace",
+      "devtool mark V13_FILLED_NEXT",
+      "devtool inspect container ~2 ~ ~",
+      "devtool mark V13_EMPTY_NEXT",
+      "devtool inspect container ~2 ~ ~3",
+      "devtool mark V13_DONE"
+    ]
+  },
+
+  "v13_not_a_container": {
+    "description": "A plain block must be refused with a pointer to the NBT command, not reported as an empty container. An empty chest and a stone block are different facts.",
+    "stopOnFailure": true,
+    "commands": [
+      "setblock ~2 ~1 ~ minecraft:stone",
+      "devtool mark V13_NOTCONTAINER_NEXT",
+      "devtool inspect container ~2 ~1 ~",
+      "devtool mark V13_NOTCONTAINER_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v13_cleanup": {
+    "description": "Removes what the check placed. Re-runnable.",
+    "stopOnFailure": false,
+    "commands": [
+      "setblock ~2 ~ ~ minecraft:air",
+      "setblock ~2 ~ ~3 minecraft:air",
+      "setblock ~2 ~1 ~ minecraft:air",
+      "devtool session stop"
+    ]
+  }
+}

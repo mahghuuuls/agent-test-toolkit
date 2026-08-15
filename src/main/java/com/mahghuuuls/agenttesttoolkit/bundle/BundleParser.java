@@ -31,6 +31,7 @@ public final class BundleParser {
     private static final String KEY_COMMANDS = "commands";
     private static final String KEY_COMMAND = "command";
     private static final String KEY_DELAY_TICKS = "delayTicks";
+    private static final String KEY_TOLERATED_FAILURES = "toleratedFailures";
 
     /** Enabled unless the file says otherwise. */
     private static final boolean DEFAULT_STOP_ON_FAILURE = true;
@@ -186,7 +187,38 @@ public final class BundleParser {
             }
         }
 
-        return new BundleCommand(commandValue.getAsString(), delayTicks);
+        return new BundleCommand(commandValue.getAsString(), delayTicks,
+                parseToleratedFailures(object, where));
+    }
+
+    /**
+     * Reads the optional declared-failure list.
+     *
+     * <p>Strict about its shape for the same reason the rest of this parser is: a mistyped
+     * field name that was quietly ignored would leave the author believing a failure is
+     * tolerated when it is not, and they would only find out when a bundle halted.
+     */
+    private static java.util.List<String> parseToleratedFailures(JsonObject object, String where)
+            throws BundleParseException {
+        java.util.List<String> keys = new java.util.ArrayList<String>();
+        if (!object.has(KEY_TOLERATED_FAILURES) || object.get(KEY_TOLERATED_FAILURES).isJsonNull()) {
+            return keys;
+        }
+
+        JsonElement value = object.get(KEY_TOLERATED_FAILURES);
+        if (!value.isJsonArray()) {
+            throw new BundleParseException(where + ": " + KEY_TOLERATED_FAILURES
+                    + " must be an array of translation keys");
+        }
+
+        for (JsonElement entry : value.getAsJsonArray()) {
+            if (!isString(entry) || entry.getAsString().trim().isEmpty()) {
+                throw new BundleParseException(where + ": " + KEY_TOLERATED_FAILURES
+                        + " entries must be non-empty strings");
+            }
+            keys.add(entry.getAsString().trim());
+        }
+        return keys;
     }
 
     /**

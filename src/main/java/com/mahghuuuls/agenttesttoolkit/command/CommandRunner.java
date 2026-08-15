@@ -77,6 +77,18 @@ public final class CommandRunner {
      * @return the outcome, classified by {@link CommandOutcomes}
      */
     public CommandOutcome run(ICommandSender sender, String rawCommand) {
+        return run(sender, rawCommand, java.util.Collections.<String>emptySet());
+    }
+
+    /**
+     * As {@link #run(ICommandSender, String)}, honouring failures the bundle author declared.
+     *
+     * <p>The declaration is applied at classification, where the raw translation key still
+     * exists. Applying it later would mean matching against a described string, which two keys
+     * are rewritten into.
+     */
+    public CommandOutcome run(ICommandSender sender, String rawCommand,
+                              java.util.Collection<String> tolerated) {
         String trimmed = rawCommand.trim();
         if (trimmed.startsWith("/")) {
             trimmed = trimmed.substring(1);
@@ -88,10 +100,10 @@ public final class CommandRunner {
 
         ICommand command = server.getCommandManager().getCommands().get(name);
         if (command == null) {
-            return refuse(sender, CommandOutcomes.KEY_COMMAND_NOT_FOUND);
+            return refuse(sender, CommandOutcomes.KEY_COMMAND_NOT_FOUND, tolerated);
         }
         if (!command.checkPermission(server, sender)) {
-            return refuse(sender, CommandOutcomes.KEY_NO_PERMISSION);
+            return refuse(sender, CommandOutcomes.KEY_NO_PERMISSION, tolerated);
         }
 
         // Posted before anything runs, matching vanilla's ordering. A mod that cancels here has
@@ -108,18 +120,20 @@ public final class CommandRunner {
         }
 
         try {
-            return executeAndCount(sender, command, args, trimmed);
+            return executeAndCount(sender, command, args, trimmed, tolerated);
         } catch (CommandException e) {
             // Selector expansion failing lands here. Sending the message keeps the caller
             // informed; the key is read from the exception rather than from what was sent.
             send(sender, e.getMessage(), e.getErrorObjects());
-            return CommandOutcomes.classify(0, e.getMessage());
+            return CommandOutcomes.classify(0, e.getMessage(), tolerated);
         }
     }
 
     /** Expands a username-index argument when present, then runs the command once per match. */
     private CommandOutcome executeAndCount(ICommandSender sender, ICommand command,
-                                           String[] args, String input) throws CommandException {
+                                           String[] args, String input,
+                                           java.util.Collection<String> tolerated)
+            throws CommandException {
         int usernameIndex = usernameIndex(command, args);
         int successes = 0;
         String lastFailureKey = null;
@@ -158,7 +172,7 @@ public final class CommandRunner {
         }
 
         sender.setCommandStat(CommandResultStats.Type.SUCCESS_COUNT, successes);
-        return CommandOutcomes.classify(successes, lastFailureKey);
+        return CommandOutcomes.classify(successes, lastFailureKey, tolerated);
     }
 
     /**
@@ -191,9 +205,10 @@ public final class CommandRunner {
     }
 
     /** Sends the message and classifies in one step, for the two pre-execution refusals. */
-    private CommandOutcome refuse(ICommandSender sender, String key) {
+    private CommandOutcome refuse(ICommandSender sender, String key,
+                                  java.util.Collection<String> tolerated) {
         send(sender, key, new Object[0]);
-        return CommandOutcomes.classify(0, key);
+        return CommandOutcomes.classify(0, key, tolerated);
     }
 
     /** Reproduces vanilla's red translated message so a failure is still visible in chat. */

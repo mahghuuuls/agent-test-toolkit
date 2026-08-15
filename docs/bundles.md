@@ -23,7 +23,28 @@ A file is a JSON object mapping bundle names to definitions.
 
 - `description` is optional.
 - `stopOnFailure` defaults to **true**. Setup bundles build on each other, so continuing past a failure usually produces a half prepared environment.
-- `commands` is required. Each entry is either a bare string or an object with `command` and an optional `delayTicks`.
+- `commands` is required. Each entry is either a bare string or an object with `command` and an optional `delayTicks` and `toleratedFailures`.
+
+## Expected failures
+
+An idempotent reset fails when there is nothing to reset. `effect @s clear` reports `commands.effect.failure.notActive.all` when no effect is active, and under the default `stopOnFailure` that halts the bundle before the real setup runs.
+
+Declare the failure you expect:
+
+```json
+{
+  "command": "effect @s clear",
+  "toleratedFailures": ["commands.effect.failure.notActive.all"]
+}
+```
+
+That command may now fail **with that key only**. Any other failure, including a typo in the same command, still fails the bundle. Turning `stopOnFailure` off would have hidden those too, which is why this is per command and per key rather than a switch.
+
+**Finding the key.** Run the command once and read the `ERROR` record. Its `detail` field is the key.
+
+**A tolerated failure is not a silent success.** The outcome is recorded as successful, with a note naming the tolerated key, so a reader can still tell that the command did nothing.
+
+Three keys are tolerated for every command without being declared, because their no-op case is universal: `commands.generic.selector.notFound`, `commands.generic.entity.notFound`, `commands.generic.player.notFound`. So is `commands.clear.failure`. You do not need to declare those.
 
 ## You cannot comment a bundle file
 
