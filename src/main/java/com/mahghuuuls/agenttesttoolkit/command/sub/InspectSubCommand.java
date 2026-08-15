@@ -41,7 +41,8 @@ public final class InspectSubCommand implements SubCommand {
      * without anyone remembering to update it.
      */
     public static final List<String> TARGETS =
-            Collections.unmodifiableList(Arrays.asList("player", "entity", "block", "inventory"));
+            Collections.unmodifiableList(
+                    Arrays.asList("player", "entity", "block", "container", "inventory"));
 
     @Override
     public String getName() {
@@ -55,7 +56,8 @@ public final class InspectSubCommand implements SubCommand {
 
     @Override
     public String getUsage() {
-        return "inspect <player [selector]|entity <selector>|block <x> <y> <z>>";
+        return "inspect <player [selector]|entity <selector>|block <x> <y> <z>"
+                + "|container <x> <y> <z>|inventory [selector]>";
     }
 
     @Override
@@ -81,6 +83,8 @@ public final class InspectSubCommand implements SubCommand {
             inspectEntity(server, sender, rest);
         } else if ("block".equals(target)) {
             inspectBlock(sender, rest);
+        } else if ("container".equals(target)) {
+            inspectContainer(sender, rest);
         } else if ("inventory".equals(target)) {
             inspectInventory(server, sender, rest);
         } else {
@@ -187,6 +191,84 @@ public final class InspectSubCommand implements SubCommand {
 
         BlockPos pos = CommandBase.parseBlockPos(sender, args, 0, false);
         emit(Inspectors.block(sender.getEntityWorld(), pos), sender, "Block inspection written to log.");
+    }
+
+    /**
+     * Reports a container's occupied slots.
+     *
+     * <p>Separate from {@code inspect block} rather than folded into it. That command answers
+     * what a block is, and a reader who wants identity should not have to filter out fifty
+     * slot records to get it. Keeping them apart is also what makes the documented distinction
+     * between the two honest.
+     */
+    private void inspectContainer(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length < 3) {
+            throw new WrongUsageException("/devtool inspect container <x> <y> <z>");
+        }
+
+        // Same reasoning as inspectBlock: a console sender's default position is the world
+        // origin, so relative coordinates would silently report the wrong block.
+        if (isRelative(args) && sender.getCommandSenderEntity() == null) {
+            ToolkitLog.error("Relative coordinates require an entity sender",
+                    "x=" + args[0] + " y=" + args[1] + " z=" + args[2]);
+            throw new CommandException(
+                    "Relative coordinates need a player sender. Use absolute coordinates.");
+        }
+
+        BlockPos pos = CommandBase.parseBlockPos(sender, args, 0, false);
+        net.minecraft.world.World world = sender.getEntityWorld();
+        net.minecraft.tileentity.TileEntity tile = world.getTileEntity(pos);
+
+        if (tile == null) {
+            ToolkitLog.error("No tile entity to inspect",
+                    pos.getX() + "," + pos.getY() + "," + pos.getZ());
+            throw new CommandException("No tile entity at " + pos.getX() + " " + pos.getY()
+                    + " " + pos.getZ() + ". Use inspect block for a plain block.");
+        }
+
+        String blockId = describeBlock(world, pos);
+        List<Inventories.Slot> slots = collectSlots(tile);
+
+        if (slots == null) {
+            // Distinguished from an empty container. "This block holds nothing" and "this
+            // block is not a container" are different answers and must not share a record.
+            ToolkitLog.error("Block is not a container", blockId + " at " + pos.getX() + ","
+                    + pos.getY() + "," + pos.getZ());
+            throw new CommandException(blockId + " exposes no inventory. Its tile entity is "
+                    + tile.getClass().getName() + ". Try devtool nbt block for its raw NBT.");
+        }
+
+        // One record per occupied slot, matching how player inventory reports, so the
+        // confirmation is sent once rather than per line.
+        List<LogRecord> records = Inventories.container(blockId, pos, slots);
+        for (LogRecord record : records) {
+            write(record, sender);
+        }
+        sender.sendMessage(new TextComponentString("[DevToolkit] Container written to log ("
+                + records.size() + " record" + (records.size() == 1 ? "" : "s") + ")."));
+    }
+
+    /**
+     * @return occupied slots, or null when the block exposes no inventory at all
+     */
+    private static List<Inventories.Slot> collectSlots(net.minecraft.tileentity.TileEntity tile) {
+        if (tile instanceof net.minecraft.inventory.IInventory) {
+            return Inventories.collectFrom((net.minecraft.inventory.IInventory) tile);
+        }
+        // Many modded containers expose only Forge's item handler. Checked second because a
+        // vanilla inventory is the common case and needs no capability lookup.
+        if (tile.hasCapability(
+                net.minecraftforge.items.CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null)) {
+            return Inventories.collectFrom(tile.getCapability(
+                    net.minecraftforge.items.CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null));
+        }
+        return null;
+    }
+
+    private static String describeBlock(net.minecraft.world.World world, BlockPos pos) {
+        net.minecraft.util.ResourceLocation id = net.minecraft.block.Block.REGISTRY
+                .getNameForObject(world.getBlockState(pos).getBlock());
+        return id == null ? "unknown" : id.toString();
     }
 
     /**
