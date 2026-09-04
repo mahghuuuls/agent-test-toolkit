@@ -33,6 +33,10 @@ If you are reading yourself, start with `README.md`, then `docs/commands.md` for
 
 **Self reporting.** Ask the mod what it actually supports. The answer comes from the running build, not from a document that might be out of date.
 
+**Waiting, checking, and asking.** A bundle can wait until a region is loaded instead of guessing a delay, show a label on screen and pause until you type that you are ready, and compare a count, a presence, a dimension or a game mode with a value you declared. Each comparison is written to the log as a plain outcome, and a verdict there means only that the observation matched the value you gave it. The assistant still decides what that means.
+
+**Fixtures and restarts.** Name the one entity a bundle just summoned, find it again later by that name, and remove exactly it. A checkpoint stored in the world save remembers which bundle must run next across a stop and restart, and refuses anything else until it has run.
+
 ## Examples
 
 ### Setting up a repeatable run
