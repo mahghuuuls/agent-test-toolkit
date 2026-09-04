@@ -96,6 +96,18 @@ public final class RunSubCommand implements SubCommand {
                 new SenderContextSource(sender));
         execution.setCallStack(stack);
 
+        if (bundle.isResultRequested()) {
+            // Attached before the start record, so the file covers the whole run. The
+            // directory sits beside the configuration, like the bundles themselves, so a
+            // fresh test world does not lose it.
+            java.io.File configDir = com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader.getConfigDirectory();
+            com.mahghuuuls.agenttesttoolkit.state.OperatorBinding operator =
+                    com.mahghuuuls.agenttesttoolkit.state.ToolkitState.getOperator();
+            execution.attachSink(new com.mahghuuuls.agenttesttoolkit.results.BundleResultCollector(
+                    configDir == null ? null : new java.io.File(configDir, "results"),
+                    operator == null ? null : operator.getName()));
+        }
+
         // Written before the first command dispatches, so events caused by the bundle fall
         // inside the boundary rather than before it.
         BundleRecorder.recordStart(execution);

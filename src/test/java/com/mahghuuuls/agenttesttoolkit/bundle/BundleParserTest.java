@@ -228,12 +228,20 @@ class BundleParserTest {
     }
 
     @Test
-    @DisplayName("no scripting constructs are interpreted")
+    @DisplayName("no scripting constructs are interpreted, and an unknown placeholder is refused")
     void noScriptingConstructs() throws Exception {
-        // A value that looks like a variable stays a literal string; it is passed to
-        // the command handler unchanged rather than expanded.
+        // Text that looks like a variable in some other language stays a literal string; it is
+        // passed to the command handler unchanged rather than expanded.
         BundleDefinition bundle =
-                parse("{\"b\": {\"commands\": [\"say ${player} $(x) %v%\"]}}").get("b");
-        assertEquals("say ${player} $(x) %v%", bundle.getCommands().get(0).getCommand());
+                parse("{\"b\": {\"commands\": [\"say $(x) %v% $player\"]}}").get("b");
+        assertEquals("say $(x) %v% $player", bundle.getCommands().get(0).getCommand());
+
+        // The one form the toolkit does read, ${...}, is a fixed list. Anything else in it is
+        // refused at load, with the offending placeholder named, rather than kept as text
+        // that would reach a command looking like a value that was never filled in.
+        BundleParseException refused = org.junit.jupiter.api.Assertions.assertThrows(
+                BundleParseException.class,
+                () -> parse("{\"b\": {\"commands\": [\"say ${player}\"]}}"));
+        assertTrue(refused.getMessage().contains("${player}"), refused.getMessage());
     }
 }

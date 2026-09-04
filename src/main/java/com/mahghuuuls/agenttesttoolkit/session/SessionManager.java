@@ -5,15 +5,22 @@ import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.state.DiagnosticSession;
+import com.mahghuuuls.agenttesttoolkit.state.OperatorBinding;
 import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
 
+import java.util.UUID;
+
 /**
- * Session lifecycle: start, stop, and the tick counter.
+ * Session lifecycle: start, stop, the tick counter, and the operator binding.
  *
  * <p>Owns the replace rule. Starting a session while one is active stops the previous
  * one first, emitting its stop record, rather than erroring. An agent re-running a setup
  * bundle should not have to know whether a session is already open, and a silently nested or
  * silently discarded session would make the {@code session} field on later records ambiguous.
+ *
+ * <p>The operator binding belongs to the session: it can only exist while a session is active,
+ * and it ends when the session ends or the player leaves. Every change to it is recorded, so
+ * the log can always say who the operator was at any moment.
  */
 public final class SessionManager {
 
@@ -48,11 +55,65 @@ public final class SessionManager {
         if (session == null) {
             return null;
         }
+        // The binding goes first, so its record still carries the session it belonged to.
+        unbindOperator("sessionStop", context);
+        // Fixtures belong to the session too; the entities stay, the handles do not.
+        ToolkitState.clearFixtures();
         ToolkitLog.write(RecordContext.stamp(LogRecord.of(EventType.SESSION_STOP), context)
                 .add("session", session.getName())
                 .add("sessionTick", session.getTick()));
         ToolkitState.setActiveSession(null);
         return session.getName();
+    }
+
+    /**
+     * Binds the session's operator, replacing any previous binding.
+     *
+     * @return false when no session is active, in which case nothing is bound or recorded
+     */
+    public static boolean bindOperator(UUID uuid, String name, RecordContext.Snapshot context) {
+        if (!ToolkitState.hasActiveSession()) {
+            return false;
+        }
+        OperatorBinding previous = ToolkitState.getOperator();
+        OperatorBinding binding = new OperatorBinding(uuid, name);
+        ToolkitState.setOperator(binding);
+        LogRecord record = operatorRecord(context, "bound", binding);
+        if (previous != null) {
+            record.add("replaced", previous.getName());
+        }
+        ToolkitLog.write(record);
+        return true;
+    }
+
+    /**
+     * Ends the operator binding, if any, with a record saying why.
+     *
+     * @param reason a short machine-readable word: {@code disconnect}, {@code sessionStop},
+     *               or {@code command}
+     * @return the binding that was cleared, or null when there was none
+     */
+    public static OperatorBinding unbindOperator(String reason, RecordContext.Snapshot context) {
+        OperatorBinding binding = ToolkitState.getOperator();
+        if (binding == null) {
+            return null;
+        }
+        ToolkitState.setOperator(null);
+        ToolkitLog.write(operatorRecord(context, "unbound", binding).add("reason", reason));
+        return binding;
+    }
+
+    private static LogRecord operatorRecord(RecordContext.Snapshot context, String action,
+                                            OperatorBinding binding) {
+        LogRecord record = RecordContext.stamp(LogRecord.of(EventType.OPERATOR), context);
+        DiagnosticSession session = ToolkitState.getActiveSession();
+        if (session != null) {
+            record.add("session", session.getName());
+            record.add("sessionTick", session.getTick());
+        }
+        return record.add("action", action)
+                .add("name", binding.getName())
+                .add("uuid", binding.getUuid().toString());
     }
 
     /**

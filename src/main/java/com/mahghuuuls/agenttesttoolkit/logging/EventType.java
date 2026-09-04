@@ -26,6 +26,12 @@ public enum EventType {
     SESSION_STOP,
     MARK,
 
+    /**
+     * The session's operator was bound or unbound. Carries the player's name and UUID and,
+     * when unbound, why: the player left, the session stopped, or a command cleared it.
+     */
+    OPERATOR,
+
     BUNDLE_START,
     BUNDLE_END,
 
@@ -51,6 +57,19 @@ public enum EventType {
      * such as the first chunk that was still missing.
      */
     AWAIT,
+
+    /**
+     * The operator was asked or answered: a checkpoint armed, cued, or acknowledged, with the
+     * ticks of each so the latency of a human action can be read rather than guessed.
+     */
+    CHECKPOINT,
+
+    /**
+     * One declared comparison and its outcome: pass, fail, or unloaded. Always carries the
+     * expected and the observed value, so a reader can check the comparison rather than
+     * trust it. Fail means "not the declared value", never a judgement about the mod.
+     */
+    ASSERT,
 
     ARENA_CREATE,
     ARENA_RESET,

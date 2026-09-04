@@ -50,6 +50,24 @@ public final class ToolkitState {
     private static volatile DiagnosticSession activeSession;
 
     /**
+     * The session's operator, or null.
+     *
+     * <p>Lives beside the session because it has the session's lifetime: set only while one is
+     * active, cleared when it stops, and cleared early when the player leaves. Volatile for the
+     * same thread-handoff reason as the session itself.
+     */
+    private static volatile OperatorBinding operator;
+
+    /**
+     * UUIDs of fixtures claimed in the active session, by handle.
+     *
+     * <p>The session's lifetime, like the operator. Copy-on-write for the same reason the
+     * category set is: reads happen at every placeholder substitution, writes only on claim.
+     */
+    private static volatile java.util.Map<String, String> fixtureUuids =
+            java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<String, String>());
+
+    /**
      * Enabled logging categories.
      *
      * <p>Replaced wholesale on every change rather than mutated in place. Reads happen on
@@ -197,6 +215,79 @@ public final class ToolkitState {
         activeSession = session;
     }
 
+    /** @return the session's operator, or null when none is bound. */
+    public static OperatorBinding getOperator() {
+        return operator;
+    }
+
+    /**
+     * Replaces the operator binding, or clears it when given null.
+     *
+     * <p>Intended for {@code SessionManager}, which owns the rules about when a binding may
+     * exist and records every change. Public only because that class lives elsewhere.
+     */
+    public static void setOperator(OperatorBinding binding) {
+        operator = binding;
+    }
+
+    /** @return the UUID text of the fixture claimed under this handle, or null. */
+    public static String getFixtureUuid(String handle) {
+        return handle == null ? null : fixtureUuids.get(handle);
+    }
+
+    /** Records a claimed fixture. Refusing a duplicate handle is the caller's decision. */
+    public static void putFixture(String handle, String uuid) {
+        java.util.Map<String, String> next = new java.util.LinkedHashMap<String, String>(fixtureUuids);
+        next.put(handle, uuid);
+        fixtureUuids = java.util.Collections.unmodifiableMap(next);
+    }
+
+    /** Every claimed handle and its UUID, in claim order. */
+    public static java.util.Map<String, String> getFixtures() {
+        return fixtureUuids;
+    }
+
+    /**
+     * Where a fixture was last seen: dimension and block position.
+     *
+     * <p>Plain ints rather than a Minecraft position type, so this package stays free of
+     * game classes and the rule "absent needs a loaded place" stays testable without one.
+     */
+    public static final class FixturePlace {
+        public final int dimension;
+        public final int x;
+        public final int y;
+        public final int z;
+
+        FixturePlace(int dimension, int x, int y, int z) {
+            this.dimension = dimension;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
+    }
+
+    private static volatile java.util.Map<String, FixturePlace> fixturePlaces =
+            java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<String, FixturePlace>());
+
+    /** The last known place of a claimed fixture, by UUID text, or null. */
+    public static FixturePlace getFixturePlace(String uuid) {
+        return uuid == null ? null : fixturePlaces.get(uuid);
+    }
+
+    /** Remembers where a fixture was last seen, so absence can be told from unloaded. */
+    public static void putFixturePlace(String uuid, int dimension, int x, int y, int z) {
+        java.util.Map<String, FixturePlace> next = new java.util.LinkedHashMap<String, FixturePlace>(fixturePlaces);
+        next.put(uuid, new FixturePlace(dimension, x, y, z));
+        fixturePlaces = java.util.Collections.unmodifiableMap(next);
+    }
+
+    /** Forgets every fixture. Called when the session that claimed them ends. */
+    public static void clearFixtures() {
+        fixtureUuids = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<String, String>());
+        fixturePlaces = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<String, FixturePlace>());
+    }
+
     /**
      * Clears every piece of process-scoped state.
      *
@@ -205,6 +296,8 @@ public final class ToolkitState {
      */
     public static void resetForTesting() {
         activeSession = null;
+        operator = null;
+        clearFixtures();
         enabledCategories = Collections.unmodifiableSet(EnumSet.noneOf(LoggingCategory.class));
         filters = Collections.unmodifiableMap(
                 new EnumMap<LoggingCategory, Filter>(LoggingCategory.class));

@@ -29,6 +29,7 @@ public final class BundleParser {
     private static final String KEY_DESCRIPTION = "description";
     private static final String KEY_STOP_ON_FAILURE = "stopOnFailure";
     private static final String KEY_TRACE = "trace";
+    private static final String KEY_RESULT = "result";
     private static final String KEY_COMMANDS = "commands";
     private static final String KEY_COMMAND = "command";
     private static final String KEY_DELAY_TICKS = "delayTicks";
@@ -131,6 +132,16 @@ public final class BundleParser {
             traced = value.getAsBoolean();
         }
 
+        boolean resultRequested = false;
+        if (object.has(KEY_RESULT) && !object.get(KEY_RESULT).isJsonNull()) {
+            JsonElement value = object.get(KEY_RESULT);
+            if (!isBoolean(value)) {
+                throw new BundleParseException(
+                        "bundle '" + name + "': " + KEY_RESULT + " must be true or false");
+            }
+            resultRequested = value.getAsBoolean();
+        }
+
         if (!object.has(KEY_COMMANDS)) {
             throw new BundleParseException("bundle '" + name + "': missing " + KEY_COMMANDS);
         }
@@ -146,7 +157,7 @@ public final class BundleParser {
             commands.add(parseCommand(name, i, array.get(i)));
         }
 
-        return new BundleDefinition(name, description, stopOnFailure, traced, commands);
+        return new BundleDefinition(name, description, stopOnFailure, traced, resultRequested, commands);
     }
 
     /**
@@ -168,6 +179,7 @@ public final class BundleParser {
             if (command.trim().isEmpty()) {
                 throw new BundleParseException(where + ": command is blank");
             }
+            rejectUnknownPlaceholders(where, command);
             return new BundleCommand(command, 0);
         }
 
@@ -198,8 +210,24 @@ public final class BundleParser {
             }
         }
 
+        rejectUnknownPlaceholders(where, commandValue.getAsString());
         return new BundleCommand(commandValue.getAsString(), delayTicks,
                 parseToleratedFailures(object, where));
+    }
+
+    /**
+     * Fails the file on a placeholder that is not one of the known forms.
+     *
+     * <p>At parse time, on purpose. The values cannot be filled in yet, but the names can be
+     * checked, and a typo caught at reload costs a second where the same typo mid-bundle costs
+     * a test run.
+     */
+    private static void rejectUnknownPlaceholders(String where, String command)
+            throws BundleParseException {
+        java.util.List<String> problems = Placeholders.validate(command);
+        if (!problems.isEmpty()) {
+            throw new BundleParseException(where + ": " + problems.get(0));
+        }
     }
 
     /**

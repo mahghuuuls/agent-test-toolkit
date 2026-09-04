@@ -2,6 +2,7 @@ package com.mahghuuuls.agenttesttoolkit.command;
 
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleExecution;
 import com.mahghuuuls.agenttesttoolkit.bundle.CommandOutcome;
+import com.mahghuuuls.agenttesttoolkit.bundle.PlaceholderException;
 
 /**
  * Decides whether a dispatched command succeeded, from what vanilla reports.
@@ -58,6 +59,10 @@ public final class CommandOutcomes {
      */
     public static final String KEY_WAIT_TIMEOUT = BundleExecution.KEY_WAIT_TIMEOUT;
     public static final String KEY_WAIT_CANCELLED = BundleExecution.KEY_WAIT_CANCELLED;
+    public static final String KEY_PLACEHOLDER_UNBOUND = PlaceholderException.KEY_UNBOUND;
+    public static final String KEY_PLACEHOLDER_UNSAFE = PlaceholderException.KEY_UNSAFE;
+    public static final String KEY_ASSERT_FAILED = com.mahghuuuls.agenttesttoolkit.inspect.Assertions.KEY_FAILED;
+    public static final String KEY_ASSERT_UNLOADED = com.mahghuuuls.agenttesttoolkit.inspect.Assertions.KEY_UNLOADED;
 
     private CommandOutcomes() {
     }

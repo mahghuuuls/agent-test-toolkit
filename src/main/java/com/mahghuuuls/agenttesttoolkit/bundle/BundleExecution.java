@@ -116,6 +116,9 @@ public final class BundleExecution {
 
     /** The chain of bundles that led here. Set for nested executions; see BundleCallStack. */
     private BundleCallStack callStack;
+
+    /** Receives this execution's records and its end, or null when no result was asked for. */
+    private ExecutionSink sink;
     private boolean stoppedEarly;
     private boolean finished;
     private boolean senderLost;
@@ -165,12 +168,13 @@ public final class BundleExecution {
             if (wait != null) {
                 // The wait is ended explicitly, so the log shows it did not simply vanish.
                 endWait(listener, WaitOutcome.CANCELLED, "senderLost");
+                wait.ended();
                 wait = null;
             }
             senderLost = true;
             stoppedEarly = true;
             finished = true;
-            listener.onFinished(this);
+            finishWith(listener);
             return;
         }
 
@@ -195,7 +199,7 @@ public final class BundleExecution {
                 if (stopOnFailure) {
                     stoppedEarly = true;
                     finished = true;
-                    listener.onFinished(this);
+                    finishWith(listener);
                     return;
                 }
             }
@@ -221,6 +225,7 @@ public final class BundleExecution {
             endWait(listener, outcome, reason);
             String command = commands.get(waitIndex).getCommand();
             String kind = wait.kind();
+            wait.ended();
             wait = null;
 
             // Told to the caller here, because the wait ended on a tick with no command running
@@ -252,7 +257,7 @@ public final class BundleExecution {
                     if (stopOnFailure) {
                         stoppedEarly = true;
                         finished = true;
-                        listener.onFinished(this);
+                        finishWith(listener);
                         return;
                     }
                 }
@@ -272,10 +277,34 @@ public final class BundleExecution {
             position++;
             executed++;
 
-            listener.onCommandStarting(this, index, command.getCommand(), dueTick, ticksElapsed);
+            // Placeholders are filled in before anything is announced, so the step record and
+            // any failure record show the text that ran. A placeholder that cannot be filled
+            // fails the command with its own key, tolerable like any other, and nothing runs.
+            String text;
+            try {
+                text = dispatcher.resolve(command.getCommand());
+            } catch (PlaceholderException e) {
+                listener.onCommandStarting(this, index, command.getCommand(), dueTick, ticksElapsed);
+                dispatcher.report("[DevToolkit] " + e.getMessage() + " (" + e.getKey() + ")", true);
+                if (position < commands.size()) {
+                    dueTick = ticksElapsed + commands.get(position).getDelayTicks();
+                }
+                if (command.getToleratedFailures().contains(e.getKey())) {
+                    continue;
+                }
+                failed++;
+                listener.onCommandFailed(this, index, command.getCommand(), e.getKey());
+                if (stopOnFailure) {
+                    stoppedEarly = true;
+                    break;
+                }
+                continue;
+            }
+
+            listener.onCommandStarting(this, index, text, dueTick, ticksElapsed);
 
             CommandOutcome outcome =
-                    dispatcher.dispatch(command.getCommand(), command.getToleratedFailures());
+                    dispatcher.dispatch(text, command.getToleratedFailures());
 
             // The next command's delay is measured from *now*, the completion of this one,
             // rather than from the bundle's start. That is the behaviour someone editing a
@@ -298,7 +327,7 @@ public final class BundleExecution {
             }
 
             failed++;
-            listener.onCommandFailed(this, index, command.getCommand(), outcome.getDetail());
+            listener.onCommandFailed(this, index, text, outcome.getDetail());
 
             if (stopOnFailure) {
                 stoppedEarly = true;
@@ -307,7 +336,15 @@ public final class BundleExecution {
         }
 
         finished = true;
+        finishWith(listener);
+    }
+
+    /** Ends the run: the listener writes the end record, then the sink, if any, is told. */
+    private void finishWith(Listener listener) {
         listener.onFinished(this);
+        if (sink != null) {
+            sink.finished(this);
+        }
     }
 
     private void endWait(Listener listener, WaitOutcome outcome, String reason) {
@@ -325,12 +362,14 @@ public final class BundleExecution {
     public void abandonWait(Listener listener) {
         if (wait != null) {
             endWait(listener, WaitOutcome.CANCELLED, "serverStopping");
+            wait.ended();
             wait = null;
         }
     }
 
-    /** Called once per server tick while this execution is active, for the duration count. */
-    void onTick() {
+    /** Called once per server tick while this execution is active, for the duration count. Public so a
+     * test in another package can drive the clock the way the scheduler does. */
+    public void onTick() {
         ticksElapsed++;
     }
 
@@ -374,6 +413,24 @@ public final class BundleExecution {
     /** Index of the command most recently dispatched, or -1 before the first. */
     public int getLastDispatchedIndex() {
         return position - 1;
+    }
+
+    /**
+     * Attaches the sink that receives this execution's records.
+     *
+     * <p>Set before the start record is written and never replaced, so a result file covers
+     * the whole run or none of it.
+     */
+    public void attachSink(ExecutionSink next) {
+        if (this.sink != null) {
+            throw new IllegalStateException("a sink is already attached");
+        }
+        this.sink = next;
+    }
+
+    /** The attached sink, or null. */
+    public ExecutionSink getSink() {
+        return sink;
     }
 
     /** Whether this execution is currently parked on a condition. */

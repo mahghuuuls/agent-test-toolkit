@@ -34,6 +34,29 @@ public final class ToolkitLog {
      */
     private static List<String> captureSink;
 
+    /**
+     * Receives every record as it is written, beside the log.
+     *
+     * <p>Set by the bundle scheduler for the span of one execution's advance and cleared
+     * after, so a result file sees exactly the records its own bundle produced. Volatile
+     * because the scheduler and the writer are one thread, but the field must never hold a
+     * stale tap across the thread handoff a new integrated server introduces.
+     */
+    public interface Tap {
+        void accept(LogRecord record);
+    }
+
+    private static volatile Tap tap;
+
+    /** Makes this tap see every record until cleared. Null clears. */
+    public static void setTap(Tap next) {
+        tap = next;
+    }
+
+    public static Tap getTap() {
+        return tap;
+    }
+
     private ToolkitLog() {
     }
 
@@ -45,6 +68,10 @@ public final class ToolkitLog {
             throw new IllegalArgumentException("record must not be null");
         }
         String rendered = record.render();
+        Tap current = tap;
+        if (current != null) {
+            current.accept(record);
+        }
         if (captureSink != null) {
             captureSink.add(rendered);
             return;

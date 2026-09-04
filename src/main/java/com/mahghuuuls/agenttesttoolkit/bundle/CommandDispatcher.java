@@ -63,4 +63,18 @@ public interface CommandDispatcher {
      */
     default void report(String message, boolean failure) {
     }
+
+    /**
+     * Fills in placeholders, or refuses.
+     *
+     * <p>Called once per command, immediately before it is announced and dispatched, so the
+     * step and error records show the text that actually ran. The default leaves the command
+     * untouched, which is right for a test dispatcher and for text with no placeholders.
+     *
+     * @throws PlaceholderException when a value is unavailable or unsafe; the command then
+     *                              fails with the exception's key and is not dispatched
+     */
+    default String resolve(String command) throws PlaceholderException {
+        return command;
+    }
 }

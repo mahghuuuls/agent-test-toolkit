@@ -2,6 +2,8 @@ package com.mahghuuuls.agenttesttoolkit.command;
 
 import com.mahghuuuls.agenttesttoolkit.bundle.CommandDispatcher;
 import com.mahghuuuls.agenttesttoolkit.bundle.CommandOutcome;
+import com.mahghuuuls.agenttesttoolkit.bundle.PlaceholderException;
+import com.mahghuuuls.agenttesttoolkit.bundle.Placeholders;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
 
@@ -68,6 +70,13 @@ public final class ServerCommandDispatcher implements CommandDispatcher {
     @Override
     public boolean isSenderAvailable() {
         return resolve() != null;
+    }
+
+    @Override
+    public String resolve(String command) throws PlaceholderException {
+        // The one place substitution happens. The runner never sees a placeholder, and no
+        // subcommand parses one, so a value is filled in exactly once and exactly here.
+        return Placeholders.substitute(command, new StatePlaceholderSource());
     }
 
     @Override

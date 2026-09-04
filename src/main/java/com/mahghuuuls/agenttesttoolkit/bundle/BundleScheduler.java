@@ -1,5 +1,7 @@
 package com.mahghuuuls.agenttesttoolkit.bundle;
 
+import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -68,10 +70,15 @@ public final class BundleScheduler {
                 BundleExecution execution = it.next();
                 execution.onTick();
                 current = execution;
+                // For the span of this advance, every record written goes to this
+                // execution's sink as well as the log. A nested bundle advances in its own
+                // turn with its own sink, so nothing leaks between them.
+                ToolkitLog.setTap(execution.getSink());
                 try {
                     execution.advance(listener);
                 } finally {
                     current = null;
+                    ToolkitLog.setTap(null);
                 }
                 if (execution.isFinished()) {
                     it.remove();

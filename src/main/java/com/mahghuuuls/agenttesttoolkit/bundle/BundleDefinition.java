@@ -17,8 +17,9 @@ import java.util.List;
  * unavailable in vanilla.
  *
  * <p>Deliberately not a scripting language. There are no variables, expressions, conditionals,
- * loops, arithmetic or placeholder expansion, and that boundary is a project identity decision
- * rather than a simplification to be revisited when convenient.
+ * loops or arithmetic, and that boundary is a project identity decision rather than a
+ * simplification to be revisited when convenient. A fixed list of named placeholders is a
+ * lookup, not a language, and is the one substitution the format allows.
  *
  * <p>A definition knows where it came from once the registry has attached that: the relative
  * source name and the raw hash of the file, plus its own normalized hash. The hashes are what
@@ -31,6 +32,7 @@ public final class BundleDefinition {
     private final String description;
     private final boolean stopOnFailure;
     private final boolean traced;
+    private final boolean resultRequested;
     private final List<BundleCommand> commands;
 
     /** Relative source identifier, or null before the registry attaches it. */
@@ -51,11 +53,20 @@ public final class BundleDefinition {
      */
     public BundleDefinition(String name, String description, boolean stopOnFailure,
                             boolean traced, List<BundleCommand> commands) {
-        this(name, description, stopOnFailure, traced, commands, null, null);
+        this(name, description, stopOnFailure, traced, false, commands, null, null);
+    }
+
+    /**
+     * @param resultRequested whether a result file is written when a run ends. Off unless the
+     *                        file asks; the log is complete without it
+     */
+    public BundleDefinition(String name, String description, boolean stopOnFailure,
+                            boolean traced, boolean resultRequested, List<BundleCommand> commands) {
+        this(name, description, stopOnFailure, traced, resultRequested, commands, null, null);
     }
 
     private BundleDefinition(String name, String description, boolean stopOnFailure,
-                             boolean traced, List<BundleCommand> commands,
+                             boolean traced, boolean resultRequested, List<BundleCommand> commands,
                              String sourceName, String sourceHash) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("bundle name must not be null or blank");
@@ -67,6 +78,7 @@ public final class BundleDefinition {
         this.description = description;
         this.stopOnFailure = stopOnFailure;
         this.traced = traced;
+        this.resultRequested = resultRequested;
         this.commands = Collections.unmodifiableList(commands);
         this.sourceName = sourceName;
         this.sourceHash = sourceHash;
@@ -74,8 +86,8 @@ public final class BundleDefinition {
 
     /** A copy that knows its file. The registry calls this once per parsed definition. */
     public BundleDefinition withSource(String sourceName, String sourceHash) {
-        return new BundleDefinition(name, description, stopOnFailure, traced, commands,
-                sourceName, sourceHash);
+        return new BundleDefinition(name, description, stopOnFailure, traced, resultRequested,
+                commands, sourceName, sourceHash);
     }
 
     public String getName() {
@@ -107,6 +119,11 @@ public final class BundleDefinition {
      */
     public boolean isTraced() {
         return traced;
+    }
+
+    /** Whether a run of this bundle leaves a result file beside the configuration. */
+    public boolean isResultRequested() {
+        return resultRequested;
     }
 
     /** The relative file this came from, or null for a definition built in code. */

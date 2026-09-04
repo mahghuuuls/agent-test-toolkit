@@ -27,7 +27,10 @@ public final class BundleRecorder implements BundleExecution.Listener {
         record.add("bundle", execution.getBundleName());
         record.add("hash", execution.getHash());
         record.add("commands", execution.getTotal());
-        ToolkitLog.write(record);
+        // Written during the caller's dispatch, when the tap belongs to whoever is running,
+        // which for a nested bundle is the parent. Swapped for the span of this one write so
+        // the start record reaches exactly this execution's sink and no other.
+        writeAs(execution, record);
     }
 
     @Override
@@ -133,20 +136,43 @@ public final class BundleRecorder implements BundleExecution.Listener {
      * wondering whether the bundle hung.
      */
     public static void recordDiscarded(BundleExecution execution) {
-        execution.abandonWait(new BundleRecorder());
-        LogRecord record = RecordContext.stamp(
-                LogRecord.of(EventType.BUNDLE_END), execution.getContext());
-        SessionStamp.apply(record);
-        record.add("bundle", execution.getBundleName());
-        record.add("hash", execution.getHash());
-        record.add("executed", execution.getExecuted());
-        record.add("failed", execution.getFailed());
-        record.add("total", execution.getTotal());
-        record.add("stoppedEarly", true);
-        record.add("discardedOnServerStop", true);
-        record.add("durationTicks", execution.getDurationTicks());
-        ToolkitLog.write(record);
-        ToolkitLog.error("Bundle abandoned, server stopping", execution.getBundleName());
+        // Runs from the server-stopping handler, outside any tick, so no tap is set. Every
+        // record here is routed to the execution's own sink explicitly, or a result file
+        // would end without its end record.
+        ToolkitLog.Tap previous = ToolkitLog.getTap();
+        ToolkitLog.setTap(execution.getSink());
+        try {
+            execution.abandonWait(new BundleRecorder());
+            LogRecord record = RecordContext.stamp(
+                    LogRecord.of(EventType.BUNDLE_END), execution.getContext());
+            SessionStamp.apply(record);
+            record.add("bundle", execution.getBundleName());
+            record.add("hash", execution.getHash());
+            record.add("executed", execution.getExecuted());
+            record.add("failed", execution.getFailed());
+            record.add("total", execution.getTotal());
+            record.add("stoppedEarly", true);
+            record.add("discardedOnServerStop", true);
+            record.add("durationTicks", execution.getDurationTicks());
+            ToolkitLog.write(record);
+            ToolkitLog.error("Bundle abandoned, server stopping", execution.getBundleName());
+        } finally {
+            ToolkitLog.setTap(previous);
+        }
+        if (execution.getSink() != null) {
+            execution.getSink().finished(execution);
+        }
+    }
+
+    /** Writes one record with the execution's sink as the tap, whatever the tap was before. */
+    private static void writeAs(BundleExecution execution, LogRecord record) {
+        ToolkitLog.Tap previous = ToolkitLog.getTap();
+        ToolkitLog.setTap(execution.getSink());
+        try {
+            ToolkitLog.write(record);
+        } finally {
+            ToolkitLog.setTap(previous);
+        }
     }
 
     @Override

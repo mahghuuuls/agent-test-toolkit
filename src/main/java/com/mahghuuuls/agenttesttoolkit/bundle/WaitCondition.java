@@ -69,6 +69,14 @@ public interface WaitCondition {
     String kind();
 
     /**
+     * Told once when the wait is over, whatever ended it: satisfied, cancelled, timed out,
+     * the caller gone, or the server stopping. A condition that holds state elsewhere, such
+     * as an armed checkpoint, releases it here. The default does nothing.
+     */
+    default void ended() {
+    }
+
+    /**
      * Adds the condition's own fields to a record: what was waited for, and where it stood.
      *
      * <p>Called for the record that ends a wait, whatever the outcome, so a timeout can say

@@ -1,7 +1,14 @@
-# Agent Test Toolkit has no translated strings.
+# Agent Test Toolkit translates almost nothing.
 #
 # Every message it produces is either a log record with a fixed English field
 # vocabulary, which must not vary by locale because it is parsed, or a chat
-# reply prefixed [DevToolkit]. Forge still asks for this file and warns when it
-# is absent, so it exists to keep the toolkit from adding noise about itself to
-# the log it is meant to make trustworthy.
+# reply prefixed [DevToolkit]. Forge asks for this file and warns when it is
+# absent, so it exists first to keep the toolkit from adding noise about itself
+# to the log it is meant to make trustworthy.
+#
+# The entries below are the toolkit's own failure keys. They travel as command
+# errors so a bundle can classify and tolerate them by name, and vanilla renders
+# a command error through this table. Without an entry the chat would show the
+# bare key.
+devtool.assert.failed=[DevToolkit] Assertion failed: %s
+devtool.assert.unloaded=[DevToolkit] Assertion could not be evaluated, region not loaded: %s

@@ -119,6 +119,15 @@ public final class LogRecord {
         return this;
     }
 
+    public EventType getEventType() {
+        return eventType;
+    }
+
+    /** The fields in insertion order, read-only. What the result writer copies from. */
+    public Map<String, String> getFields() {
+        return java.util.Collections.unmodifiableMap(fields);
+    }
+
     public String render() {
         StringBuilder out = new StringBuilder(PREFIX);
         out.append('[').append(eventType.name()).append(']');

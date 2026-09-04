@@ -13,6 +13,7 @@ import com.mahghuuuls.agenttesttoolkit.observe.DiscreteActionObserver;
 import com.mahghuuuls.agenttesttoolkit.observe.EntitySpawnObserver;
 import com.mahghuuuls.agenttesttoolkit.observe.damage.DamageObserver;
 import com.mahghuuuls.agenttesttoolkit.proxy.CommonProxy;
+import com.mahghuuuls.agenttesttoolkit.session.OperatorLogoutListener;
 import com.mahghuuuls.agenttesttoolkit.session.SessionTicker;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
@@ -84,6 +85,7 @@ public class AgentTestToolkitMod {
         MinecraftForge.EVENT_BUS.register(new EntitySpawnObserver());
         MinecraftForge.EVENT_BUS.register(damageObserver);
         MinecraftForge.EVENT_BUS.register(new JoinAutomation());
+        MinecraftForge.EVENT_BUS.register(new OperatorLogoutListener());
 
         // No-op on a server. The client implementation registers its own handler.
         proxy.applyClientDefaults();

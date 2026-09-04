@@ -25,6 +25,7 @@ A file is a JSON object mapping bundle names to definitions.
 - `stopOnFailure` defaults to **true**. Setup bundles build on each other, so continuing past a failure usually produces a half prepared environment.
 - `commands` is required. Each entry is either a bare string or an object with `command` and an optional `delayTicks` and `toleratedFailures`.
 - `trace` is optional and defaults to `false`. When `true`, a `BUNDLE_STEP` record is written just before each command runs, carrying the tick it became due and the tick it ran on. Turn it on when a delay is not doing what you expected.
+- `result` is optional and defaults to `false`. When `true`, a JSON file is written when the run ends, under `results` beside the toolkit configuration, named `<bundle>-<startTick>.json`. It lists the run's assertions, failures, markers, checkpoints and waits, copied from the same records the log received. The log stays complete without it.
 
 ## Expected failures
 
@@ -87,6 +88,39 @@ Every wait has a finite timeout: 200 ticks unless you say otherwise, never more 
 - **cancelled**: the wait became impossible, for example the caller changed dimension. The key is `devtool.wait.cancelled`.
 
 A `delayTicks` on the command after a wait counts from the end of the wait. Outside a bundle, typed by hand, the command checks once, reports, and does not wait.
+
+## Placeholders
+
+A command may name a value the toolkit fills in when the command runs. Exactly four forms exist:
+
+| Placeholder | Value |
+| --- | --- |
+| `${operator.name}` | The bound operator's name |
+| `${operator.uuid}` | Their UUID |
+| `${operator.selector}` | `@p[name=<their name>]` |
+| `${fixture.<handle>.uuid}` | The UUID of the fixture claimed under that handle in this session |
+
+Bind the operator first, inside the session:
+
+```json
+"devtool session start my_test",
+"devtool session operator @s",
+"gamemode creative ${operator.name}",
+"summon minecraft:pig ~ ~ ~ {CustomName:\"${operator.name}\"}"
+```
+
+Rules that keep this a lookup and not a language:
+
+- Anything else inside `${...}` is a parse error, and the whole file is refused at reload with the placeholder named.
+- Values are filled in when the command runs, never when the file loads. A placeholder whose value is missing at that moment fails the command with `devtool.placeholder.unbound`. Tolerate that key on the command if you mean it.
+- A value containing whitespace, a quote or a brace is never substituted; the command fails with `devtool.placeholder.unsafe`. Names, UUIDs and selectors never contain those, so this only ever catches something wrong.
+- `BUNDLE_STEP` and `ERROR` records show the substituted text, so the log says what actually ran.
+
+## Result files
+
+A bundle with `"result": true` leaves one JSON file per run: `run/config/devtool/results/<bundle>-<startTick>.json`. It has a `schemaVersion`, the bundle name and hash, the session and operator, start and end ticks, the `BUNDLE_END` counters, and arrays `assertions`, `failures`, `markers`, `checkpoints`, `awaits`, and `steps` when traced. Every entry is the fields of one log record, copied as strings. Nothing in the file is not also in `latest.log`; it exists so tooling can read a run without scraping prose, and the log remains the authority.
+
+A file that cannot be written is an `ERROR` record and nothing more. It never changes the bundle's outcome.
 
 ## Names are global
 
