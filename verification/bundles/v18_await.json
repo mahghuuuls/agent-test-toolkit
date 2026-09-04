@@ -1,0 +1,65 @@
+{
+  "v18_await_loaded": {
+    "description": "A region around the player, which is loaded already. Expect an AWAIT record with outcome=satisfied and waitedTicks=0, then the marker.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v18_await",
+      "devtool mark V18_LOADED_BEGIN",
+      "devtool await chunks ~-16 ~-16 ~16 ~16 100",
+      "devtool mark V18_LOADED_END"
+    ]
+  },
+
+  "v18_await_timeout_control": {
+    "description": "A region 3000 blocks away that nobody is near. Expect outcome=timedOut after 40 ticks with firstUnloadedChunk named, an ERROR with devtool.wait.timeout, and the bundle halting before the second marker.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V18_TIMEOUT_BEGIN",
+      "devtool await chunks 3000 3000 3100 3100 40",
+      "devtool mark V18_TIMEOUT_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v18_await_tolerated": {
+    "description": "The same far region with the timeout declared tolerated. Expect outcome=timedOut, no ERROR, and the end marker present.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V18_TOLERATED_BEGIN",
+      { "command": "devtool await chunks 3000 3000 3100 3100 40", "toleratedFailures": ["devtool.wait.timeout"] },
+      "devtool mark V18_TOLERATED_END"
+    ]
+  },
+
+  "v18_await_after_teleport": {
+    "description": "Teleports 600 blocks away, waits for the destination region, then fills a small platform there and teleports back. Expect outcome=satisfied with waitedTicks above 0, and the fill succeeding. The delay on the return teleport counts from the end of the wait.",
+    "stopOnFailure": true,
+    "trace": true,
+    "commands": [
+      "devtool mark V18_TP_BEGIN",
+      "tp @p ~600 80 ~",
+      "devtool await chunks ~-24 ~-24 ~24 ~24 200",
+      "fill ~-2 78 ~-2 ~2 78 ~2 minecraft:stone",
+      { "command": "tp @p ~-600 ~ ~", "delayTicks": 20 },
+      "devtool mark V18_TP_END"
+    ]
+  },
+
+  "v18_await_oversized": {
+    "description": "A region far above the cap. Expect a usage failure before any waiting, and the bundle halting.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V18_OVERSIZED_BEGIN",
+      "devtool await chunks -1000 -1000 1000 1000",
+      "devtool mark V18_OVERSIZED_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v18_cleanup": {
+    "description": "Stops the session.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark V18_CLEANUP",
+      "devtool session stop"
+    ]
+  }
+}

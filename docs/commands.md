@@ -55,6 +55,12 @@ See [logging.md](logging.md) for the categories and the record format.
 | `devtool assert entity <uuid> present\|absent [at <x> <y> <z>]` | Whether a loaded entity has that UUID. Absent is only a verdict when the place it should be is loaded: give `at`, or use a claimed fixture, otherwise the outcome is `unloaded` with `devtool.assert.unloaded` |
 | `devtool assert entity <uuid> dimension <d>` and `within <r> of <x> <y> <z>` | Where a loaded entity is |
 | `devtool assert player <name> dimension <d>` and `gamemode <mode>` | Where a player is and how they play |
+| `devtool fixture claim <handle> <selector\|uuid\|entityId>` | Mark exactly one non-player entity as this session's fixture under a handle, by adding the tag `devtool.fx.<session>.<handle>`. Refuses a duplicate handle. From then on `${fixture.<handle>.uuid}` names it |
+| `devtool fixture list` | Each fixture of the session as `loaded`, `unloaded`, or `absent`, judged at its last known place. A server never unloads its spawn chunks, so a fixture standing there is always `loaded` |
+| `devtool fixture clear <handle\|all>` | Remove fixtures whose entity still carries this session's tag, logging each UUID. An entity without the tag is refused, not removed |
+| `devtool scenario checkpoint <id> next <bundle> [clean\|fatal]` | Store, inside the world save, that `<bundle>` must be the next bundle run: its name and hash, the session, its operator, and its fixtures with their last places. Until it runs, `devtool run` of any other bundle, or of that bundle with changed text, is refused with `devtool.scenario.mismatch` naming both sides. Bundles the allowed bundle runs inside itself are not checked again |
+| `devtool scenario status` | The standing checkpoint, or none, or corrupt |
+| `devtool scenario complete <id>` and `abandon <id>` | Clear it, with a record. The resume bundle must not start a session itself; the resume restores the stored one, its operator and its fixtures before the bundle runs |
 | `devtool reload` | Reload bundles and configuration from disk |
 
 `reload` does not disturb an active session, enabled categories, their filters, or a bundle already running. A bundle in flight completes with the commands it started with.
@@ -91,7 +97,7 @@ Minecraft revalidates a respawn point when you die, and falls back to the world 
 | `devtool inspect block <x> <y> <z>` | Block id, metadata, blockstate, tile entity class |
 | `devtool inspect inventory [selector]` | Occupied slots across main inventory, armour and offhand |
 | `devtool entities nearby <radius>` | Every entity within the radius, one record each |
-| `devtool nbt entity <selector|uuid|entityId>` | Raw NBT for an entity. A UUID or an entity ID finds a loaded entity in any dimension without the selector engine; the record says which dimension. When a selector matches nothing, the `ERROR` record carries `selectorPermission`, `dimensionCount`, `dimensionIds`, `senderDimension` and `liveEntities` |
+| `devtool nbt entity <selector|uuid|entityId>` | Raw NBT for an entity. A UUID or an entity ID finds a loaded entity in any dimension without the selector engine; the record says which dimension, and a miss writes an `ERROR` with the `dimensionIds` that were searched, so an entity left in a dimension that has since unloaded reads as exactly that. When a selector matches nothing, the `ERROR` record carries `selectorPermission`, `dimensionCount`, `dimensionIds`, `senderDimension` and `liveEntities` |
 | `devtool nbt block <x> <y> <z>` | Raw NBT for a tile entity |
 | `devtool nbt held` | Raw NBT for the held item |
 

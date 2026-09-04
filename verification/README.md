@@ -1,6 +1,6 @@
 # Verification bundles
 
-70 bundles used for the pre-release verification pass. They exercise the Minecraft-typed layer
+132 bundles used for the pre-release verification passes: the first release, then one file per reported item in each feedback cycle. They exercise the Minecraft-typed layer
 that the unit tests cannot reach: the command surface, the arena, the observers and the bundle
 scheduler in a running game.
 
@@ -14,7 +14,7 @@ run/config/devtool/bundles/
 /devtool reload
 ```
 
-Then follow [checklist.md](checklist.md).
+Then follow [checklist.md](checklist.md) for `v1` to `v10`. The later files were run from the cards in the process repository's cycle folders, `cycles/CYCLE-00N-*/campaign-*-card.md`, which say what to type and in what order; `v10`, `v25` and `v26` need a dedicated server, and `v24` needs a stop and restart.
 
 They live here rather than in the mod repository because `run/` is ignored and would lose them,
 and because they are development assets rather than something a user of the mod needs.
@@ -33,6 +33,22 @@ and because they are development assets rather than something a user of the mod 
 | `v8_observers` | 5 | Observer setup for manual actions, spawn noise, damage correlation, death records |
 | `v9_suite` | 4 | One-command sweeps grouping the above |
 | `v10_disconnect` | 3 | The nested-sender case, which needs a dedicated server and a real disconnect |
+| `v11_sender_identity` | 3 | The 1.0.1 sender-identity fix, from a player and from the console |
+| `v12_tolerated_failures` | 3 | `toleratedFailures`: expected, narrow, and undeclared still halts |
+| `v13_container_inspect` | 3 | `inspect container` on a chest and on a block that is not one |
+| `v14_adt001_repro` | 3 | The 1.2.0 reproduction card for a selector miss after a listing; not reproduced |
+| `v15_marker_trace` | 3 | Marker labels in chat, `trace` step records and their absence without the flag |
+| `v16_lookup` | 3 | Lookup by UUID and entity id, and the zero-match record |
+| `v17_provenance` | 1 | `BUNDLE_SOURCE` hashes carried into start and end records |
+| `v18_await` | 6 | Chunk waits: satisfied, timed out, tolerated, after a teleport, oversized |
+| `v19_operator_placeholders`, `v19_broken_placeholder` | 5 | Operator binding, the four placeholder forms, unbound and unknown placeholders |
+| `v20_checkpoint` | 4 | Arm and ack, arm timeout, the three cue forms |
+| `v21_assert` | 6 | Every assertion predicate, pass, fail, tolerated, unloaded, absent when loaded |
+| `v22_result` | 5 | Result files, nested parents and children, the unflagged control |
+| `v23_fixtures` | 5 | Claim, duplicate, unloaded, forged tag, cleanup; run away from the spawn chunks |
+| `v24_scenario` | 4 | Scenario checkpoint across a real stop and restart, wrong bundle, changed hash |
+| `v25_dedicated` | 5 | Dedicated-server cases: cues, disconnect while armed, dimension change mid-wait |
+| `v26_cross_dimension` | 3 | An overworld fixture looked up by UUID from the Nether |
 
 ## What they found
 

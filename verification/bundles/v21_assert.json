@@ -1,0 +1,67 @@
+{
+  "v21_assert_pass": {
+    "description": "Summons one named pig, then asserts its count, the player's dimension and game mode. Expect three ASSERT records with outcome=pass and the end marker.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v21_assert",
+      "devtool session operator @s",
+      "gamemode creative ${operator.name}",
+      "devtool mark V21_PASS_BEGIN",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v21pig\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool assert entities count 1 within 12 name v21pig",
+      "devtool assert player ${operator.name} dimension 0",
+      "devtool assert player ${operator.name} gamemode creative",
+      "devtool mark V21_PASS_END"
+    ]
+  },
+
+  "v21_assert_fail_control": {
+    "description": "Asserts two pigs when there is one. Expect ASSERT outcome=fail with expected=2 observed=1, an ERROR with devtool.assert.failed, and the bundle halting before its second marker.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V21_FAIL_BEGIN",
+      "devtool assert entities count 2 within 12 name v21pig",
+      "devtool mark V21_FAIL_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v21_assert_tolerated": {
+    "description": "The same failing assertion with its key tolerated. Expect outcome=fail in the record but no ERROR, and the end marker present.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V21_TOLERATED_BEGIN",
+      { "command": "devtool assert entities count 2 within 12 name v21pig", "toleratedFailures": ["devtool.assert.failed"] },
+      "devtool mark V21_TOLERATED_END"
+    ]
+  },
+
+  "v21_assert_unloaded": {
+    "description": "Asserts a made-up UUID absent at a position 3000 blocks away that nobody has loaded. Expect outcome=unloaded, regionLoaded=false, an ERROR with devtool.assert.unloaded, and the bundle halting.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V21_UNLOADED_BEGIN",
+      "devtool assert entity 12345678-1234-1234-1234-123456789abc absent at 3000 64 3000",
+      "devtool mark V21_UNLOADED_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v21_assert_absent_loaded": {
+    "description": "The same made-up UUID absent at the player's own position, which is loaded. Expect outcome=pass with observed=absent.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V21_ABSENT_BEGIN",
+      "devtool assert entity 12345678-1234-1234-1234-123456789abc absent at ~ ~ ~",
+      "devtool mark V21_ABSENT_END"
+    ]
+  },
+
+  "v21_cleanup": {
+    "description": "Removes the pig and stops the session.",
+    "stopOnFailure": false,
+    "commands": [
+      "kill @e[name=v21pig]",
+      "devtool mark V21_CLEANUP_END",
+      "devtool session stop"
+    ]
+  }
+}

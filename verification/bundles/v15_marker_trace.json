@@ -1,0 +1,31 @@
+{
+  "v15_marker_labels": {
+    "description": "Two markers with different labels. The chat reply for each must carry its own label; the MARK records are the cross-check.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V15_LABEL_ALPHA",
+      "devtool mark V15_LABEL_BETA with spaces"
+    ]
+  },
+
+  "v15_traced": {
+    "description": "A traced bundle with one delayed command. Expect three BUNDLE_STEP records in index order, the second showing dueTick and elapsedTicks about 20 greater than the first.",
+    "stopOnFailure": true,
+    "trace": true,
+    "commands": [
+      "devtool mark V15_TRACE_FIRST",
+      { "command": "devtool mark V15_TRACE_DELAYED", "delayTicks": 20 },
+      "devtool mark V15_TRACE_LAST"
+    ]
+  },
+
+  "v15_untraced_control": {
+    "description": "The same shape without trace. Expect no BUNDLE_STEP record between its boundaries.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V15_PLAIN_FIRST",
+      { "command": "devtool mark V15_PLAIN_DELAYED", "delayTicks": 20 },
+      "devtool mark V15_PLAIN_LAST"
+    ]
+  }
+}

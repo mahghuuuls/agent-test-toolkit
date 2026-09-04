@@ -1,0 +1,54 @@
+{
+  "v22_result": {
+    "description": "A flagged bundle with two assertions, a marker and a tolerated failing assertion. Expect run/config/devtool/results/v22_result-<tick>.json listing both assertions with outcomes, the marker, and no failures.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool session start v22_result",
+      "devtool session operator @s",
+      "devtool mark V22_BEGIN",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v22pig\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool assert entities count 1 within 12 name v22pig",
+      { "command": "devtool assert entities count 2 within 12 name v22pig", "toleratedFailures": ["devtool.assert.failed"] },
+      "devtool mark V22_END"
+    ]
+  },
+
+  "v22_nested_parent": {
+    "description": "A flagged parent that runs a flagged child. Expect two result files; the parent's has only its own markers and the child's only its own.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool mark V22_PARENT_BEGIN",
+      "devtool run v22_nested_child",
+      "devtool mark V22_PARENT_END"
+    ]
+  },
+
+  "v22_nested_child": {
+    "description": "The child of the nested pair.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool mark V22_CHILD_ONLY"
+    ]
+  },
+
+  "v22_unflagged_control": {
+    "description": "No result flag. Expect no new file in the results directory.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V22_UNFLAGGED"
+    ]
+  },
+
+  "v22_cleanup": {
+    "description": "Removes the pig and stops the session.",
+    "stopOnFailure": false,
+    "commands": [
+      "kill @e[name=v22pig]",
+      "devtool mark V22_CLEANUP_END",
+      "devtool session stop"
+    ]
+  }
+}

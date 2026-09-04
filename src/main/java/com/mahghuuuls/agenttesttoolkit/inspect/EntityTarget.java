@@ -198,7 +198,7 @@ public final class EntityTarget {
             // Not a cardinality problem: a direct handle denotes at most one entity, and the
             // question is only whether it is loaded. Worded so the reader does not go looking
             // for an entity that may simply be in an unloaded chunk.
-            recordDirectMiss(sender, form, selector);
+            recordDirectMiss(server, sender, form, selector);
             throw new CommandException(notLoadedMessage(form, selector));
         }
         CardinalityException problem = checkCardinality(matches.size());
@@ -232,29 +232,27 @@ public final class EntityTarget {
         return null;
     }
 
-    /** A direct handle found nothing loaded. Recorded so a bundle log shows it beside the failure. */
-    private static void recordDirectMiss(ICommandSender sender, Form form, String argument) {
+    /**
+     * A direct handle found nothing loaded. Recorded so a bundle log shows it beside the
+     * failure, with the dimensions that were searched: an entity left behind in a dimension
+     * that has since unloaded is the common cause, and the list is what shows it.
+     */
+    private static void recordDirectMiss(MinecraftServer server, ICommandSender sender, Form form,
+                                         String argument) {
         LogRecord record = RecordContext.stamp(LogRecord.of(EventType.ERROR), sender);
         SessionStamp.apply(record);
         record.add("message", notLoadedMessage(form, argument));
         record.add("target", argument);
+        addDimensionContext(record, server, sender);
         ToolkitLog.write(record);
     }
 
     /**
-     * Writes what the selector engine had to work with when it found nothing.
-     *
-     * <p>Read before anyone can act on the failure, so the record is evidence rather than a
-     * reconstruction. Each field is one cheap read: a permission check the engine itself
-     * performs first, the dimension list it scans, and the size of the entity list it filters.
+     * The loaded dimensions and the sender's own, as fields. Returns the sender's world so a
+     * caller that wants to count its entities can, or null when the sender has none.
      */
-    private static void recordZeroMatch(MinecraftServer server, ICommandSender sender, String selector) {
-        LogRecord record = RecordContext.stamp(LogRecord.of(EventType.ERROR), sender);
-        SessionStamp.apply(record);
-        record.add("message", "Entity selector matched no entities");
-        record.add("selector", selector);
-        record.add("selectorPermission", sender.canUseCommand(1, "@"));
-
+    private static net.minecraft.world.World addDimensionContext(LogRecord record, MinecraftServer server,
+                                                                  ICommandSender sender) {
         StringBuilder dimensions = new StringBuilder();
         int count = 0;
         for (WorldServer world : server.worlds) {
@@ -274,6 +272,25 @@ public final class EntityTarget {
         net.minecraft.world.World senderWorld = sender.getEntityWorld();
         if (senderWorld != null) {
             record.add("senderDimension", senderWorld.provider.getDimension());
+        }
+        return senderWorld;
+    }
+
+    /**
+     * Writes what the selector engine had to work with when it found nothing.
+     *
+     * <p>Read before anyone can act on the failure, so the record is evidence rather than a
+     * reconstruction. Each field is one cheap read: a permission check the engine itself
+     * performs first, the dimension list it scans, and the size of the entity list it filters.
+     */
+    private static void recordZeroMatch(MinecraftServer server, ICommandSender sender, String selector) {
+        LogRecord record = RecordContext.stamp(LogRecord.of(EventType.ERROR), sender);
+        SessionStamp.apply(record);
+        record.add("message", "Entity selector matched no entities");
+        record.add("selector", selector);
+        record.add("selectorPermission", sender.canUseCommand(1, "@"));
+        net.minecraft.world.World senderWorld = addDimensionContext(record, server, sender);
+        if (senderWorld != null) {
             int live = 0;
             for (Entity entity : senderWorld.loadedEntityList) {
                 if (entity != null && entity.isEntityAlive()) {

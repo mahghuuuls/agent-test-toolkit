@@ -16,7 +16,7 @@ You still play. The toolkit sets the world up, watches, and writes it down.
 | Parsing the log | [docs/logging.md](docs/logging.md) |
 | Deciding whether to install it | [MOD-PAGE.md](MOD-PAGE.md) |
 
-`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 27 record types, and three worked examples of testing a freshly implemented feature. The `docs/` pages are the same material written for a person.
+`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 35 record types, and eight worked examples of testing a freshly implemented feature. The `docs/` pages are the same material written for a person.
 
 It also covers the traps that waste a test run: why an absent record is ambiguous, why `entity_spawn` floods, and why `latest.log` may not be the file you think it is.
 
@@ -62,9 +62,17 @@ Named lists of commands in JSON, under `config/devtool/bundles/`, scanned recurs
 - **Per command tick delays**: the toolkit waits, then runs that command. Measured from the previous command finishing, so inserting a command shifts what follows rather than compressing the gaps.
 - **Stop on failure**, on by default. A failure means the game raised a command error; a command that runs and changes nothing has succeeded, so neither a `kill` matching nothing nor a `clear` on an empty inventory halts a teardown on its second run.
 - **Nesting.** A bundle can run another. The parent waits, and the child's failure counts as one failed command. Cycles are refused by name before anything runs.
-- **`BUNDLE_START` and `BUNDLE_END`** in the log, so events your setup caused can be told apart from events of the test that followed.
+- **`BUNDLE_START` and `BUNDLE_END`** in the log, so events your setup caused can be told apart from events of the test that followed. Both carry a hash of the bundle's text, and every load writes `BUNDLE_SOURCE` with the file's SHA-256, so a log line proves which text a run came from.
+- **Waits.** `devtool await chunks` parks the bundle until a region is loaded, with a timeout that is always finite. Never a guessed delay for something the toolkit can check.
+- **Checkpoints.** `devtool checkpoint arm` shows a label to the person and pauses until they type `devtool checkpoint ack`; `cue` shows a label without pausing. The ticks asked and answered are recorded.
+- **An operator and placeholders.** Bind one player with `devtool session operator @s`, then write `${operator.name}`, `${operator.uuid}`, `${operator.selector}` or `${fixture.<handle>.uuid}` in any command. Those four are the whole list, and an unknown one refuses the file.
+- **Assertions and result files.** `devtool assert` compares a count, a presence, a dimension or a game mode with a value you declare, and writes the outcome; `"result": true` on a bundle also writes one JSON file per run with every assertion, failure, marker, checkpoint and wait.
+- **Fixtures.** `devtool fixture claim` names the one entity you just summoned; `list` says whether it is still there; `clear` removes exactly it, by a tag the toolkit owns, and nothing else.
+- **Scenario checkpoints.** `devtool scenario checkpoint` stores in the world save which bundle must run next, across a stop and restart, and refuses anything else until it has run or you abandon it.
 
-They live outside the world save, so they survive making a fresh test world. They are deliberately **not** a scripting language: no variables, no conditionals, no loops.
+They live outside the world save, so they survive making a fresh test world. They are deliberately **not** a scripting language: no variables, no conditionals, no loops, and the placeholders are lookups rather than expressions.
+
+A verdict from an assertion means only that an observation matched, or did not match, the value you declared. It never says the mod is right or wrong. Deciding that is still your job, and the toolkit's job is to make sure you decide from records rather than from a description.
 
 ### Event logging
 

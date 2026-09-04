@@ -153,7 +153,7 @@ Cycles are refused before the child starts, and the error names the whole route,
 
 ## What bundles deliberately are not
 
-No variables, no conditionals, no loops, no arithmetic, no placeholder expansion. A command string reaches the game unchanged. `say ${player}` prints the literal text `${player}`.
+No variables, no conditionals, no loops, no arithmetic. The four placeholder forms above are lookups the toolkit fills in; they are the whole list, and anything else inside `${...}` refuses the file at reload rather than reaching the game. Every other character of a command string reaches the game unchanged.
 
 This boundary is a project identity decision, not a simplification waiting to be revisited.
 

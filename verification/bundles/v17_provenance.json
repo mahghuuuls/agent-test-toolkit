@@ -1,0 +1,11 @@
+{
+  "v17_provenance": {
+    "description": "Runs three markers. Compare the hash field on BUNDLE_START and BUNDLE_END with the hash the BUNDLE_SOURCE record reported for this bundle at reload; all three must be equal.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V17_BEGIN",
+      "devtool mark V17_MIDDLE",
+      "devtool mark V17_END"
+    ]
+  }
+}

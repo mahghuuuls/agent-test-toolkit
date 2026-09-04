@@ -21,7 +21,7 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 
 ## Every record type
 
-27 in total. The name in brackets is the whole vocabulary: nothing else appears, and these names do not change.
+35 in total. The name in brackets is the whole vocabulary: nothing else appears, and these names do not change.
 
 **Written only when their category is enabled.** These are the observed game events, and they are the only ones you can turn off.
 
@@ -49,6 +49,8 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 | `AWAIT` | A wait ended, or a single check outside a bundle answered. `command`, `condition`, `outcome` of `satisfied`, `timedOut`, `cancelled` or `pending`, `reason` when cancelled, `waitedTicks`, `timeoutTicks`, plus the condition's own fields: for `chunks`, `dimension`, `chunks` bounds, `chunkCount`, `loadedChunks`, and `firstUnloadedChunk` when any. Inside a bundle also `bundle`, `hash`, `index` |
 | `CHECKPOINT` | `action` of `arm`, `cue` or `ack` with `label`. Arm: `armedTick`, `timeoutTicks`, `operator`. Cue: `cueTick`, `form`, `sound`, `operator`. Ack: `askedTick`, `ackTick`, `latencyTicks`, and `answered` (`arm` or `cue`). An armed checkpoint that ends also writes an `AWAIT` with `condition=checkpoint`, `label`, `armedTick`, and when acknowledged `ackTick` and `latencyTicks` |
 | `ASSERT` | One declared comparison: `predicate`, the scope fields it used, `expected`, `observed`, `outcome` of `pass`, `fail` or `unloaded`, and `note` when the outcome needs one. A verdict says only whether the observation matched the declared value; it never says the mod is right or wrong |
+| `FIXTURE` | `action` of `claim`, `list` or `clear` with `handle` and `uuid`. Claim: `entity`, `tag`, `dimension`, `pos`. List: `state` (`loaded`, `unloaded`, `absent`, `unknown`), `fixtures`, last place. Clear: `outcome` (`removed`, `refused` with `reason=notOwned` and the entity's `tags`, or `notLoaded` with `state`) |
+| `SCENARIO` | `action` of `checkpoint`, `load` (with `state` of `present`, `absent` or `corrupt` and `enforced`), `resume` (with `restoredFixtures`), `refuse` (with `reason` of `wrongBundle` or `changedHash`), `completed` or `abandoned`; with `scenarioId`, `expectedBundle`, `expectedHash`, `offeredBundle`, `offeredHash`, `operator`, `expectedStop`, `fixtures` as they apply |
 | `ARENA_CREATE` / `ARENA_RESET` / `ARENA_CLEAR` | The corresponding `devtool arena` action |
 | `PLAYER_INSPECT` | `devtool inspect player` |
 | `ENTITY_INSPECT` | `devtool inspect entity` |

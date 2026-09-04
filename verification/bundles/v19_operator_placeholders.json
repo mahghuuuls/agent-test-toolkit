@@ -1,0 +1,46 @@
+{
+  "v19_bind": {
+    "description": "Starts a session and binds the caller as operator. Expect an OPERATOR record with action=bound, your name and UUID.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v19_operator",
+      "devtool session operator @s",
+      "devtool session status",
+      "devtool mark V19_BOUND"
+    ]
+  },
+
+  "v19_placeholders": {
+    "description": "Uses all three operator placeholders. Expect the BUNDLE_STEP records to show your real name, UUID and selector, a pig named after you, and every command succeeding.",
+    "stopOnFailure": true,
+    "trace": true,
+    "commands": [
+      "devtool mark V19_PH_BEGIN",
+      "gamemode creative ${operator.name}",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"${operator.name}\",NoAI:1b}",
+      "devtool nbt entity ${operator.uuid}",
+      "tp ${operator.selector} ~ ~ ~",
+      "devtool mark V19_PH_END"
+    ]
+  },
+
+  "v19_unbound_control": {
+    "description": "Stops the session, which unbinds the operator, then uses a placeholder. Expect an ERROR with devtool.placeholder.unbound and the bundle halting before its second marker.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session stop",
+      "devtool mark V19_UNBOUND_BEGIN",
+      "gamemode creative ${operator.name}",
+      "devtool mark V19_UNBOUND_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v19_cleanup": {
+    "description": "Removes the pig named after the operator, by type and radius so no name is needed.",
+    "stopOnFailure": false,
+    "commands": [
+      "kill @e[type=minecraft:pig,r=8]",
+      "devtool mark V19_CLEANUP_END"
+    ]
+  }
+}

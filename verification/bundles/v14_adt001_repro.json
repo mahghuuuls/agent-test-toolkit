@@ -1,0 +1,40 @@
+{
+  "v14_adt001_probe": {
+    "description": "Reproduction attempt for ADT-001. Summons a named pig and, in the same tick, resolves it four ways: entities nearby, @e by name, @e by type and radius, and vanilla kill-free inspection. The reported failure was @e matching nothing right after entities nearby listed the pig. stopOnFailure is off so every probe runs even if one fails.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool session start v14_adt001",
+      "devtool mark V14_PROBE_BEGIN",
+      "summon minecraft:pig ~4 ~1 ~ {CustomName:\"v14pig\",CustomNameVisible:1b,NoAI:1b,PersistenceRequired:1b}",
+      "devtool entities nearby 12",
+      "devtool nbt entity @p",
+      "devtool nbt entity @e[name=v14pig]",
+      "devtool nbt entity @e[type=minecraft:pig,r=12,c=1]",
+      "devtool inspect entity @e[name=v14pig]",
+      "devtool mark V14_PROBE_END"
+    ]
+  },
+
+  "v14_adt001_delayed": {
+    "description": "The same selector one second later, to separate a same-tick problem from a general one.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark V14_DELAYED_BEGIN",
+      { "command": "devtool nbt entity @e[name=v14pig]", "delayTicks": 20 },
+      { "command": "devtool nbt entity @e[type=minecraft:pig,r=12,c=1]", "delayTicks": 1 },
+      "devtool mark V14_DELAYED_END"
+    ]
+  },
+
+  "v14_adt001_cleanup": {
+    "description": "Removes the probe pig through the vanilla path, which also proves whether vanilla resolves the same selector, then stops the session.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark V14_CLEANUP_BEGIN",
+      "kill @e[name=v14pig]",
+      "devtool entities nearby 12",
+      "devtool mark V14_CLEANUP_END",
+      "devtool session stop"
+    ]
+  }
+}

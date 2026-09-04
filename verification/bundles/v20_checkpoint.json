@@ -1,0 +1,44 @@
+{
+  "v20_arm_ack": {
+    "description": "Arms a checkpoint with a 600 tick timeout. The bundle pauses; the card asks the owner to type /devtool checkpoint ack after a few seconds. Expect CHECKPOINT arm and ack records, an AWAIT with outcome=satisfied carrying latencyTicks, and the end marker.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v20_checkpoint",
+      "devtool session operator @s",
+      "devtool mark V20_ARM_BEGIN",
+      "devtool checkpoint arm V20_READY 600",
+      "devtool mark V20_ARM_END"
+    ]
+  },
+
+  "v20_arm_timeout_control": {
+    "description": "Arms with a 60 tick timeout and nobody acknowledges. Expect AWAIT outcome=timedOut, an ERROR with devtool.wait.timeout, a red chat line, and the bundle halting before its second marker.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V20_TIMEOUT_BEGIN",
+      "devtool checkpoint arm V20_NOBODY_ANSWERS 60",
+      "devtool mark V20_TIMEOUT_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v20_cues": {
+    "description": "Three cue forms with distinct labels, one second apart. Expect three CHECKPOINT cue records with cueTick, and the owner to have seen each label on screen: action bar, title, chat, with a sound on the last.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V20_CUES_BEGIN",
+      "devtool checkpoint cue V20_CUE_ACTIONBAR actionbar",
+      { "command": "devtool checkpoint cue V20_CUE_TITLE title", "delayTicks": 40 },
+      { "command": "devtool checkpoint cue V20_CUE_CHAT chat sound", "delayTicks": 80 },
+      { "command": "devtool mark V20_CUES_END", "delayTicks": 20 }
+    ]
+  },
+
+  "v20_cleanup": {
+    "description": "Stops the session.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark V20_CLEANUP",
+      "devtool session stop"
+    ]
+  }
+}

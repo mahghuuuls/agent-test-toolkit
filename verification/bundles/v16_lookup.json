@@ -1,0 +1,34 @@
+{
+  "v16_lookup_setup": {
+    "description": "Summons a named pig and lists it. The ENTITY_LIST record prints its entityId; the NBT record by selector prints its uuid. Both feed the next two steps, which the card types by hand.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v16_lookup",
+      "devtool mark V16_SETUP_BEGIN",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v16pig\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool entities nearby 12",
+      "devtool nbt entity @e[name=v16pig]",
+      "devtool mark V16_SETUP_END"
+    ]
+  },
+
+  "v16_zero_match_control": {
+    "description": "A selector that matches nothing on purpose. Expect an ERROR record carrying selectorPermission, dimensionsScanned, senderDimension and liveEntities, and the bundle halting on it.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V16_ZERO_BEGIN",
+      "devtool nbt entity @e[name=v16_nobody]",
+      "devtool mark V16_ZERO_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v16_cleanup": {
+    "description": "Removes the pig and stops the session.",
+    "stopOnFailure": false,
+    "commands": [
+      "kill @e[name=v16pig]",
+      "devtool mark V16_CLEANUP_END",
+      "devtool session stop"
+    ]
+  }
+}

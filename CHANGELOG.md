@@ -1,5 +1,52 @@
 # Changelog
 
+## 1.2.0
+
+Every item in this release came from one report written by an AI assistant that used 1.1.0 to test another mod. Ten items, ten answers.
+
+### Added
+
+- **A bundle can wait for something to be true.** `devtool await chunks x1 z1 x2 z2 [timeoutTicks]` parks the bundle until every chunk touching that rectangle is loaded, then continues. It never loads a chunk. A timeout fails the command with `devtool.wait.timeout`, a dimension change with `devtool.wait.cancelled`, and both honour `stopOnFailure` and `toleratedFailures`. Every wait writes an `AWAIT` record with how long it waited and, on a timeout, the first chunk that was not there.
+
+- **A checkpoint for the person at the keyboard.** `devtool checkpoint arm <label> [timeoutTicks]` shows the label on screen and parks the bundle until they type `devtool checkpoint ack`, recording the tick asked, the tick answered and the latency. `devtool checkpoint cue <label> [chat|actionbar|title] [sound]` shows a label without pausing. Records between `armedTick` and `ackTick` are the ones that happened while the person acted.
+
+- **An operator, and placeholders that name them.** `devtool session operator @s` binds one online player to the session with an `OPERATOR` record; disconnect and session stop unbind with a record. Bundle commands may then say `${operator.name}`, `${operator.uuid}` and `${operator.selector}`, filled in when the command runs. An unbound value fails the command with `devtool.placeholder.unbound`; a value that could break the command, with `devtool.placeholder.unsafe`.
+
+- **Assertions.** `devtool assert entities count`, `assert entity <uuid> present|absent|dimension|within`, and `assert player <name> dimension|gamemode` write an `ASSERT` record with `predicate`, `expected`, `observed` and `outcome`. A mismatch fails the command with `devtool.assert.failed`; an absence that cannot be judged because the place is not loaded is `outcome=unloaded` with `devtool.assert.unloaded`, never a pass. A verdict says only that an observation matched or did not match a declared value. It never says the mod is right.
+
+- **A result file per run.** `"result": true` on a bundle writes `results/<bundle>-<startTick>.json` beside the configuration: assertions, failures, markers, checkpoints and waits, copied from the log records, plus the bundle's identity, hash, session, operator and counters. Nothing is in the file that is not in the log.
+
+- **Fixtures.** `devtool fixture claim <handle> <selector|uuid|entityId>` tags exactly one non-player entity as the session's own, `fixture list` says whether each is `loaded`, `unloaded` or `absent`, and `fixture clear <handle|all>` removes only entities that still carry the tag, logging every UUID. `${fixture.<handle>.uuid}` names a claimed entity in any later command. Ownership is the tag, never the name.
+
+- **Scenario checkpoints across a restart.** `devtool scenario checkpoint <id> next <bundle> [clean|fatal]` stores, inside the world save, which bundle must run next, with its hash, the session, its operator and its fixtures. After the restart a `SCENARIO` record at world load reports it, running anything else is refused with `devtool.scenario.mismatch`, and running the expected bundle restores the session, the operator and the fixtures first. `complete` and `abandon` clear it. Unreadable stored data is reported as `corrupt` and refuses nothing.
+
+- **Provenance.** Every load and reload writes a `BUNDLE_SOURCE` record per file with its SHA-256, and one per bundle with a normalized hash of what the bundle would do. `BUNDLE_START` and `BUNDLE_END` carry that hash, so a log line proves which text a run came from.
+
+- **Trace records.** `"trace": true` on a bundle writes a `BUNDLE_STEP` before each command with the tick it became due and the tick it ran on, for when a delay is not doing what you expected.
+
+- **Direct entity lookup.** `devtool nbt entity` accepts a UUID or an entity ID as well as a selector, finds the entity in any loaded dimension without the selector engine, and records which dimension and which lookup form. A miss lists the dimensions that were searched. A selector that matches nothing now writes an `ERROR` record with what the engine had to work with: `selectorPermission`, `dimensionCount`, `dimensionIds`, `senderDimension` and `liveEntities`.
+
+### Changed
+
+- **The marker chat reply names the label.** `devtool mark PRESS_H_NOW` answers `Marker written to log: PRESS_H_NOW`, so a person can tell which marker fired. The `MARK` record is unchanged.
+
+- **An unknown `${...}` in a bundle command refuses the file at reload.** In earlier versions the text reached the game unchanged. Only the placeholder forms above are accepted; anything else inside `${` and `}` is a load error naming the file, the bundle and the placeholder. A bundle that relied on passing such text through literally must be rewritten.
+
+- **Long checkpoint labels fit on screen.** A label over twelve characters is drawn on the subtitle line under a short heading rather than at title size.
+
+- **Eight new record types**, for 35 in total: `BUNDLE_STEP`, `BUNDLE_SOURCE`, `AWAIT`, `CHECKPOINT`, `OPERATOR`, `ASSERT`, `FIXTURE`, `SCENARIO`. No existing record changed shape, except that `BUNDLE_START` and `BUNDLE_END` gained `hash`, and `NBT` for an entity gained `lookup` and `dimension`.
+
+### Documentation
+
+- `delayTicks` is now described as "wait, then run this command", with the pattern that puts the delay on the command that must follow the wait. A reader had reasonably taken it the other way round.
+- Five new worked examples in `AGENTS.md`: a wait, a checkpoint, an assertion with a result file, a fixture claim and clear, and a scenario across a restart.
+- The public copy states what a verdict means.
+
+### Notes
+
+- A report that a selector matched nothing on a dedicated server, right after `entities nearby` had listed the entity, could not be reproduced on 1.1.0 or on this build. The zero-match record now carries what the selector engine saw, so the next such report can be read from the log.
+- Bundles written for 1.1.0 work unchanged unless they contain `${` text, see above. The command surface only grew; no command changed meaning.
+
 ## 1.1.0
 
 ### Added

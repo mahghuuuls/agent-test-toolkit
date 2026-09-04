@@ -69,13 +69,13 @@ Rules that matter to you:
 - `stopOnFailure` defaults to **true**. Leave it true for setup, so a broken step does not produce a half-prepared world you then test in.
 - `delayTicks` means **wait, then run this command**. The wait starts when the previous command finishes, not at the bundle's start. Two commands with `delayTicks: 20` put the second 40 ticks in. 20 ticks per second. Put the delay on the command that must run after the wait: to let chunks load after a teleport, keep the teleport immediate and delay the command that follows it. Set `"trace": true` on a bundle to get a `BUNDLE_STEP` record per command showing when it was due and when it ran.
 - **`toleratedFailures` lets one command fail without stopping the bundle**, for the specific reasons you name. An idempotent reset like `effect @s clear` fails when there is nothing to clear; declare `["commands.effect.failure.notActive.all"]` on that command and it will be tolerated, while a typo in the same command still fails. Find the key in the `detail` field of the `ERROR` record. A tolerated failure is recorded as a success carrying a note that names the key, so it never reads as a command that simply worked.
-- **The toolkit has failure keys of its own**, in the `devtool.` namespace, and you tolerate them the same way: `devtool.wait.timeout` when a wait ran out of time, `devtool.wait.cancelled` when it became impossible, such as the caller changing dimension mid-wait. `devtool.placeholder.unbound` when a placeholder has no value yet, `devtool.placeholder.unsafe` when its value could break the command.
+- **The toolkit has failure keys of its own**, in the `devtool.` namespace, and you tolerate them the same way: `devtool.wait.timeout` when a wait ran out of time, `devtool.wait.cancelled` when it became impossible, such as the caller changing dimension mid-wait. `devtool.placeholder.unbound` when a placeholder has no value yet, `devtool.placeholder.unsafe` when its value could break the command. `devtool.assert.failed` when an assertion did not match, `devtool.assert.unloaded` when an absence could not be judged because the place is not loaded. `devtool.scenario.mismatch` when a scenario checkpoint expects a different bundle, or this bundle with different text. That is the whole list; tolerate any of them on the one command that may fail that way.
 - **Placeholders.** Bind the human once with `devtool session operator @s`, then write `${operator.name}`, `${operator.uuid}` or `${operator.selector}` in any command; a claimed fixture is `${fixture.<handle>.uuid}` once `devtool fixture claim` has named it. That is the whole list. An unknown placeholder fails the file at reload. A value is filled in when the command runs, and a command whose value is missing fails with `devtool.placeholder.unbound` instead of running with a blank.
 - **Result files.** Put `"result": true` on a bundle and each run writes `run/config/devtool/results/<bundle>-<startTick>.json`: assertions with outcomes, failures, markers, checkpoints, waits, all copied from the log records. Read that when you want a run's verdicts without grepping; read the log when you want everything.
 - **No comments.** JSON has none, and a `"_comment"` key at the top level fails the *entire file*, because every top-level entry must be a bundle. Use `description`.
 - **A duplicate name loads from neither file**, and the error names both. Prefix your bundles so they cannot collide: `feat_`, or the feature's name.
 - `example_` is reserved for the bundles the toolkit ships.
-- **Not a scripting language.** No variables, conditionals, loops, or substitution. `say ${player}` prints the literal `${player}`. If you want a variable, write two bundles.
+- **Not a scripting language.** No variables, conditionals, loops, or arithmetic. The four placeholder forms above are lookups, not a language: `say ${player}` is not one of them, so the file is refused at reload with the placeholder named. If you want a variable, write two bundles.
 - **Nesting works**: a command may be `devtool run other_bundle`. The parent waits; the child's whole outcome counts as one command. Cycles and nesting past depth 10 are refused before anything runs.
 - A bundle runs **as whoever ran it**, fully. Permissions, position, world, and sender identity are the caller's own, so a command may omit its player argument exactly as if typed in chat: `gamemode creative` works, and so do bare `clear`, `kill`, `tp`, `xp`, `spawnpoint`, `setworldspawn` and `scoreboard`. A bundle is a convenience for typing, never a way to widen permissions.
 - **In 1.0.0 that was not true.** Those eight commands failed with `commands.generic.player.unspecified` when their player argument was omitted, because the sender was substituted. Fixed in 1.0.1. If you are writing for 1.0.0, pass an explicit selector such as `@p`.
@@ -173,7 +173,7 @@ Start a session in every setup bundle. Without one you are searching a log; with
 | `devtool inspect block <x> <y> <z>` | Block id, metadata, blockstate, tile entity class |
 | `devtool inspect inventory [selector]` | Occupied slots across inventory, armour, offhand |
 | `devtool entities nearby <radius>` | Every entity within the radius, one record each |
-| `devtool nbt entity <selector|uuid|entityId>` | Raw NBT for an entity. A UUID or an entity ID finds a loaded entity in any dimension without the selector engine; the record says which dimension. When a selector matches nothing, the `ERROR` record carries `selectorPermission`, `dimensionCount`, `dimensionIds`, `senderDimension` and `liveEntities` |
+| `devtool nbt entity <selector|uuid|entityId>` | Raw NBT for an entity. A UUID or an entity ID finds a loaded entity in any dimension without the selector engine; the record says which dimension, and a miss writes an `ERROR` with the `dimensionIds` that were searched, so an entity left in a dimension that has since unloaded reads as exactly that. When a selector matches nothing, the `ERROR` record carries `selectorPermission`, `dimensionCount`, `dimensionIds`, `senderDimension` and `liveEntities` |
 | `devtool nbt block <x> <y> <z>` | Raw NBT for a tile entity |
 | `devtool nbt held` | Raw NBT for the held item |
 
@@ -205,6 +205,12 @@ NBT goes to the log, never to chat, and is truncated at `maxNbtOutputLength`. Tr
 | `devtool assert entity <uuid> present\|absent [at <x> <y> <z>]` | Whether a loaded entity has that UUID. Absent is only a verdict when the place it should be is loaded: give `at`, or use a claimed fixture, otherwise the outcome is `unloaded` with `devtool.assert.unloaded` |
 | `devtool assert entity <uuid> dimension <d>` and `within <r> of <x> <y> <z>` | Where a loaded entity is |
 | `devtool assert player <name> dimension <d>` and `gamemode <mode>` | Where a player is and how they play |
+| `devtool fixture claim <handle> <selector\|uuid\|entityId>` | Mark exactly one non-player entity as this session's fixture under a handle, by adding the tag `devtool.fx.<session>.<handle>`. Refuses a duplicate handle. From then on `${fixture.<handle>.uuid}` names it |
+| `devtool fixture list` | Each fixture of the session as `loaded`, `unloaded`, or `absent`, judged at its last known place. A server never unloads its spawn chunks, so a fixture standing there is always `loaded` |
+| `devtool fixture clear <handle\|all>` | Remove fixtures whose entity still carries this session's tag, logging each UUID. An entity without the tag is refused, not removed |
+| `devtool scenario checkpoint <id> next <bundle> [clean\|fatal]` | Store, inside the world save, that `<bundle>` must be the next bundle run: its name and hash, the session, its operator, and its fixtures with their last places. Until it runs, `devtool run` of any other bundle, or of that bundle with changed text, is refused with `devtool.scenario.mismatch` naming both sides. Bundles the allowed bundle runs inside itself are not checked again |
+| `devtool scenario status` | The standing checkpoint, or none, or corrupt |
+| `devtool scenario complete <id>` and `abandon <id>` | Clear it, with a record. The resume bundle must not start a session itself; the resume restores the stored one, its operator and its fixtures before the bundle runs |
 | `devtool reload` | Re-read bundles and configuration from disk |
 | `devtool bundle list` | Loaded bundles and their command counts |
 | `devtool bundle show <name>` | One bundle's commands in order, with delays |
@@ -226,7 +232,7 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 
 `side` leads every record, then `worldTick`, then `session` and `sessionTick` when a session is active. `worldTick` comes from the dimension where the event happened, and dimensions tick independently, so it is not comparable across dimensions.
 
-**There are 27 record types and no others.** The vocabulary is closed: no near-synonyms, no renames between versions.
+**There are 35 record types and no others.** The vocabulary is closed: no near-synonyms, no renames between versions.
 
 **Category-gated.** These eight exist only while their category is on:
 
@@ -255,6 +261,8 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 | `AWAIT` | a wait ended: `condition` `outcome` (`satisfied` `timedOut` `cancelled` `pending`) `reason` `waitedTicks` `timeoutTicks`, and for `chunks` also `dimension` `chunks` `chunkCount` `loadedChunks` `firstUnloadedChunk` |
 | `CHECKPOINT` | `action` of `arm`, `cue` or `ack` with `label`. Arm: `armedTick`, `timeoutTicks`, `operator`. Cue: `cueTick`, `form`, `sound`, `operator`. Ack: `askedTick`, `ackTick`, `latencyTicks`, and `answered` (`arm` or `cue`). An armed checkpoint that ends also writes an `AWAIT` with `condition=checkpoint`, `label`, `armedTick`, and when acknowledged `ackTick` and `latencyTicks` |
 | `ASSERT` | One declared comparison: `predicate`, the scope fields it used, `expected`, `observed`, `outcome` of `pass`, `fail` or `unloaded`, and `note` when the outcome needs one. A verdict says only whether the observation matched the declared value; it never says the mod is right or wrong |
+| `FIXTURE` | `action` of `claim`, `list` or `clear` with `handle` and `uuid`. Claim: `entity`, `tag`, `dimension`, `pos`. List: `state` (`loaded`, `unloaded`, `absent`, `unknown`), `fixtures`, last place. Clear: `outcome` (`removed`, `refused` with `reason=notOwned` and the entity's `tags`, or `notLoaded` with `state`) |
+| `SCENARIO` | `action` of `checkpoint`, `load` (with `state` of `present`, `absent` or `corrupt` and `enforced`), `resume` (with `restoredFixtures`), `refuse` (with `reason` of `wrongBundle` or `changedHash`), `completed` or `abandoned`; with `scenarioId`, `expectedBundle`, `expectedHash`, `offeredBundle`, `offeredHash`, `operator`, `expectedStop`, `fixtures` as they apply |
 | `ARENA_CREATE` / `ARENA_RESET` / `ARENA_CLEAR` | the matching `arena` action |
 | `PLAYER_INSPECT` | `inspect player` |
 | `ENTITY_INSPECT` | `inspect entity` |
@@ -317,7 +325,7 @@ Before trusting a "done":
 
 Minecraft renames it to a dated `.gz` archive **every time a process starts**. If a restart happens and you then read `latest.log`, you are reading a different file from the one your test wrote to, and you will conclude nothing was recorded.
 
-A client and a dedicated server started from the same directory share `run/logs/`, so the second to start archives the first one's log.
+A client and a dedicated server started from the same directory share `run/logs/`, so the second to start archives the first one's log, and while both run they write into one file: a burst of records from one process can truncate or overwrite lines from the other, so a record you cannot find may have been lost on the way to disk rather than never written. Re-run the bundle rather than conclude from its absence.
 
 **The combined file can also be corrupted.** Two processes writing one Log4j file, on Windows in particular, can leave **NUL bytes** in it. One reported session had 6,377 NUL bytes in 43,542 retained bytes. Standard tooling then treats the file as binary and declines to search it, which looks exactly like "there are no records" rather than "this file needs different handling".
 
@@ -456,6 +464,179 @@ This one needs a configuration change: dropped items and experience orbs are **e
 
 **What would fool you:** `doMobLoot` left false, drops falling outside the arena filter, or a despawn before pickup. The standing-still instruction is not politeness; it is what separates "nothing dropped" from "it dropped and vanished".
 
+### D. A wait instead of a guessed delay
+
+You want to build something 600 blocks away. A `delayTicks` after the teleport is a guess about how long chunks take to load; a wait is a fact.
+
+```json
+{
+  "feat_far_platform": {
+    "description": "Teleport far away, wait for the region, build, come back",
+    "trace": true,
+    "commands": [
+      "devtool session start far_platform",
+      "devtool mark FAR_BEGIN",
+      "tp @p ~600 80 ~",
+      "devtool await chunks ~-24 ~-24 ~24 ~24 200",
+      "fill ~-2 78 ~-2 ~2 78 ~2 minecraft:stone",
+      { "command": "tp @p ~-600 100 ~", "delayTicks": 20 },
+      "devtool mark FAR_END"
+    ]
+  }
+}
+```
+
+**Ask a person for:** run it and stand still until the second marker appears in chat.
+
+**Then read back:**
+
+- `AWAIT condition=chunks outcome=satisfied waitedTicks=...`. Above zero means the wait did something a delay could not have known about.
+- `BUNDLE_STEP` records, because `trace` is on: the `fill` ran on the tick the wait ended, not before.
+- `BUNDLE_END failed=0`.
+
+**What would fool you:** a return teleport written as `~-600 ~ ~`. The person fell while the wait ran, so "the same height" is now the ground 600 blocks away, which at the start point may be inside rock. Give the return an absolute height. And a wait on a region nobody is near never becomes ready: `outcome=timedOut` with `firstUnloadedChunk` is the wait telling you that, and the command fails with `devtool.wait.timeout` so the bundle stops there instead of filling nothing.
+
+### E. A checkpoint around an action only a person can perform
+
+Your feature reacts to a key press. You need the records from after the press, and you need to know when the press happened.
+
+```json
+{
+  "feat_keypress_probe": {
+    "description": "Cue the person, arm a checkpoint, record what happens after they answer",
+    "commands": [
+      "devtool session start keypress",
+      "devtool session operator @s",
+      "devtool log item_use on radius 8",
+      "devtool mark ARMED",
+      "devtool checkpoint cue PRESS_H_NOW actionbar sound",
+      "devtool checkpoint arm PRESS_H_THEN_ACK 600",
+      "devtool inspect player ${operator.name}",
+      "devtool mark AFTER_ACK"
+    ]
+  }
+}
+```
+
+**Ask a person for:** when the label shows, press H once, then type `/devtool checkpoint ack`. Nothing else.
+
+**Then read back:**
+
+- `CHECKPOINT action=cue label=PRESS_H_NOW cueTick=...` and `CHECKPOINT action=arm label=PRESS_H_THEN_ACK armedTick=...`
+- Your mod's own records, and any `ITEM_USE`, between `armedTick` and `ackTick`. That window is the whole point: everything inside it happened after the cue and before the person said they were done.
+- `CHECKPOINT action=ack latencyTicks=...` and `AWAIT condition=checkpoint outcome=satisfied`.
+- `PLAYER_INSPECT` after the ack, with whatever state the press should have changed.
+
+**What would fool you:** a person who pressed the key before the label appeared. `armedTick` is the boundary; records before it belong to setup. A person who never answered: `outcome=timedOut`, the command fails with `devtool.wait.timeout`, and the marker `AFTER_ACK` is absent, which is what tells you no answer came rather than an answer with no effect. Only one checkpoint can be armed at a time; a second arm is refused with an `ERROR` record.
+
+### F. An assertion, and a result file to read it from
+
+You want a yes or no about a count, written by the toolkit, without grepping.
+
+```json
+{
+  "feat_spawner_count": {
+    "description": "One summon, then the count the feature should leave behind",
+    "result": true,
+    "commands": [
+      "devtool session start spawner_count",
+      "devtool session operator @s",
+      "devtool mark BEGIN",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"probe\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool assert entities count 1 within 12 name probe",
+      "devtool assert player ${operator.name} gamemode creative",
+      "devtool mark END"
+    ]
+  }
+}
+```
+
+**Ask a person for:** run it.
+
+**Then read back** `run/config/devtool/results/feat_spawner_count-<startTick>.json`: `assertions` holds one entry per `ASSERT` record with `predicate`, `expected`, `observed` and `outcome`, and `failed` is the bundle's own counter. The same records are in `latest.log`; the file is a convenience, and the log is the authority.
+
+**What a verdict means.** `outcome=pass` says the observation matched the declared value, and `outcome=fail` says it did not. Neither says the mod is right. A count of one pig proves the summon worked; whether your feature should have left one is your judgement, made before you wrote the number down. A failing assertion stops the bundle, because `stopOnFailure` treats `devtool.assert.failed` like any other failure; tolerate that key on the command when a failure is an acceptable answer rather than a broken setup.
+
+**Absent is not a verdict until the place is loaded.** `assert entity <uuid> absent` on an unloaded chunk reports `outcome=unloaded` and fails with `devtool.assert.unloaded`, never `pass`. Give it `at <x> <y> <z>`, or use a fixture, so the toolkit knows where to look.
+
+### G. A fixture you can find again and remove exactly
+
+You summon something, and later you need that one entity, not whatever else shares its name.
+
+```json
+{
+  "feat_target_setup": {
+    "description": "Summon one target and claim it as this session's fixture",
+    "commands": [
+      "devtool session start target",
+      "devtool session operator @s",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"target\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool fixture claim target @e[name=target]",
+      "devtool nbt entity ${fixture.target.uuid}",
+      "devtool fixture list",
+      "devtool mark READY"
+    ]
+  },
+  "feat_target_teardown": {
+    "description": "Remove only what this session claimed",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool fixture clear all",
+      "devtool session stop"
+    ]
+  }
+}
+```
+
+**Then read back:**
+
+- `FIXTURE action=claim handle=target uuid=... tag=devtool.fx.target.target`. The tag is a vanilla scoreboard tag on the entity, so `@e[tag=devtool.fx.target.target]` selects it from chat too.
+- `NBT lookup=uuid`, found through the placeholder, in whichever dimension it stands.
+- `FIXTURE action=list state=loaded`. After the person walks far away, `unloaded`; after the entity is gone from a loaded place, `absent`.
+- On teardown, `FIXTURE action=clear outcome=removed` with the UUID, one per fixture.
+
+**What would fool you:** a fixture standing in the world's spawn chunks. A server never unloads those, so `unloaded` never appears there and an absence assertion there is a real verdict at once. Also: ownership is the tag, not the name. If something removed the tag, `clear` writes `outcome=refused reason=notOwned` and leaves the entity alone, and a second pig named `target` is never touched because it was never claimed.
+
+### H. A scenario that survives a restart
+
+Your feature does something at world load. You need a bundle before the stop, a bundle after the start, and a guarantee that the second one is the one that runs.
+
+```json
+{
+  "feat_reload_setup": {
+    "description": "Before the restart: claim the fixture, then declare what runs next",
+    "commands": [
+      "devtool session start reload",
+      "devtool session operator @s",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"kept\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool fixture claim kept @e[name=kept]",
+      "devtool scenario checkpoint reload next feat_reload_resume clean",
+      "devtool mark STOP_THE_SERVER_NOW"
+    ]
+  },
+  "feat_reload_resume": {
+    "description": "After the restart. Does not start a session; the checkpoint restores it",
+    "commands": [
+      "devtool mark RESUMED",
+      "devtool fixture list",
+      "devtool assert entity ${fixture.kept.uuid} present",
+      "devtool scenario complete reload"
+    ]
+  }
+}
+```
+
+**Ask a person for:** run the setup, stop the server, start it, join, run the resume.
+
+**Then read back:**
+
+- `SCENARIO action=checkpoint expectedBundle=feat_reload_resume expectedHash=... fixtures=1` before the stop.
+- `SCENARIO action=load state=present enforced=true` right after the start, before anyone typed anything. On a different world it says `state=absent`; on unreadable data `state=corrupt enforced=false`, and nothing is refused.
+- `SCENARIO action=resume restoredFixtures=1`, then the session's own records continue under the old session name with the operator bound again, then `FIXTURE action=list state=loaded` for an entity that existed before the restart.
+- `SCENARIO action=completed`.
+
+**What would fool you:** running any other bundle first. It is refused with `devtool.scenario.mismatch` and a `SCENARIO action=refuse reason=wrongBundle` naming both. Editing the resume bundle between stop and start is refused the same way with `reason=changedHash` and both hashes, because the checkpoint pins the text you declared, not the name. `devtool scenario abandon reload` clears it when you meant to change course. The resume bundle must not start a session of its own; the restore happens before its first command.
+
 ## Limits
 
 **It does not play the game.** A person performs every gameplay action. The toolkit prepares, records, and reports. It never presses a button.
@@ -464,6 +645,6 @@ This one needs a configuration change: dropped items and experience orbs are **e
 
 **It is not a substitute for your mod's own logging.** It can tell you 3 damage was dealt, by whom, to what, and when. It cannot tell you which branch of your damage calculation ran. **Most of what you need to establish about your own feature is a decision your code made, and only your code can record that.** Add logging to the mod under test and read both in the same file; that colocation is the point.
 
-**It does not assert or conclude.** Records are facts. There is no pass, no fail, no verdict. Deciding is your job.
+**It does not judge your mod.** Records are facts. An assertion compares one observation with one value you declared, and its verdict says only that the observation matched or did not match that value. It never says the mod is right or wrong, and it cannot know what the value should have been. Deciding is your job.
 
 **A dense log is not discriminating evidence.** If you design a test around the facts this toolkit happens to record, rather than around the facts that would separate a pass from the ways a failure can look like a pass, you will get a long log that proves nothing.

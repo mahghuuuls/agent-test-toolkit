@@ -1,0 +1,8 @@
+{
+  "v19_broken": {
+    "description": "Contains a placeholder that does not exist. This whole file must be refused at reload with a problem naming ${operator.typo}, while every other file still loads.",
+    "commands": [
+      "say ${operator.typo}"
+    ]
+  }
+}
