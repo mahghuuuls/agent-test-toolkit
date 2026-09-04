@@ -37,7 +37,7 @@ See [logging.md](logging.md) for the categories and the record format.
 | `devtool session start <name>` | Start a session |
 | `devtool session stop` | Stop it |
 | `devtool session status` | Report the active session |
-| `devtool mark <label>` | Write a labelled marker record |
+| `devtool mark <label>` | Write a labelled marker record. The chat reply repeats the label, so an operator can tell which marker fired |
 
 ## Bundles
 
@@ -46,6 +46,7 @@ See [logging.md](logging.md) for the categories and the record format.
 | `devtool bundle list` | Loaded bundles and their command counts |
 | `devtool bundle show <name>` | One bundle's commands, in order, with delays |
 | `devtool run <name>` | Run a bundle |
+| `devtool await chunks <x1> <z1> <x2> <z2> [timeoutTicks]` | Inside a bundle: pause it until every chunk touching that block rectangle, in the caller's current dimension, is loaded, or the timeout passes. Coordinates may be `~`-relative. Default timeout 200 ticks, maximum 12000, region capped at 1024 chunks. A timeout fails the command with `devtool.wait.timeout`; a dimension change cancels it with `devtool.wait.cancelled`. Never loads a chunk. Typed outside a bundle it checks once and reports |
 | `devtool reload` | Reload bundles and configuration from disk |
 
 `reload` does not disturb an active session, enabled categories, their filters, or a bundle already running. A bundle in flight completes with the commands it started with.
@@ -82,7 +83,7 @@ Minecraft revalidates a respawn point when you die, and falls back to the world 
 | `devtool inspect block <x> <y> <z>` | Block id, metadata, blockstate, tile entity class |
 | `devtool inspect inventory [selector]` | Occupied slots across main inventory, armour and offhand |
 | `devtool entities nearby <radius>` | Every entity within the radius, one record each |
-| `devtool nbt entity <selector>` | Raw NBT for an entity |
+| `devtool nbt entity <selector|uuid|entityId>` | Raw NBT for an entity. A UUID or an entity ID finds a loaded entity in any dimension without the selector engine; the record says which dimension. When a selector matches nothing, the `ERROR` record carries `selectorPermission`, `dimensionCount`, `dimensionIds`, `senderDimension` and `liveEntities` |
 | `devtool nbt block <x> <y> <z>` | Raw NBT for a tile entity |
 | `devtool nbt held` | Raw NBT for the held item |
 

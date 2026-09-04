@@ -71,6 +71,20 @@ public final class ServerCommandDispatcher implements CommandDispatcher {
     }
 
     @Override
+    public void report(String message, boolean failure) {
+        ICommandSender current = resolve();
+        if (current == null) {
+            return;
+        }
+        net.minecraft.util.text.TextComponentString text =
+                new net.minecraft.util.text.TextComponentString(message);
+        if (failure) {
+            text.getStyle().setColor(net.minecraft.util.text.TextFormatting.RED);
+        }
+        current.sendMessage(text);
+    }
+
+    @Override
     public CommandOutcome dispatch(String command) {
         return dispatch(command, java.util.Collections.<String>emptySet());
     }

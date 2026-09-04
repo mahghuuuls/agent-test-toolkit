@@ -42,7 +42,10 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 | --- | --- |
 | `SESSION_START` / `SESSION_STOP` | `devtool session start` / `stop` |
 | `MARK` | `devtool mark` |
-| `BUNDLE_START` / `BUNDLE_END` | A bundle begins and finishes. `BUNDLE_END` carries `executed`, `failed`, `total`, `stoppedEarly`, `durationTicks`, and `senderLost` when the caller disconnected |
+| `BUNDLE_START` / `BUNDLE_END` | A bundle begins and finishes. Both carry `bundle` and `hash`; `BUNDLE_END` also carries `executed`, `failed`, `total`, `stoppedEarly`, `durationTicks`, and `senderLost` when the caller disconnected |
+| `BUNDLE_STEP` | One command of a bundle that set `trace`, written just before it runs. Carries `bundle`, `hash`, `index`, `command`, `dueTick`, and `elapsedTicks`, both counted from submission like `durationTicks`; the stamped `worldTick` is the absolute moment |
+| `BUNDLE_SOURCE` | Written at every load and reload. Per file: `source` and `sha256` of the bytes, and `bundles` loaded from it. Per bundle: `bundle`, `source`, and the normalized `hash`. `BUNDLE_START` and `BUNDLE_END` carry the same `hash` |
+| `AWAIT` | A wait ended, or a single check outside a bundle answered. `command`, `condition`, `outcome` of `satisfied`, `timedOut`, `cancelled` or `pending`, `reason` when cancelled, `waitedTicks`, `timeoutTicks`, plus the condition's own fields: for `chunks`, `dimension`, `chunks` bounds, `chunkCount`, `loadedChunks`, and `firstUnloadedChunk` when any. Inside a bundle also `bundle`, `hash`, `index` |
 | `ARENA_CREATE` / `ARENA_RESET` / `ARENA_CLEAR` | The corresponding `devtool arena` action |
 | `PLAYER_INSPECT` | `devtool inspect player` |
 | `ENTITY_INSPECT` | `devtool inspect entity` |

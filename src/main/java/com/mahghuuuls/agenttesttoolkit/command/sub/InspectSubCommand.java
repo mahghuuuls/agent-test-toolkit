@@ -296,6 +296,11 @@ public final class InspectSubCommand implements SubCommand {
         try {
             return EntityTarget.requireExactlyOne(server, sender, selector);
         } catch (EntityTarget.CardinalityException e) {
+            // A selector that matched nothing has already been recorded by the resolver, with
+            // the diagnostics that explain it. Every other case is recorded here.
+            if (e.getMatched() == 0 && selector.startsWith("@")) {
+                throw e;
+            }
             // Logged with the match count, then rethrown rather than
             // swallowed into a null return. This is the likeliest failure of all in a setup
             // bundle, since a selector matching nothing is the commonest mistake, and

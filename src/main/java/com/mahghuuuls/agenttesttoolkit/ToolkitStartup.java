@@ -47,5 +47,6 @@ public final class ToolkitStartup {
 
         ToolkitConfigLoader.reportProblems(configProblems);
         BundleRegistry.reportProblems(bundles);
+        BundleRegistry.reportSources(bundles);
     }
 }

@@ -59,7 +59,7 @@ Named lists of commands in JSON, under `config/devtool/bundles/`, scanned recurs
 }
 ```
 
-- **Per command tick delays**, measured from the previous command finishing, so inserting a command shifts what follows rather than compressing the gaps.
+- **Per command tick delays**: the toolkit waits, then runs that command. Measured from the previous command finishing, so inserting a command shifts what follows rather than compressing the gaps.
 - **Stop on failure**, on by default. A failure means the game raised a command error; a command that runs and changes nothing has succeeded, so neither a `kill` matching nothing nor a `clear` on an empty inventory halts a teardown on its second run.
 - **Nesting.** A bundle can run another. The parent waits, and the child's failure counts as one failed command. Cycles are refused by name before anything runs.
 - **`BUNDLE_START` and `BUNDLE_END`** in the log, so events your setup caused can be told apart from events of the test that followed.

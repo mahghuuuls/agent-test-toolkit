@@ -55,7 +55,7 @@ public final class NbtSubCommand implements SubCommand {
 
     @Override
     public String getUsage() {
-        return "nbt <entity <selector> | block <x> <y> <z> | held>";
+        return "nbt <entity <selector|uuid|entityId> | block <x> <y> <z> | held>";
     }
 
     @Override
@@ -87,7 +87,7 @@ public final class NbtSubCommand implements SubCommand {
     private void entity(MinecraftServer server, ICommandSender sender, String[] args)
             throws CommandException {
         if (args.length < 2) {
-            throw new WrongUsageException("/devtool nbt entity <selector>");
+            throw new WrongUsageException("/devtool nbt entity <selector|uuid|entityId>");
         }
         // A selector matching two entities is an error, not an invitation to pick one.
         Entity entity = EntityTarget.requireExactlyOne(server, sender, args[1]);
@@ -95,8 +95,14 @@ public final class NbtSubCommand implements SubCommand {
         entity.writeToNBT(tag);
 
         LogRecord record = begin(sender, "entity");
+        // How the entity was found. Three lookup forms produce one record shape, and without
+        // this a reader cannot tell a selector hit from a direct handle.
+        record.add("lookup", EntityTarget.classify(args[1]).recordName());
         record.add("entityId", entity.getEntityId());
         record.add("uuid", entity.getUniqueID().toString());
+        // An entity ID is only unique within a dimension, so a record found by ID is
+        // ambiguous without this; a UUID lookup gets it for consistency.
+        record.add("dimension", entity.dimension);
         emit(sender, record, tag);
     }
 

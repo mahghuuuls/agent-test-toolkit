@@ -19,6 +19,10 @@ import net.minecraft.util.text.TextComponentString;
  * action under test so the interesting region of {@code latest.log} can be found later.
  * They assert nothing and carry no verdict: the toolkit records facts and leaves conclusions
  * to the reader.
+ *
+ * <p>A marker never waits and never speaks to the human beyond confirming itself. The
+ * checkpoint command is the one that cues the operator and can pause a bundle; keeping the
+ * two apart is what lets "marker" keep meaning "bookmark".
  */
 public final class MarkSubCommand implements SubCommand {
 
@@ -68,6 +72,19 @@ public final class MarkSubCommand implements SubCommand {
         record.add("label", label.toString());
 
         ToolkitLog.write(record);
-        sender.sendMessage(new TextComponentString("[DevToolkit] Marker written to log."));
+        sender.sendMessage(new TextComponentString(confirmation(label.toString())));
+    }
+
+    /**
+     * The chat line sent back after the record is written.
+     *
+     * <p>Carries the label verbatim. A bundle written for a human in the loop encodes the
+     * next manual action in the label, and a confirmation that omitted it left the operator
+     * unable to tell which of several markers had just fired without reading the log, which
+     * for a timed action is too late. Separated from {@link #execute} so the text can be
+     * checked without a sender.
+     */
+    static String confirmation(String label) {
+        return "[DevToolkit] Marker written to log: " + label;
     }
 }

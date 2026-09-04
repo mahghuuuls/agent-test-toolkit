@@ -66,16 +66,22 @@ class ToolkitStartupTest {
     }
 
     @Test
-    @DisplayName("a clean launch writes exactly one STARTUP record and nothing else")
+    @DisplayName("a clean launch writes one STARTUP record first, then only source records")
     void cleanLaunchWritesOneRecord(@TempDir File dir) throws Exception {
         BundleRegistry.LoadReport bundles =
                 load(dir, "a.json", "{\"one\": {\"commands\": [\"say a\"]}}");
 
         ToolkitStartup.announce("1.0.0", bundles, Collections.<String>emptyList());
 
+        // One file and one bundle: the launch record, then exactly two provenance records
+        // and nothing else. Provenance at launch is what lets a later run be tied to the
+        // file text that was loaded, so it is part of a clean launch, not noise.
         List<String> records = ToolkitLog.capturedForTesting();
-        assertEquals(1, records.size(), records.toString());
+        assertEquals(3, records.size(), records.toString());
         assertEquals(1, countStartupRecords(records));
+        assertTrue(records.get(0).contains("[STARTUP]"), records.get(0));
+        assertTrue(records.get(1).contains("[BUNDLE_SOURCE] source=a.json sha256="), records.get(1));
+        assertTrue(records.get(2).contains("[BUNDLE_SOURCE] bundle=one source=a.json hash="), records.get(2));
     }
 
     @Test

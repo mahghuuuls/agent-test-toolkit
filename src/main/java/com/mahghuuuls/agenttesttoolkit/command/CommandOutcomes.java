@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.BundleExecution;
 import com.mahghuuuls.agenttesttoolkit.bundle.CommandOutcome;
 
 /**
@@ -49,6 +50,14 @@ public final class CommandOutcomes {
     /** Vanilla's "no such command". Similar name, opposite meaning; must stay a failure. */
     public static final String KEY_COMMAND_NOT_FOUND = "commands.generic.notFound";
     public static final String KEY_NO_PERMISSION = "commands.generic.permission";
+
+    /**
+     * The toolkit's own failure keys, in the {@code devtool.} namespace so they can never
+     * collide with a vanilla translation key. A bundle author tolerates them by name exactly as
+     * they would a vanilla key; nothing here treats them specially.
+     */
+    public static final String KEY_WAIT_TIMEOUT = BundleExecution.KEY_WAIT_TIMEOUT;
+    public static final String KEY_WAIT_CANCELLED = BundleExecution.KEY_WAIT_CANCELLED;
 
     private CommandOutcomes() {
     }

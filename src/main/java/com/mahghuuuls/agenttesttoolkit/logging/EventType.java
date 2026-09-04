@@ -29,6 +29,29 @@ public enum EventType {
     BUNDLE_START,
     BUNDLE_END,
 
+    /**
+     * One command of a traced bundle, written just before it runs.
+     *
+     * <p>Carries the tick the command became due and the tick it actually ran, so a reader
+     * can see where a delay sat rather than infer it from when effects appeared. Off unless
+     * the bundle asks for it, since a record per command doubles a bundle in the log.
+     */
+    BUNDLE_STEP,
+
+    /**
+     * Where a bundle came from, written at every load and reload: one record per file with the
+     * raw hash of its bytes, one per loaded bundle with its normalized hash. The same hash
+     * reappears on the start and end records of every run, which is what ties evidence to text.
+     */
+    BUNDLE_SOURCE,
+
+    /**
+     * A wait ended, or a single check outside a bundle answered. Carries the condition kind,
+     * the outcome, how long was waited against what timeout, and the condition's own fields,
+     * such as the first chunk that was still missing.
+     */
+    AWAIT,
+
     ARENA_CREATE,
     ARENA_RESET,
     ARENA_CLEAR,

@@ -58,6 +58,7 @@ public final class ReloadSubCommand implements SubCommand {
 
         BundleRegistry.LoadReport report = Bundles.reload();
         BundleRegistry.reportProblems(report);
+        BundleRegistry.reportSources(report);
 
         int totalProblems = report.getProblems().size() + configProblems.size();
         sender.sendMessage(new TextComponentString("[DevToolkit] Reloaded. bundles="

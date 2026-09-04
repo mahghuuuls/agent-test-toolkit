@@ -1,5 +1,7 @@
 package com.mahghuuuls.agenttesttoolkit.bundle;
 
+import com.mahghuuuls.agenttesttoolkit.logging.EventType;
+import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 
 import java.io.File;
@@ -32,15 +34,30 @@ public final class BundleRegistry {
     /** The parsed contents of one file, ready to be merged. */
     public static final class SourceFile {
         private final String sourceName;
+        private final String hash;
         private final Map<String, BundleDefinition> bundles;
 
         public SourceFile(String sourceName, Map<String, BundleDefinition> bundles) {
+            this(sourceName, null, bundles);
+        }
+
+        /** @param hash SHA-256 of the file bytes, or null for a source built in code */
+        public SourceFile(String sourceName, String hash, Map<String, BundleDefinition> bundles) {
             this.sourceName = sourceName;
+            this.hash = hash;
             this.bundles = bundles;
         }
 
         public String getSourceName() {
             return sourceName;
+        }
+
+        public String getHash() {
+            return hash;
+        }
+
+        public int size() {
+            return bundles.size();
         }
     }
 
@@ -48,10 +65,17 @@ public final class BundleRegistry {
     public static final class LoadReport {
         private final Map<String, BundleDefinition> loaded;
         private final List<String> problems;
+        private final List<SourceFile> sources;
 
         LoadReport(Map<String, BundleDefinition> loaded, List<String> problems) {
+            this(loaded, problems, Collections.<SourceFile>emptyList());
+        }
+
+        LoadReport(Map<String, BundleDefinition> loaded, List<String> problems,
+                   List<SourceFile> sources) {
             this.loaded = Collections.unmodifiableMap(loaded);
             this.problems = Collections.unmodifiableList(problems);
+            this.sources = Collections.unmodifiableList(new ArrayList<SourceFile>(sources));
         }
 
         public Map<String, BundleDefinition> getLoaded() {
@@ -65,6 +89,11 @@ public final class BundleRegistry {
 
         public boolean hasProblems() {
             return !problems.isEmpty();
+        }
+
+        /** Every file that parsed, whether or not all its bundles loaded, in load order. */
+        public List<SourceFile> getSources() {
+            return sources;
         }
     }
 
@@ -124,7 +153,7 @@ public final class BundleRegistry {
             }
         }
 
-        return new LoadReport(loaded, problems);
+        return new LoadReport(loaded, problems, sources);
     }
 
     /**
@@ -152,9 +181,18 @@ public final class BundleRegistry {
             for (File file : files) {
                 String relative = relativise(bundlesDirectory, file);
                 try {
-                    String json = new String(Files.readAllBytes(file.toPath()),
-                            Charset.forName("UTF-8"));
-                    sources.add(new SourceFile(relative, BundleParser.parse(json)));
+                    byte[] bytes = Files.readAllBytes(file.toPath());
+                    // Hashed as read, before any parsing, so the value matches what an
+                    // external tool computes over the same file.
+                    String hash = BundleHashes.sha256(bytes);
+                    String json = new String(bytes, Charset.forName("UTF-8"));
+                    Map<String, BundleDefinition> parsed = BundleParser.parse(json);
+                    Map<String, BundleDefinition> sourced =
+                            new LinkedHashMap<String, BundleDefinition>();
+                    for (Map.Entry<String, BundleDefinition> entry : parsed.entrySet()) {
+                        sourced.put(entry.getKey(), entry.getValue().withSource(relative, hash));
+                    }
+                    sources.add(new SourceFile(relative, hash, sourced));
                 } catch (BundleParseException e) {
                     readProblems.add(relative + ": " + e.getMessage());
                 } catch (IOException e) {
@@ -172,7 +210,8 @@ public final class BundleRegistry {
         allProblems.addAll(merged.getProblems());
 
         LoadReport report = new LoadReport(
-                new LinkedHashMap<String, BundleDefinition>(merged.getLoaded()), allProblems);
+                new LinkedHashMap<String, BundleDefinition>(merged.getLoaded()), allProblems,
+                sources);
         this.current = report;
 
         // Problems are returned, not logged here. The startup summary has to carry the bundle
@@ -190,6 +229,30 @@ public final class BundleRegistry {
     public static void reportProblems(LoadReport report) {
         for (String problem : report.getProblems()) {
             ToolkitLog.error("Bundle load problem", problem);
+        }
+    }
+
+    /**
+     * Writes where every bundle came from.
+     *
+     * <p>One record per file with the raw hash, then one per loaded bundle with its
+     * normalized hash. Emitted at load and reload rather than only at run time, so a log that
+     * shows a reload followed by a run proves which text the run used even if the file changed
+     * afterwards. Relative names only; an absolute path would leak the machine's layout into
+     * evidence that gets copied elsewhere.
+     */
+    public static void reportSources(LoadReport report) {
+        for (SourceFile source : report.getSources()) {
+            ToolkitLog.write(LogRecord.of(EventType.BUNDLE_SOURCE)
+                    .add("source", source.getSourceName())
+                    .add("sha256", source.getHash())
+                    .add("bundles", source.size()));
+        }
+        for (BundleDefinition definition : report.getLoaded().values()) {
+            ToolkitLog.write(LogRecord.of(EventType.BUNDLE_SOURCE)
+                    .add("bundle", definition.getName())
+                    .add("source", definition.getSourceName())
+                    .add("hash", definition.getHash()));
         }
     }
 

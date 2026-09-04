@@ -19,16 +19,44 @@ import java.util.List;
  * <p>Deliberately not a scripting language. There are no variables, expressions, conditionals,
  * loops, arithmetic or placeholder expansion, and that boundary is a project identity decision
  * rather than a simplification to be revisited when convenient.
+ *
+ * <p>A definition knows where it came from once the registry has attached that: the relative
+ * source name and the raw hash of the file, plus its own normalized hash. The hashes are what
+ * let a log line prove which text a bundle ran from, without the reader trusting a copy made
+ * later.
  */
 public final class BundleDefinition {
 
     private final String name;
     private final String description;
     private final boolean stopOnFailure;
+    private final boolean traced;
     private final List<BundleCommand> commands;
+
+    /** Relative source identifier, or null before the registry attaches it. */
+    private final String sourceName;
+    /** SHA-256 of the source file's bytes, or null before the registry attaches it. */
+    private final String sourceHash;
+    /** Computed once, on first request. Depends only on this definition's content. */
+    private String hash;
 
     public BundleDefinition(String name, String description, boolean stopOnFailure,
                             List<BundleCommand> commands) {
+        this(name, description, stopOnFailure, false, commands);
+    }
+
+    /**
+     * @param traced whether each command emits a step record as it runs. Off unless the file
+     *               asks, because a record per command doubles a bundle's footprint in the log
+     */
+    public BundleDefinition(String name, String description, boolean stopOnFailure,
+                            boolean traced, List<BundleCommand> commands) {
+        this(name, description, stopOnFailure, traced, commands, null, null);
+    }
+
+    private BundleDefinition(String name, String description, boolean stopOnFailure,
+                             boolean traced, List<BundleCommand> commands,
+                             String sourceName, String sourceHash) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("bundle name must not be null or blank");
         }
@@ -38,7 +66,16 @@ public final class BundleDefinition {
         this.name = name.trim();
         this.description = description;
         this.stopOnFailure = stopOnFailure;
+        this.traced = traced;
         this.commands = Collections.unmodifiableList(commands);
+        this.sourceName = sourceName;
+        this.sourceHash = sourceHash;
+    }
+
+    /** A copy that knows its file. The registry calls this once per parsed definition. */
+    public BundleDefinition withSource(String sourceName, String sourceHash) {
+        return new BundleDefinition(name, description, stopOnFailure, traced, commands,
+                sourceName, sourceHash);
     }
 
     public String getName() {
@@ -59,6 +96,38 @@ public final class BundleDefinition {
      */
     public boolean isStopOnFailure() {
         return stopOnFailure;
+    }
+
+    /**
+     * Whether a step record is written before each command runs.
+     *
+     * <p>Exists because the timing of a delayed command is otherwise invisible: the log shows
+     * when a command's effects appeared, never when the toolkit decided it was due. When a
+     * bundle author misjudges where a delay sits, the step records are what show it.
+     */
+    public boolean isTraced() {
+        return traced;
+    }
+
+    /** The relative file this came from, or null for a definition built in code. */
+    public String getSourceName() {
+        return sourceName;
+    }
+
+    /** SHA-256 of the whole source file, or null for a definition built in code. */
+    public String getSourceHash() {
+        return sourceHash;
+    }
+
+    /**
+     * The normalized hash: the same for any two files that define the same bundle, different
+     * for any change that would change what the bundle does. See {@link BundleHashes}.
+     */
+    public String getHash() {
+        if (hash == null) {
+            hash = BundleHashes.normalizedHash(this);
+        }
+        return hash;
     }
 
     public List<BundleCommand> getCommands() {

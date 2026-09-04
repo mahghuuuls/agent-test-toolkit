@@ -51,4 +51,16 @@ public interface CommandDispatcher {
     default boolean isSenderAvailable() {
         return true;
     }
+
+    /**
+     * Tells the caller something that happened between commands, such as a wait ending.
+     *
+     * <p>A command that fails sends its own red message through the normal path; a wait ends
+     * on a later tick with no command running, so nothing would reach chat without this. A
+     * default no-op, because a test dispatcher has nobody to tell.
+     *
+     * @param failure whether to style the message as an error
+     */
+    default void report(String message, boolean failure) {
+    }
 }
