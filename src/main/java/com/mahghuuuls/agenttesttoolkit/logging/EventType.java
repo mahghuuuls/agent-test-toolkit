@@ -71,6 +71,18 @@ public enum EventType {
      */
     ASSERT,
 
+    /**
+     * A fixture claimed, listed, or cleared. Ownership is the tag on the entity, and a clear
+     * that finds no tag is written as refused rather than done.
+     */
+    FIXTURE,
+
+    /**
+     * The scenario checkpoint: written, reported at world load as present, absent or corrupt,
+     * consulted before a run as resume or refuse, and cleared as completed or abandoned.
+     */
+    SCENARIO,
+
     ARENA_CREATE,
     ARENA_RESET,
     ARENA_CLEAR,

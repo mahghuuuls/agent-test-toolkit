@@ -242,6 +242,13 @@ public final class ToolkitState {
         fixtureUuids = java.util.Collections.unmodifiableMap(next);
     }
 
+    /** Forgets one handle. The entity's last place is kept, in case it is asked about again. */
+    public static void removeFixture(String handle) {
+        java.util.Map<String, String> next = new java.util.LinkedHashMap<String, String>(fixtureUuids);
+        next.remove(handle);
+        fixtureUuids = java.util.Collections.unmodifiableMap(next);
+    }
+
     /** Every claimed handle and its UUID, in claim order. */
     public static java.util.Map<String, String> getFixtures() {
         return fixtureUuids;

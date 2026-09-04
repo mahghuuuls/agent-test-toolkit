@@ -86,6 +86,7 @@ public class AgentTestToolkitMod {
         MinecraftForge.EVENT_BUS.register(damageObserver);
         MinecraftForge.EVENT_BUS.register(new JoinAutomation());
         MinecraftForge.EVENT_BUS.register(new OperatorLogoutListener());
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.scenario.Scenarios());
 
         // No-op on a server. The client implementation registers its own handler.
         proxy.applyClientDefaults();

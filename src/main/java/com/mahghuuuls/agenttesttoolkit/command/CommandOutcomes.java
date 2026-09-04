@@ -63,6 +63,7 @@ public final class CommandOutcomes {
     public static final String KEY_PLACEHOLDER_UNSAFE = PlaceholderException.KEY_UNSAFE;
     public static final String KEY_ASSERT_FAILED = com.mahghuuuls.agenttesttoolkit.inspect.Assertions.KEY_FAILED;
     public static final String KEY_ASSERT_UNLOADED = com.mahghuuuls.agenttesttoolkit.inspect.Assertions.KEY_UNLOADED;
+    public static final String KEY_SCENARIO_MISMATCH = com.mahghuuuls.agenttesttoolkit.scenario.Scenarios.KEY_MISMATCH;
 
     private CommandOutcomes() {
     }

@@ -1,0 +1,65 @@
+{
+  "v23_fixture_claim": {
+    "description": "Summons two named pigs and claims one as the fixture 'source'. Expect a FIXTURE claim record with the uuid and tag devtool.fx.v23_fixtures.source, and the placeholder resolving in the NBT lookup.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v23_fixtures",
+      "devtool session operator @s",
+      "devtool mark V23_CLAIM_BEGIN",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v23source\",NoAI:1b,PersistenceRequired:1b}",
+      "summon minecraft:pig ~-3 ~1 ~ {CustomName:\"v23bystander\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool fixture claim source @e[name=v23source]",
+      "devtool nbt entity ${fixture.source.uuid}",
+      "devtool fixture list",
+      "devtool mark V23_CLAIM_END"
+    ]
+  },
+
+  "v23_duplicate_control": {
+    "description": "Claims the same handle again. Expect a refusal and the bundle halting before its second marker.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V23_DUP_BEGIN",
+      "devtool fixture claim source @e[name=v23bystander]",
+      "devtool mark V23_DUP_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v23_fixture_far": {
+    "description": "Teleports 600 blocks away so the fixtures' chunk unloads, waits, lists, and returns. Expect fixture list to say state=unloaded, and the absence assertion to report unloaded rather than absent.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V23_FAR_BEGIN",
+      "tp @p ~600 80 ~",
+      { "command": "devtool fixture list", "delayTicks": 200 },
+      { "command": "devtool assert entity ${fixture.source.uuid} absent", "toleratedFailures": ["devtool.assert.unloaded"] },
+      { "command": "tp @p ~-600 100 ~", "delayTicks": 20 },
+      { "command": "devtool mark V23_FAR_END", "delayTicks": 100 }
+    ]
+  },
+
+  "v23_forged_control": {
+    "description": "Strips the ownership tag from the source pig, then clears all: the clear must be refused with reason=notOwned and the pig left alive. Puts the tag back and clears again: now the pig is removed and its uuid logged. The bystander, never claimed, is untouched throughout.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark V23_FORGED_BEGIN",
+      "scoreboard players tag @e[name=v23source] remove devtool.fx.v23_fixtures.source",
+      "devtool fixture clear all",
+      "devtool entities nearby 12",
+      "scoreboard players tag @e[name=v23source] add devtool.fx.v23_fixtures.source",
+      "devtool fixture clear all",
+      "devtool entities nearby 12",
+      "devtool mark V23_FORGED_END"
+    ]
+  },
+
+  "v23_cleanup": {
+    "description": "Removes the bystander by name and stops the session.",
+    "stopOnFailure": false,
+    "commands": [
+      "kill @e[name=v23bystander]",
+      "devtool mark V23_CLEANUP_END",
+      "devtool session stop"
+    ]
+  }
+}

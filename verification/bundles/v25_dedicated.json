@@ -1,0 +1,54 @@
+{
+  "v25_cue_dedicated": {
+    "description": "Cues on the dedicated server: action bar with sound, then a long-label title that must fit on screen. The owner reports what appeared.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v25_dedicated",
+      "devtool session operator @s",
+      "devtool mark V25_CUE_BEGIN",
+      "devtool checkpoint cue V25_ACTIONBAR actionbar sound",
+      { "command": "devtool checkpoint cue V25_THIS_LABEL_IS_LONG title", "delayTicks": 60 },
+      { "command": "devtool mark V25_CUE_END", "delayTicks": 100 }
+    ]
+  },
+
+  "v25_arm_then_disconnect": {
+    "description": "Arms a checkpoint with a long timeout. The card then disconnects the client. Expect AWAIT outcome=cancelled reason=operatorLost or the bundle ending with senderLost=true, never a timeout.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V25_ARM_BEGIN",
+      "devtool checkpoint arm V25_LEAVE_NOW 2400",
+      "devtool mark V25_ARM_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v25_await_then_change_dimension": {
+    "description": "Waits on a far region with a long timeout. The card then moves the player to the Nether with /forge setdim. Expect AWAIT outcome=cancelled reason=dimensionChanged and the bundle halting.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V25_DIM_BEGIN",
+      "devtool await chunks 3000 3000 3100 3100 2400",
+      "devtool mark V25_DIM_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v25_nether_pig": {
+    "description": "Run while standing in the Nether: summons a pig there and writes its NBT by selector so the UUID is in the log. The card then returns to the overworld and looks the pig up by UUID from there; expect dimension=-1 on that record.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V25_NETHER_BEGIN",
+      "summon minecraft:pig ~2 ~1 ~ {CustomName:\"v25netherpig\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool nbt entity @e[name=v25netherpig]",
+      "devtool mark V25_NETHER_END"
+    ]
+  },
+
+  "v25_cleanup": {
+    "description": "Stops the session. The Nether pig is left; it is harmless and far away.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark V25_CLEANUP_END",
+      "devtool session stop"
+    ]
+  }
+}

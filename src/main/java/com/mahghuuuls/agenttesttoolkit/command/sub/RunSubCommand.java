@@ -76,6 +76,29 @@ public final class RunSubCommand implements SubCommand {
         // which is the only way to tell a nested run from one the operator typed.
         BundleExecution parent = Bundles.scheduler().getCurrentExecution();
 
+        // A standing scenario checkpoint decides whether this bundle may run at all. Asked
+        // before anything is submitted, so a refused run leaves no start record behind. A
+        // nested run is not asked: its parent already was, and a resume bundle built from
+        // sub-bundles must be able to run them.
+        if (parent == null) {
+            com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot context =
+                    com.mahghuuuls.agenttesttoolkit.logging.RecordContext.snapshot(sender);
+            com.mahghuuuls.agenttesttoolkit.scenario.Scenarios.Decision decision =
+                    com.mahghuuuls.agenttesttoolkit.scenario.Scenarios.decide(server, bundle);
+            if (decision != null && decision.isRefused()) {
+                com.mahghuuuls.agenttesttoolkit.scenario.Scenarios.record(decision, bundle, 0, context);
+                throw new CommandException(com.mahghuuuls.agenttesttoolkit.scenario.Scenarios.KEY_MISMATCH,
+                        decision.refusal + ": expected '" + decision.checkpoint.getNextBundle() + "' ("
+                                + com.mahghuuuls.agenttesttoolkit.scenario.Scenarios.abbrev(decision.checkpoint.getNextHash())
+                                + "...), offered '" + bundle.getName() + "' ("
+                                + com.mahghuuuls.agenttesttoolkit.scenario.Scenarios.abbrev(bundle.getHash()) + "...)");
+            }
+            if (decision != null) {
+                int restored = com.mahghuuuls.agenttesttoolkit.command.ScenarioResume.restore(decision.checkpoint, context);
+                com.mahghuuuls.agenttesttoolkit.scenario.Scenarios.record(decision, bundle, restored, context);
+            }
+        }
+
         BundleCallStack stack;
         if (parent == null) {
             stack = BundleCallStack.root(bundle.getName());

@@ -1,0 +1,48 @@
+{
+  "v24_scenario_setup": {
+    "description": "Claims a fixture and writes a checkpoint expecting v24_scenario_resume after a clean stop. The card then stops the server and starts it again.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v24_scenario",
+      "devtool session operator @s",
+      "devtool mark V24_SETUP_BEGIN",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v24pig\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool fixture claim source @e[name=v24pig]",
+      "devtool scenario checkpoint v24 next v24_scenario_resume clean",
+      "devtool mark V24_SETUP_END"
+    ]
+  },
+
+  "v24_scenario_resume": {
+    "description": "The expected bundle after the restart. Must not start a session; the resume restores it. Expect the SCENARIO resume record with restoredFixtures=1, the fixture listed, and the placeholder resolving.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V24_RESUME_BEGIN",
+      "devtool session status",
+      "devtool fixture list",
+      "devtool assert entity ${fixture.source.uuid} present",
+      "devtool scenario complete v24",
+      "devtool mark V24_RESUME_END"
+    ]
+  },
+
+  "v24_wrong_bundle_control": {
+    "description": "Run this instead of the resume bundle while the checkpoint stands. Expect a refusal naming both bundles, with devtool.scenario.mismatch, and nothing from this bundle running.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V24_WRONG_SHOULD_NOT_APPEAR"
+    ]
+  },
+
+  "v24_cleanup": {
+    "description": "Removes the fixture, abandons any scenario left, and stops the session.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool fixture clear all",
+      "kill @e[name=v24pig]",
+      "devtool scenario abandon v24",
+      "devtool mark V24_CLEANUP_END",
+      "devtool session stop"
+    ]
+  }
+}

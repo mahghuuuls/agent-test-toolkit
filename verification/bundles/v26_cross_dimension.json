@@ -1,0 +1,34 @@
+{
+  "v26_spawn_claim": {
+    "description": "Run while standing inside the overworld spawn chunks, which a dedicated server never unloads. Claims a pig there so a later bundle can look it up by UUID from another dimension.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v26_cross",
+      "devtool mark V26_CLAIM_BEGIN",
+      "summon minecraft:pig ~2 ~1 ~ {CustomName:\"v26spawnpig\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool fixture claim spawnpig @e[name=v26spawnpig]",
+      "devtool mark V26_CLAIM_END"
+    ]
+  },
+
+  "v26_lookup_from_nether": {
+    "description": "Run while standing in the Nether. Looks the overworld pig up by UUID. Expect the NBT and INSPECT records to carry dimension=0 while the sender is in -1.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark V26_NETHER_LOOKUP_BEGIN",
+      "devtool nbt entity ${fixture.spawnpig.uuid}",
+      "devtool inspect entity ${fixture.spawnpig.uuid}",
+      "devtool mark V26_NETHER_LOOKUP_END"
+    ]
+  },
+
+  "v26_cleanup": {
+    "description": "Run back in the overworld near the pig. Removes it and stops the session.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool fixture clear all",
+      "devtool mark V26_CLEANUP_END",
+      "devtool session stop"
+    ]
+  }
+}
