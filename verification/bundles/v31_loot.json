@@ -1,0 +1,30 @@
+{
+  "v31_loot": {
+    "description": "CYC4-014. Places a dungeon-loot chest and a plain chest beside the caller, inspects both, then reads the loot chest's NBT. Expect INVENTORY_INSPECT lootRolled=false lootTable=minecraft:chests/simple_dungeon with no occupiedSlots; then NBT still carrying LootTable and no Items; then the plain chest with occupiedSlots=1. Setting the chests to air clears them first, so nothing drops; the kill is a safety net. It first clears both spots to air, tolerating air already there, so a rerun after a stopped run starts from fresh chests.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V31_LOOT_BEGIN",
+      {
+        "command": "setblock ~2 ~ ~ minecraft:air",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "setblock ~2 ~ ~2 minecraft:air",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      "setblock ~2 ~ ~ minecraft:chest 0 replace {LootTable:\"minecraft:chests/simple_dungeon\"}",
+      "setblock ~2 ~ ~2 minecraft:chest 0 replace {Items:[{Slot:0b,id:\"minecraft:stone\",Count:1b}]}",
+      "devtool inspect container ~2 ~ ~",
+      "devtool nbt block ~2 ~ ~",
+      "devtool inspect container ~2 ~ ~2",
+      "setblock ~2 ~ ~ minecraft:air",
+      "setblock ~2 ~ ~2 minecraft:air",
+      "kill @e[type=item,r=8]",
+      "devtool mark V31_LOOT_END"
+    ]
+  }
+}

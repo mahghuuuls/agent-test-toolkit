@@ -1,0 +1,26 @@
+{
+  "v32_save": {
+    "description": "CYC4-005, single player or dedicated. Gives three diamonds, then saves. Expect SAVE worlds>=1 with dimensions listed (0 at least) and BUNDLE_END failed=0 tolerated<=1. The agent compares the player data file write time just before and just after.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V32_SAVE_BEGIN",
+      "clear @p minecraft:diamond",
+      "give @p minecraft:diamond 3",
+      "devtool save",
+      "devtool inspect inventory",
+      "devtool mark V32_SAVE_END"
+    ]
+  },
+
+  "v32_save_off": {
+    "description": "CYC4-005, dedicated server only (save-off exists there only). Turns saving off, saves, then turns it on. save-on fails with commands.save-on.alreadyOn when saving is already on, so BUNDLE_END failed=0 proves devtool save left saving off.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V32_SAVE_OFF_BEGIN",
+      "save-off",
+      "devtool save",
+      "save-on",
+      "devtool mark V32_SAVE_OFF_END"
+    ]
+  }
+}

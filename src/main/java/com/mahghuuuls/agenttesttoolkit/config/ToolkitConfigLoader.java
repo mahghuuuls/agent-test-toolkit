@@ -155,6 +155,14 @@ public final class ToolkitConfigLoader {
                     d.getClientMusicVolume(),
                     "Music volume applied when applyOnJoin is enabled. 0 to 1.").getDouble();
 
+            boolean noPause = cfg.getBoolean("noPauseOnLostFocus", CATEGORY_CLIENT,
+                    d.isClientNoPauseOnLostFocus(),
+                    "Whether applyOnJoin also turns off pausing when the game window loses focus, so "
+                            + "a test keeps running while you look at another window. Off by default: "
+                            + "it is your own setting. Saved in options.txt and kept if you turn this "
+                            + "off again; press F3+P in game to turn the pause back on. Esc still opens "
+                            + "the menu.");
+
             // One key per category; -1, the default, leaves it as it is: these are personal
             // preferences, not test settings, and enabling applyOnJoin must not change them.
             float[] volumes = new float[ToolkitConfig.Volume.values().length];
@@ -211,6 +219,7 @@ public final class ToolkitConfigLoader {
                     .clientDefaultsEnabled(clientDefaults)
                     .clientBrightness(brightness)
                     .clientMusicVolume(musicVolume)
+                    .clientNoPauseOnLostFocus(noPause)
                     .inboxEnabled(inbox);
             for (ToolkitConfig.Volume volume : ToolkitConfig.Volume.values()) {
                 builder.clientVolume(volume, volumes[volume.ordinal()]);

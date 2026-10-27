@@ -49,6 +49,17 @@ and because they are development assets rather than something a user of the mod 
 | `v24_scenario` | 4 | Scenario checkpoint across a real stop and restart, wrong bundle, changed hash |
 | `v25_dedicated` | 5 | Dedicated-server cases: cues, disconnect while armed, dimension change mid-wait |
 | `v26_cross_dimension` | 3 | An overworld fixture looked up by UUID from the Nether |
+| `v27_tolerated` | 3 | The `TOLERATED` record: a selector miss, a declared key, and a control with none |
+| `v28_origin` | 3 | Run origin (`caller`, `channel`, `permissionLevel`) from chat and nested, and the closest-name suggestion |
+| `v29_inbox` | 2 | A bundle started through the inbox, and a bundle that tries to open the inbox and is refused |
+| `v30_far_inspect` | 1 | Inspection of an unloaded position refused with `devtool.inspect.notLoaded`, nothing generated |
+| `v31_loot` | 1 | `inspect container` on a chest whose loot has not been rolled, and on a plain chest |
+| `v32_save` | 2 | `devtool save` in single player and on a dedicated server with `save-off` (dedicated only) |
+| `v33_world` | 2 | A session across reopening the same world and opening another (owner switches worlds) |
+| `v34_attributes` | 2 | Attribute inspection and assertions on four iron armor pieces, and a non-living target |
+| `v35_reload` | 1 | Reload at world start: edit the mark at the title screen, then open a world |
+| `v36_screenshot` | 2 | A screenshot on request with the inventory open, and a refused label |
+| `v37_baubles` | 3 | Baubles set, inspect, refusal and relog (`-Pdev_runtime_baubles=true`), and the absent key without it |
 
 ## What they found
 

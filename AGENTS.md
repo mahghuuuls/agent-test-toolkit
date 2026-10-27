@@ -29,7 +29,22 @@ You never type in the game. **Your hands are the filesystem.**
 
 Step 2 is two commands and never more. If you find yourself asking a person to type a sequence of setup commands, that sequence belongs in the bundle instead.
 
-`reload` re-reads bundles and configuration from disk. It does not disturb an active session, the enabled categories, their filters, or a bundle already running. You need it after every file edit; a person who forgets it will run the previous version of your bundle, and the log will not say so.
+`reload` re-reads bundles and configuration from disk. It does not disturb an active session, the enabled categories, their filters, or a bundle already running. The same reload runs by itself at every server start, so a file you edited while no world was open is read when the world opens, and nobody needs to type `reload` after opening a world. You need it after a file edit made **while a world is open**; a person who forgets it will run the previous version of your bundle, and the log will not say so. The `RELOAD` record says which reload ran (`trigger=command` or `trigger=serverStart`).
+
+### The loop with the inbox
+
+When the owner has enabled the command inbox, you can start bundles yourself:
+
+```
+1. ASK      person, once per world opening:  /devtool inbox open
+2. WRITE    run/config/devtool/bundles/<yourfile>.json
+3. WRITE    run/config/devtool/inbox/<id>.tmp, then rename it to <id>.req
+4. WAIT     for run/config/devtool/inbox/<id>.result.json
+5. ASK      person performs the actions you listed, in order
+6. READ     the result file and run/logs/latest.log
+```
+
+The inbox runs only bundles and read-only toolkit commands, never a vanilla command. See [The command inbox](#the-command-inbox) and worked example I.
 
 ### Paths
 
@@ -37,9 +52,12 @@ Step 2 is two commands and never more. If you find yourself asking a person to t
 | --- | --- |
 | Bundles you write | `run/config/devtool/bundles/*.json` (scanned recursively) |
 | Configuration | `run/config/devtool/devtool.cfg` |
+| Result files | `run/config/devtool/results/<bundle>-<startTick>.json` |
+| Inbox requests and answers | `run/config/devtool/inbox/` |
+| Screenshots on request | `run/screenshots/` of the client that took them |
 | The log you read | `run/logs/latest.log` |
 
-On a dedicated server these live under the **server's** directory, not the client's. A client-side copy of a bundle has no effect on what the server runs.
+On a dedicated server these live under the **server's** directory, not the client's, except screenshots, which the client saves. A client-side copy of a bundle or a request has no effect on what the server runs.
 
 ## Writing a bundle
 
@@ -68,16 +86,19 @@ Rules that matter to you:
 - **Commands take no leading slash inside a bundle.** In chat a person types `/devtool run x`; in the file it is `devtool run x`.
 - `stopOnFailure` defaults to **true**. Leave it true for setup, so a broken step does not produce a half-prepared world you then test in.
 - `delayTicks` means **wait, then run this command**. The wait starts when the previous command finishes, not at the bundle's start. Two commands with `delayTicks: 20` put the second 40 ticks in. 20 ticks per second. Put the delay on the command that must run after the wait: to let chunks load after a teleport, keep the teleport immediate and delay the command that follows it. Set `"trace": true` on a bundle to get a `BUNDLE_STEP` record per command showing when it was due and when it ran.
-- **`toleratedFailures` lets one command fail without stopping the bundle**, for the specific reasons you name. An idempotent reset like `effect @s clear` fails when there is nothing to clear; declare `["commands.effect.failure.notActive.all"]` on that command and it will be tolerated, while a typo in the same command still fails. Find the key in the `detail` field of the `ERROR` record. A tolerated failure is recorded as a success carrying a note that names the key, so it never reads as a command that simply worked.
-- **The toolkit has failure keys of its own**, in the `devtool.` namespace, and you tolerate them the same way: `devtool.wait.timeout` when a wait ran out of time, `devtool.wait.cancelled` when it became impossible, such as the caller changing dimension mid-wait. `devtool.placeholder.unbound` when a placeholder has no value yet, `devtool.placeholder.unsafe` when its value could break the command. `devtool.assert.failed` when an assertion did not match, `devtool.assert.unloaded` when an absence could not be judged because the place is not loaded. `devtool.scenario.mismatch` when a scenario checkpoint expects a different bundle, or this bundle with different text. That is the whole list; tolerate any of them on the one command that may fail that way.
+- **`toleratedFailures` lets one command fail without stopping the bundle**, for the specific reasons you name. An idempotent reset like `effect @s clear` fails when there is nothing to clear; declare `["commands.effect.failure.notActive.all"]` on that command and it will be tolerated, while a typo in the same command still fails. Find the key in the `detail` field of the `ERROR` record. A tolerated failure is recorded as a success carrying a note that names the key, so it never reads as a command that simply worked. Each tolerated step also writes one `TOLERATED` record naming the key, and `BUNDLE_END` counts them in `tolerated`; `failed` still counts only real failures.
+- **Two vanilla keys you will often declare.** `commands.fill.failed` is what `fill` reports when every block in the region already is the block you asked for. `commands.setblock.noChange` is what `setblock` reports when the block is already there. Both are the second run of an idempotent setup, and neither is tolerated unless you declare it.
+- **The toolkit has failure keys of its own**, in the `devtool.` namespace, and you tolerate them the same way: `devtool.wait.timeout` when a wait ran out of time, `devtool.wait.cancelled` when it became impossible, such as the caller changing dimension mid-wait. `devtool.placeholder.unbound` when a placeholder has no value yet, `devtool.placeholder.unsafe` when its value could break the command. `devtool.assert.failed` when an assertion did not match, `devtool.assert.unloaded` when an absence could not be judged because the place is not loaded, `devtool.assert.ambiguous` when a modifier name matches several modifiers. `devtool.scenario.mismatch` when a scenario checkpoint expects a different bundle, or this bundle with different text. `devtool.inspect.notLoaded` when an inspection names a position whose chunk is not loaded. `devtool.save.failed` when `devtool save` could not save a world. `devtool.screenshot.noClient` when the target player's client does not have the toolkit. `devtool.baubles.absent` when Baubles is not installed, `devtool.baubles.rejected` when a bauble slot refuses the item. That is the whole list; tolerate any of them on the one command that may fail that way.
+- **Some refusals carry no key.** A screenshot label with a forbidden character fails with an `ERROR` record and a message, not a key, so a bundle cannot tolerate it by key. Fix the label instead.
 - **Placeholders.** Bind the human once with `devtool session operator @s`, then write `${operator.name}`, `${operator.uuid}` or `${operator.selector}` in any command; a claimed fixture is `${fixture.<handle>.uuid}` once `devtool fixture claim` has named it. That is the whole list. An unknown placeholder fails the file at reload. A value is filled in when the command runs, and a command whose value is missing fails with `devtool.placeholder.unbound` instead of running with a blank.
-- **Result files.** Put `"result": true` on a bundle and each run writes `run/config/devtool/results/<bundle>-<startTick>.json`: assertions with outcomes, failures, markers, checkpoints, waits, all copied from the log records. Read that when you want a run's verdicts without grepping; read the log when you want everything.
+- **Result files.** Put `"result": true` on a bundle and each run writes `run/config/devtool/results/<bundle>-<startTick>.json`: the `BUNDLE_END` counters including `tolerated`, then assertions with outcomes, failures, markers, checkpoints, waits, and `toleratedSteps` with one entry per `TOLERATED` record, all copied from the log records. Read that when you want a run's verdicts without grepping; read the log when you want everything.
 - **No comments.** JSON has none, and a `"_comment"` key at the top level fails the *entire file*, because every top-level entry must be a bundle. Use `description`.
 - **A duplicate name loads from neither file**, and the error names both. Prefix your bundles so they cannot collide: `feat_`, or the feature's name.
 - `example_` is reserved for the bundles the toolkit ships.
 - **Not a scripting language.** No variables, conditionals, loops, or arithmetic. The four placeholder forms above are lookups, not a language: `say ${player}` is not one of them, so the file is refused at reload with the placeholder named. If you want a variable, write two bundles.
 - **Nesting works**: a command may be `devtool run other_bundle`. The parent waits; the child's whole outcome counts as one command. Cycles and nesting past depth 10 are refused before anything runs.
 - A bundle runs **as whoever ran it**, fully. Permissions, position, world, and sender identity are the caller's own, so a command may omit its player argument exactly as if typed in chat: `gamemode creative` works, and so do bare `clear`, `kill`, `tp`, `xp`, `spawnpoint`, `setworldspawn` and `scoreboard`. A bundle is a convenience for typing, never a way to widen permissions.
+- **Every `devtool` subcommand needs permission level 2**, typed or inside a bundle. A caller below level 2 cannot run any of them from a bundle either. `BUNDLE_START` records the level the toolkit checked as `permissionLevel`, with `caller` and `channel`.
 - **In 1.0.0 that was not true.** Those eight commands failed with `commands.generic.player.unspecified` when their player argument was omitted, because the sender was substituted. Fixed in 1.0.1. If you are writing for 1.0.0, pass an explicit selector such as `@p`.
 
 ### Split setup from teardown
@@ -129,11 +150,15 @@ devtool log status
 
 **Filter the noisy ones.** `entity_spawn` in particular will produce hundreds of records if a person walks into fresh terrain, because generating terrain genuinely spawns hundreds of entities. That is correct behaviour and it will still make your log unreadable. One filter per category, replacing any previous one; a radius filter is anchored where the person stood when it was applied and does not follow them.
 
+**A spawn egg names its entity after `ENTITY_SPAWN` is written.** Minecraft spawns the entity first and applies the egg's custom name afterwards, so the spawn record of an entity from a named egg has no `name`. Select it by position or type, or inspect it a tick later, rather than expecting the name on the spawn record.
+
 You can turn categories on and off **mid-test** from a second bundle. This is the right tool when a first run gives you an ambiguous result: re-run with one more category enabled rather than enabling everything up front.
 
 ## Commands
 
-All require permission level 2. Root command `devtool`, alias `att` (a fallback, not a guarantee: a mod whose own command is `att` takes it, and nothing reports that).
+Every subcommand requires permission level 2, typed or inside a bundle. Root command `devtool`, alias `att` (a fallback, not a guarantee: a mod whose own command is `att` takes it, and nothing reports that).
+
+An unknown subcommand fails with an `ERROR` record and, in the chat reply only, names the closest real one when there is one: `devtool logging` answers "Did you mean log?". The `ERROR` record carries only the typed name. A typed word shorter than three letters gets no suggestion. Otherwise the suggestion is a subcommand one edit away; failing that, a subcommand of at least three letters that the typed word starts with, or that starts with the typed word; failing that, a subcommand two edits away. It is text only; nothing runs.
 
 ### Environment preparation
 
@@ -150,6 +175,8 @@ Dimensions are the **interior**: `create 20 10 20` gives twenty blocks to walk i
 
 Creating an arena also moves the caller's respawn point to its start position. Minecraft revalidates that on death and silently falls back to world spawn if the position has become obstructed, reporting **"Your home bed was missing or obstructed"**, which is misleading, since no bed is involved. If a person reports respawning far away after seeing that, the arena start was blocked.
 
+Arena commands place blocks without emptying containers first. A loot chest inside the arena's volume therefore rolls its loot table and drops the items when `create`, `reset` or `clear` replaces it. Build loot tests outside the arena, or place the chest after the reset.
+
 ### Session and marks
 
 | Command | Effect |
@@ -162,6 +189,8 @@ Creating an arena also moves the caller's respawn point to its start position. M
 
 Start a session in every setup bundle. Without one you are searching a log; with one you are reading a slice of it.
 
+A session belongs to one save. Leaving to the title screen and reopening the same save keeps it. Opening a different save stops it first, with `SESSION_STOP reason=worldChanged`, which also ends its operator binding and forgets its fixtures. See [Worlds and sessions](#worlds-and-sessions).
+
 **Marks are how you tell "the action produced nothing" from "they never got that far."** When you ask a person for a sequence of actions, put a mark before each one. Then a missing record is informative instead of ambiguous.
 
 ### Inspection
@@ -171,7 +200,9 @@ Start a session in every setup bundle. Without one you are searching a log; with
 | `devtool inspect player [selector]` | Position, health, hunger, experience, gamemode, held items, effects |
 | `devtool inspect entity <selector>` | Registry id, position, motion, health, effects |
 | `devtool inspect block <x> <y> <z>` | Block id, metadata, blockstate, tile entity class |
-| `devtool inspect inventory [selector]` | Occupied slots across inventory, armour, offhand |
+| `devtool inspect container <x> <y> <z>` | A container's occupied slots, one `INVENTORY_INSPECT` record each. A container whose loot table has not rolled yet is reported as `lootRolled=false lootTable=<id>` with no `occupiedSlots`, and its loot is **not** rolled |
+| `devtool inspect inventory [selector]` | Occupied slots across inventory, armour, offhand, and bauble slots when Baubles is installed (`section=baubles area=baubles slotType=...`) |
+| `devtool inspect attributes [selector\|uuid]` | One `ATTRIBUTE` record per attribute of a living entity (default the sender), each followed by one `ATTRIBUTE_MODIFIER` per modifier. A target that is not a living entity fails with an `ERROR` |
 | `devtool entities nearby <radius>` | Every entity within the radius, one record each |
 | `devtool nbt entity <selector|uuid|entityId>` | Raw NBT for an entity. A UUID or an entity ID finds a loaded entity in any dimension without the selector engine; the record says which dimension, and a miss writes an `ERROR` with the `dimensionIds` that were searched, so an entity left in a dimension that has since unloaded reads as exactly that. When a selector matches nothing, the `ERROR` record carries `selectorPermission`, `dimensionCount`, `dimensionIds`, `senderDimension` and `liveEntities` |
 | `devtool nbt block <x> <y> <z>` | Raw NBT for a tile entity |
@@ -179,7 +210,9 @@ Start a session in every setup bundle. Without one you are searching a log; with
 
 **`inspect block` does not report container contents.** It answers what a block *is*: id, metadata, blockstate, tile entity class. For what is *inside* a chest, use `nbt block`, which writes the tile entity's raw NBT including every occupied slot. Two commands, two questions, and mistaking one for the other has already cost an external project a workaround it did not need.
 
-A container whose loot table has not rolled writes a `LootTable` reference instead of items, so `nbt block` also distinguishes "loot not generated yet" from "these are the contents".
+A container whose loot table has not rolled writes a `LootTable` reference instead of items, so `nbt block` also distinguishes "loot not generated yet" from "these are the contents". `inspect container` says the same thing as `lootRolled=false` and leaves the loot unrolled, because reading any slot of such a container would roll it. Neither command changes the container.
+
+**Inspection never loads a chunk.** `inspect block`, `inspect container` and `nbt block` check that the position is loaded before reading it. An unloaded position fails with `devtool.inspect.notLoaded` and an `ERROR` record naming the position and dimension, and nothing is loaded or generated. This holds in chat, in bundles and through the inbox. To inspect something far away, get a player there first, or wait for its chunks with `devtool await chunks`.
 
 **A selector matching more than one entity is an error, not an invitation to pick one.** Name your fixtures on summon and select on the name:
 
@@ -205,13 +238,18 @@ NBT goes to the log, never to chat, and is truncated at `maxNbtOutputLength`. Tr
 | `devtool assert entity <uuid> present\|absent [at <x> <y> <z>]` | Whether a loaded entity has that UUID. Absent is only a verdict when the place it should be is loaded: give `at`, or use a claimed fixture, otherwise the outcome is `unloaded` with `devtool.assert.unloaded` |
 | `devtool assert entity <uuid> dimension <d>` and `within <r> of <x> <y> <z>` | Where a loaded entity is |
 | `devtool assert player <name> dimension <d>` and `gamemode <mode>` | Where a player is and how they play |
+| `devtool assert attribute <target> <attribute> value <n>` | An attribute's final value, compared at two decimals. `<target>` is a selector or UUID matching exactly one living entity; `<attribute>` is the registry name, such as `generic.armor` |
+| `devtool assert attribute <target> <attribute> modifier <uuid\|name> [amount <n>]` | Whether the attribute has that modifier, and with `amount` its amount. A name may hold spaces: every word up to `amount` is the name. A name that matches several modifiers fails with `devtool.assert.ambiguous` instead of choosing one; vanilla gives all four armour pieces the name `Armor modifier`, so assert those by UUID. A target that matches nothing, several entities, or a non-living entity fails before any comparison and writes no `ASSERT` |
 | `devtool fixture claim <handle> <selector\|uuid\|entityId>` | Mark exactly one non-player entity as this session's fixture under a handle, by adding the tag `devtool.fx.<session>.<handle>`. Refuses a duplicate handle. From then on `${fixture.<handle>.uuid}` names it |
 | `devtool fixture list` | Each fixture of the session as `loaded`, `unloaded`, or `absent`, judged at its last known place. A server never unloads its spawn chunks, so a fixture standing there is always `loaded` |
 | `devtool fixture clear <handle\|all>` | Remove fixtures whose entity still carries this session's tag, logging each UUID. An entity without the tag is refused, not removed |
 | `devtool scenario checkpoint <id> next <bundle> [clean\|fatal]` | Store, inside the world save, that `<bundle>` must be the next bundle run: its name and hash, the session, its operator, and its fixtures with their last places. Until it runs, `devtool run` of any other bundle, or of that bundle with changed text, is refused with `devtool.scenario.mismatch` naming both sides. Bundles the allowed bundle runs inside itself are not checked again |
 | `devtool scenario status` | The standing checkpoint, or none, or corrupt |
 | `devtool scenario complete <id>` and `abandon <id>` | Clear it, with a record. The resume bundle must not start a session itself; the resume restores the stored one, its operator and its fixtures before the bundle runs |
-| `devtool reload` | Re-read bundles and configuration from disk |
+| `devtool reload` | Re-read bundles and configuration from disk. Writes `RELOAD trigger=command`. The same reload runs at every server start with `trigger=serverStart` |
+| `devtool save` | Save player data and every loaded world, on single player and dedicated servers alike. Leaves each world's saving flag as it found it, so a `save-off` typed earlier stays off. Writes `SAVE`. A failure writes an `ERROR` and fails with `devtool.save.failed`. Vanilla `save-all` exists on a dedicated server only and needs level 4; this needs level 2 |
+| `devtool screenshot <label> [delayTicks] [player]` | Ask a player's client to save a screenshot after the delay. The label is 1 to 48 letters, digits, `_` or `-`; the delay is 0 to 600 ticks, default 0. The target is the named player, else the sender, which in a bundle is its caller and through the inbox is the inbox operator. The client must have the toolkit installed, or the command fails with `devtool.screenshot.noClient` and nothing is sent |
+| `devtool inbox open\|close\|status` | Open, close or report the command inbox. See [The command inbox](#the-command-inbox) |
 | `devtool bundle list` | Loaded bundles and their command counts |
 | `devtool bundle show <name>` | One bundle's commands in order, with delays |
 | `devtool capabilities` | Version, commands, inspection types, logging categories |
@@ -219,6 +257,119 @@ NBT goes to the log, never to chat, and is truncated at `maxNbtOutputLength`. Tr
 | `devtool mods` | Every loaded mod id and version |
 
 `capabilities` is read from the live command registry and the category enum, never from a written list, so it cannot claim a feature the jar does not have. Use it when you need to know what build is actually running.
+
+`devtool run` refuses a call that does not come from the server thread. RCON runs its commands on its own thread, so start bundles from chat, the server console or the inbox instead.
+
+**Screenshots.** The server writes `SCREENSHOT action=requested` with the file name it asked for, `screenshots/<label>-<requestTick>.png`, where `requestTick` is the target's world tick when the request was made. The client writes `SCREENSHOT side=CLIENT action=saved` with the file once it is on disk, or `action=failed` with a `reason`. The capture is of the whole window, an open inventory or menu included, so pair it with a `checkpoint cue` that tells the person what to have on screen. At most 8 screenshots wait on a client at once; more fail with `reason=queueFull`, and waiting ones fail with `reason=disconnected` when the player leaves the world. In a dedicated-server setup the file is on the client's computer, not the server's.
+
+### Baubles slots (only with Baubles installed)
+
+| Command | Effect |
+| --- | --- |
+| `devtool baubles set <slot> <item> [count] [meta] [player]` | Put one item in a bauble slot through Baubles' own handler. A slot holds one item, so a count other than 1 is refused, and so is an item the slot does not accept. Both refusals write `BAUBLES outcome=rejected` and fail with `devtool.baubles.rejected`; nothing is forced. Tolerating that key therefore also hides a mistyped count. Replacing an item is allowed and named in the record as `replaced` |
+| `devtool baubles clear <slot\|all> [player]` | Empty one slot or all of them. Empty slots are a success, so `clear all` is safe in a teardown |
+
+Slots are numbered from 0. With Baubles 1.5.2 the seven slots are typed `amulet`, `ring`, `ring`, `belt`, `head`, `body`, `charm`, and the records carry that type as `slotType`. Both forms call the bauble's equip and unequip hooks, as the Baubles screen does, unless Baubles has its events blocked, so a mod that grants a bonus on equip behaves as it would for a player. Baubles' own `/baubles` command skips those hooks; this one does not. Each change writes a `BAUBLES` record. Without Baubles, both forms fail with `devtool.baubles.absent`.
+
+Baubles is optional. The toolkit loads after it when it is present and never requires it; without it, everything else behaves exactly the same.
+
+## The command inbox
+
+The inbox lets you start a bundle, reload, save, or run a read-only toolkit command yourself, by writing a file. It is closed unless both hold:
+
+1. the owner set `inbox.enabled` to true in `run/config/devtool/devtool.cfg` (`B:enabled=true` under `inbox`; false by default), and
+2. a player typed `/devtool inbox open` in chat since the current server started.
+
+The opening is held in memory only, never written to disk. It closes when the player who opened it logs out (`reason=operatorLeft`), when the server stops (`serverStopped`), when a reload finds the key turned off (`disabled`), or when someone types `devtool inbox close` (`closed`). In single player leaving the world closes it, so the owner opens it again each time a world is opened. `devtool inbox status` reports whether it is open and for whom.
+
+Opening is refused, with an `INBOX action=refused` record, when the key is false (`reason=disabled`; the chat message names the key), when it is already open for another player (`openForAnother`), and when the command comes from a bundle (`fromBundle`). A bundle, or join automation, can never open the inbox, and neither can the console, a command block, or `/execute`. A person typing it while a bundle waits on a delay or a checkpoint is not refused. **Never put `devtool inbox open` in a bundle.** Ask the owner to type it.
+
+The player who opened it is the **inbox operator**. Every request runs with that player as the sender and with that player's permissions, and a bundle it starts carries `caller=<operator> channel=inbox`.
+
+### Writing a request
+
+The folder is `run/config/devtool/inbox/`, on a dedicated server under the server's directory. While the inbox is open the toolkit reads it every 10 ticks, on the server thread. While it is closed, no request is read and no request, claim or result file is changed. The one exception is at server start: a `status.json` left behind by a crash or a killed process is deleted, since the inbox is closed.
+
+1. Check that `status.json` exists. It is present exactly while the inbox is open, with `schemaVersion`, `open`, `operator`, `operatorUuid`, `world` (the save folder), `openedWorldTick` and `openedAtMillis`. No file means closed or not started.
+2. Write the request to `<id>.tmp`, then rename it to `<id>.req`. The rename is mandatory: the toolkit reads only `.req` files, and on some systems a file written straight to its `.req` name can be claimed half-written.
+3. Wait for `<id>.result.json`.
+
+Rules:
+
+- `<id>` is 1 to 64 letters, digits, `_`, `.` or `-`. Files named any other way are ignored.
+- **Ids must be unique.** The toolkit claims a request by renaming `<id>.req` to `<id>.claimed` before reading it, so it runs at most once. A new `<id>.req` whose `<id>.claimed` is still in the folder is never run: it gets one `INBOX action=refused reason=duplicateId` record with the id and the request line, and **no result file**, since one would overwrite the earlier answer. Put a counter or a timestamp in every id.
+- One request per file: one line of printable ASCII, at most 512 characters. A trailing line break is fine; a second line is not.
+- A request placed before the inbox opened is never run. Opening claims every waiting `.req` and refuses it with `placedBeforeOpen`, each with a result file. Write requests after `status.json` appears.
+- Requests waiting in one poll run in file-name order. A `reload` request ends that poll; the rest wait for the next one.
+- The toolkit never deletes request, claim or result files. Tidy the folder yourself while the inbox is closed, or keep using new ids.
+
+### What a request may say
+
+| Line | Runs |
+| --- | --- |
+| `run <bundle>` | `devtool run <bundle>`. The name is 1 to 128 letters, digits, `_`, `.` or `-` |
+| `reload` | `devtool reload` |
+| `save` | `devtool save` |
+| `mark <label>` | `devtool mark <label>` |
+| `inspect ...` | `devtool inspect ...`, any form |
+| `entities ...` | `devtool entities ...` |
+| `nbt ...` | `devtool nbt ...` |
+| `screenshot <label> [delayTicks]` | `devtool screenshot`, always to the inbox operator. No player argument |
+
+A leading `/` is accepted. Nothing else is: no vanilla command, no other toolkit command, no `devtool` or `att` prefix. Anything that changes the world goes in a bundle you wrote, which the owner can read, and the inbox starts it with `run`.
+
+Refusals, on both the `INBOX` record and the result file:
+
+| `reason` | Meaning |
+| --- | --- |
+| `verbNotAllowed` | The first word is not in the table above, `devtool` included |
+| `badArguments` | The verb is allowed but its arguments are not, such as `run` with two words, `reload` with one, or a screenshot delay over 600 |
+| `malformed` | Empty, more than one line, not printable ASCII, over 512 characters, or a file over 4096 bytes |
+| `placedBeforeOpen` | Already waiting when the inbox opened |
+| `operatorLeft` | The inbox operator is no longer online. The inbox closes too |
+| `duplicateId` | The id was already claimed. Record only, no result file |
+
+An accepted request can still fail, with `outcome=failed`: `rootShadowed` when another mod has taken both `devtool` and `att`, so the toolkit will not hand your request to that mod's command; or the name of an exception that escaped while it ran.
+
+### Reading the answer
+
+Every claimed request, except a reused id, gets exactly one `<id>.result.json`. It is written under a temporary name and then moved, so you never read half a file. Fields:
+
+- `schemaVersion`, `id`, `request` (the line), `verb`. A `malformed` request has no `verb`, and one whose file was unreadable or over 4096 bytes has no `request` either
+- `outcome`: `done`, `failed` or `refused`
+- `reason` when not `done`: a refusal reason above, or `commandFailed` (the command's message is in `detail`), `runNotStarted`, `bundleFailed`, `senderLost`, `serverStopped`, `rootShadowed`, or the name of an exception that escaped. A `run` whose bundle never started, because the bundle does not exist or a scenario checkpoint refused it, is `commandFailed` with the reason in `detail`. `runNotStarted` means the command reported success but no run began, as when another mod cancelled it
+- for `run`: `bundle`, `hash`, `executed`, `failed`, `tolerated`, `total`, `stoppedEarly` and `durationTicks`, the same values as `BUNDLE_END`; `senderLost` when the operator disconnected mid-run; `discardedOnServerStop` when the server stopped first; `firstFailure`, the failing key or message of the first command that failed, when one did. For a vanilla command it is often the translation key, such as `commands.fill.failed`
+
+A `run` is answered when its bundle **ends**, not when it starts, so a bundle with a long checkpoint answers late. It is `done` only when the run finished with `failed=0`. Every other verb is answered in the tick it ran.
+
+The log tells the same story: `INBOX action=claimed`, then `refused`, or the command's own records followed by `INBOX action=dispatched` (or `failed`). When a command fails, the `INBOX action=failed` record's `reason` is the command's own message, while the result file says `reason=commandFailed` and puts that message in `detail`. The result file is a convenience; the log is the authority.
+
+**In single player a paused game reads nothing.** The game pauses when its window loses focus or a menu is open, and a paused single-player game runs no ticks, so requests wait until it resumes. `client.noPauseOnLostFocus` turns the focus pause off, but only together with `client.applyOnJoin=true`, and only from the next game launch if the first world join has already happened.
+
+## Configuration
+
+`run/config/devtool/devtool.cfg` is a Forge configuration file. Keys are written here as `<category>.<key>`; in the file `inbox.enabled` is `B:enabled=true` inside `inbox { }`. Server-side keys take effect at the next reload or server start.
+
+The table lists the keys this release added and the ones you need for the inbox, spawn logging, join automation and client defaults. The arena keys (`arena.defaultWidth`, `arena.defaultHeight`, `arena.defaultLength`, `arena.maxArenaDimension`, `arena.constructionBlock`, `arena.ceiling`, `arena.setRespawnPoint`) and `diagnostics.maxNbtOutputLength` are described by the comments in the file itself.
+
+| Key | Default | Effect |
+| --- | --- | --- |
+| `inbox.enabled` | `false` | Allows `devtool inbox open`. For a development or test instance only |
+| `diagnostics.spawnIncludeItems` | `false` | `entity_spawn` also records dropped items and experience orbs |
+| `join.enabled`, `join.bundle` | `false`, empty | Run a bundle when an operator joins. Its `BUNDLE_START` says `channel=join` |
+| `client.applyOnJoin` | `false` | Apply the client defaults below, once per launch at the first world join, and write the client `ENVIRONMENT` record. Every other `client.` key does nothing unless this is true. Ignored on a dedicated server |
+| `client.brightness` | `1.0` | Gamma, 0 to 1. Always set to this value when `applyOnJoin` is on |
+| `client.musicVolume` | `0.0` | Music volume, 0 to 1. Always set to this value when `applyOnJoin` is on, so the default mutes music |
+| `client.masterVolume`, `client.weatherVolume`, `client.hostileVolume`, `client.friendlyVolume`, `client.ambientVolume` | `-1` | Volume of that sound category, 0 to 1. `-1`, or any negative value, leaves the category as it is. Friendly is vanilla's `neutral` category |
+| `client.noPauseOnLostFocus` | `false` | When true, turns off vanilla's pause when the window loses focus. It only ever turns the pause off. Esc still opens the menu |
+
+The volume keys and `client.noPauseOnLostFocus` act only when `client.applyOnJoin` is true. The client handles the first world join of each launch once, and marks it handled before it checks `applyOnJoin`, so a change to any `client.` key made after that join, `applyOnJoin` included, takes effect only after the game is restarted.
+
+Every client default is saved to `options.txt`, as the game's own sliders are, so it stays after you turn the key back off. For the pause, F3+P in game turns it back on. The client `ENVIRONMENT` record names `brightness` and `music` every time, and `<name>Was`/`<name>Now` for the other categories and `pauseOnLostFocus` only when they were set, so an absent field always means "left as it was".
+
+The toolkit records on the server. Install it on the client too only when you want screenshots or client defaults; a client without it still joins a server that has it.
+
+`-Pdev_runtime_baubles=true`, as in `./gradlew runClient -Pdev_runtime_baubles=true`, puts Baubles on the toolkit's own development runtime. It is for developing the toolkit. To test a mod with Baubles, install Baubles in that instance like any other mod.
 
 ## Record vocabulary
 
@@ -232,7 +383,7 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 
 `side` leads every record, then `worldTick`, then `session` and `sessionTick` when a session is active. `worldTick` comes from the dimension where the event happened, and dimensions tick independently, so it is not comparable across dimensions.
 
-**There are 35 record types and no others.** The vocabulary is closed: no near-synonyms, no renames between versions.
+**There are 44 record types and no others.** The vocabulary is closed: no near-synonyms, no renames between versions.
 
 **Category-gated.** These eight exist only while their category is on:
 
@@ -251,11 +402,17 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 
 | Record | Written by |
 | --- | --- |
-| `SESSION_START` / `SESSION_STOP` | `session start` / `stop` |
+| `SESSION_START` / `SESSION_STOP` | `session start` / `stop`. `SESSION_STOP` also when a different save opens, then carrying `reason=worldChanged` |
 | `MARK` | `mark`, carrying `label` |
 | `OPERATOR` | `session operator`, a disconnect, or a session stop: `action` (`bound` or `unbound`), `name`, `uuid`, `replaced` when rebinding, `reason` when unbound (`disconnect`, `sessionStop`) |
-| `BUNDLE_START` | a bundle beginning, with `bundle`, `hash` and `commands` |
-| `BUNDLE_END` | a bundle finishing, with `bundle` `hash` `executed` `failed` `total` `stoppedEarly` `durationTicks`, plus `senderLost` if the caller disconnected |
+| `BUNDLE_START` | a bundle beginning, with `bundle`, `hash`, `commands`, `caller` (the sender's name), `channel` and `permissionLevel` (the level the toolkit checked, always 2). `channel` is `chat`, `console`, `commandBlock`, `join` (join automation), `inbox`, `nested` (run by another bundle) or `other` (a sender wrapped by `/execute` or a function) |
+| `BUNDLE_END` | a bundle finishing, with `bundle` `hash` `executed` `failed` `tolerated` `total` `stoppedEarly` `durationTicks`, plus `senderLost` if the caller disconnected. A run cut off by a server stop writes it with `stoppedEarly=true discardedOnServerStop=true` |
+| `TOLERATED` | one bundle command whose failure was tolerated, by a declared key or the built-in no-op set: `bundle` `hash` `index` `command` (after placeholder substitution) `key`. Written as that command ends, so it sits between `BUNDLE_START` and the records of the commands after it |
+| `RELOAD` | `reload`, and every server start: `bundles` loaded, `problems` found, `trigger` (`command` or `serverStart`). The `ERROR` record of each problem comes before it |
+| `SAVE` | `save`: `worlds` saved, `dimensions` (their ids, comma separated; Forge unloads an empty Nether or End, so the count varies), `durationMs` |
+| `INBOX` | the command inbox: `action` (`opened`, `closed`, `claimed`, `refused`, `dispatched`, `failed`), `id` and `request` for a request, `operator`, and `reason` for closes, refusals and failures |
+| `SCREENSHOT` | `screenshot`. On the server `action=requested` with `label` `delayTicks` `target` `requestTick` `file`. On the client, `side=CLIENT` with `label` `requestTick` and `action=saved` with `file`, or `action=failed` with `reason` (`queueFull`, `disconnected`, `noFile` with the expected `file`, or an exception name) |
+| `BAUBLES` | `baubles set`: `action=set` `player` `slot` `slotType` `item` `count` `meta`, `replaced` when the slot held something, `outcome` (`set` or `rejected`). `baubles clear`: `action=clear` `player` `slots` (`all` or the index) `cleared` (how many held something) `outcome=cleared` |
 | `BUNDLE_STEP` | one command of a bundle with `trace` on, just before it runs, with `bundle` `hash` `index` `command` `dueTick` `elapsedTicks` |
 | `BUNDLE_SOURCE` | at load and reload: per file `source` `sha256` `bundles`; per bundle `bundle` `source` `hash`. The same `hash` is on that bundle's `BUNDLE_START` and `BUNDLE_END` |
 | `AWAIT` | a wait ended: `condition` `outcome` (`satisfied` `timedOut` `cancelled` `pending`) `reason` `waitedTicks` `timeoutTicks`, and for `chunks` also `dimension` `chunks` `chunkCount` `loadedChunks` `firstUnloadedChunk` |
@@ -267,10 +424,12 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 | `PLAYER_INSPECT` | `inspect player` |
 | `ENTITY_INSPECT` | `inspect entity` |
 | `BLOCK_INSPECT` | `inspect block`, with `tileEntityClass` when there is one |
-| `INVENTORY_INSPECT` | `inspect inventory` |
+| `INVENTORY_INSPECT` | `inspect inventory` and `inspect container`: `occupiedSlots`, `slot`, `item`, `count`, `meta`, `hasNbt` when the item has a tag. For a player also `section` (`main`, `armor`, `offhand`, `baubles`); a bauble slot adds `area=baubles` and `slotType`. A container with loot not yet rolled writes one record with `lootRolled=false` and `lootTable`, and no `occupiedSlots` |
+| `ATTRIBUTE` | `inspect attributes`, one per attribute: `target` `targetUuid` `name` `base` `value` (the final value) `modifiers` (the count) |
+| `ATTRIBUTE_MODIFIER` | `inspect attributes`, one per modifier, after its attribute: `target` `targetUuid` `attribute` `uuid` `name` `operation` `operationName` (`add`, `multiplyBase`, `multiplyTotal`) `amount` |
 | `NBT` | `nbt`, carrying `truncated` always; for an entity also `lookup` (`selector`, `uuid`, `entityId`, `name`) and `dimension` |
 | `ENTITY_LIST` | `entities nearby`, including when nothing matched |
-| `ENVIRONMENT` | `environment` |
+| `ENVIRONMENT` | `environment`. Also once per launch on the client when client defaults apply: `side=CLIENT clientDefaultsApplied=true` with `brightnessWas` `brightnessNow` `musicWas` `musicNow`, and `<name>Was` `<name>Now` only for each optional default that was set: `master`, `weather`, `hostile`, `friendly`, `ambient`, `pauseOnLostFocus` |
 | `CAPABILITIES` | `capabilities`, and one per mod for `mods` |
 | `LOG_CONFIG` | any change to enabled categories, and `log status` |
 
@@ -279,6 +438,7 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 | Record | Written when |
 | --- | --- |
 | `STARTUP` | once per launch, with version and bundle load result |
+| `WORLD` | every server start, when the overworld loads, before any other toolkit record of that world: `folder` (the save folder name), `seed`, and `sameAsSession` when a session was active |
 | `ERROR` | anything that failed, with enough context to identify the cause |
 
 ### Three shapes that break naive parsers
@@ -342,7 +502,23 @@ So: read the log **before** anything restarts, and copy it to a scenario-named p
 
 ### Which process writes what
 
-Observation is server-side. In single player everything lands in the one log. With a dedicated server, event records are on the **server**; command replies a person sees in chat are on the **client**.
+Observation is server-side. In single player everything lands in the one log. With a dedicated server, event records are on the **server**; command replies a person sees in chat are on the **client**. Two records are written by the client and carry `side=CLIENT`: `SCREENSHOT action=saved` or `failed`, and the `ENVIRONMENT` record of the client defaults. With a dedicated server they are in the client's log.
+
+A client without the toolkit can still join a server that has it. Everything server-side works as usual for that player; only what needs the client fails: a screenshot to that player fails with `devtool.screenshot.noClient`, and client defaults are not applied.
+
+### Worlds and sessions
+
+Every server start writes one `WORLD` record with the save's `folder` and `seed`, before any other toolkit record of that world. It is how you tell which save a stretch of log belongs to.
+
+A session never spans two saves. "The same save" means the same folder name and seed:
+
+- **Same save reopened** in the same process: the session continues, and `WORLD` carries `sameAsSession=true`.
+- **Different save opened**: `SESSION_STOP reason=worldChanged` is written first, after an `OPERATOR action=unbound reason=sessionStop` if an operator was bound, and then `WORLD sameAsSession=false` with no session. Nothing from the new save carries the old session's name. Fixtures are forgotten; their entities stay where they were.
+- **No session active**: `WORLD` has no `sameAsSession`.
+
+Two edge cases. A world deleted and recreated with the same name and seed counts as the same save. A brand-new world generates its spawn area before the `WORLD` record, so if `entity_spawn` is still on from the previous world, its first animals are recorded under the old session. Enabled logging categories are not tied to a save: they last for the process.
+
+At every server start, after `WORLD`, the toolkit also re-reads bundles and configuration exactly as `devtool reload` does and writes `RELOAD trigger=serverStart`. On a dedicated server the load records (`BUNDLE_SOURCE`, and an `ERROR` for each load problem) therefore appear **twice** at start: once from the process starting, once from this reload, the second batch followed by the `RELOAD` record. Unless a file changed in between, the two batches are the same. In single player the first batch is at game start and the second when a world opens.
 
 ### What counts as a bundle failure
 
@@ -636,6 +812,91 @@ Your feature does something at world load. You need a bundle before the stop, a 
 - `SCENARIO action=completed`.
 
 **What would fool you:** running any other bundle first. It is refused with `devtool.scenario.mismatch` and a `SCENARIO action=refuse reason=wrongBundle` naming both. Editing the resume bundle between stop and start is refused the same way with `reason=changedHash` and both hashes, because the checkpoint pins the text you declared, not the name. `devtool scenario abandon reload` clears it when you meant to change course. The resume bundle must not start a session of its own; the restore happens before its first command.
+
+### I. An agent-run session through the inbox
+
+You want to prepare a test, have the person act once, and inspect the result, without asking anyone to type anything after the first command.
+
+**Once, by the owner:** `inbox.enabled` set to true, the world opened, `/devtool arena create` typed where the test should happen (once per world: the arena is stored in the save, and `arena reset` fails with "No arena in dimension N" without it), and `/devtool inbox open` typed in chat. In single player, if the owner will switch windows while you work, ask for `client.applyOnJoin=true` and `client.noPauseOnLostFocus=true` before the game is launched: the client defaults apply only at the first world join of a launch, and `applyOnJoin` also sets brightness and music to their configured values (1.0 and 0 by default).
+
+**The bundle**, written before the world opened, or followed by a `reload` request if written after:
+
+```json
+{
+  "feat_wand_inbox_setup": {
+    "description": "Arena, one named target, damage logging armed; started through the inbox",
+    "result": true,
+    "commands": [
+      "devtool session start wand_inbox",
+      "devtool session operator @s",
+      "devtool arena reset",
+      "kill @e[name=probe]",
+      "summon minecraft:zombie ~4 ~ ~ {CustomName:\"probe\",NoAI:1,PersistenceRequired:1}",
+      "devtool log entity_damage on arena",
+      "devtool checkpoint cue HIT_PROBE_ONCE actionbar sound",
+      "devtool mark READY_STRIKE"
+    ]
+  }
+}
+```
+
+Run through the inbox, `@s` is the inbox operator, so the operator binding works exactly as from chat. `arena reset` removes every non-player entity inside the arena, a probe from an earlier run included, so the `kill` after it matches nothing as long as no other entity named `probe` stands in a loaded chunk outside the arena. That is tolerated, and shows up as a `TOLERATED` record.
+
+**Your steps:**
+
+```
+1. read    run/config/devtool/inbox/status.json          must exist, names the operator and world
+2. write   run/config/devtool/inbox/w-001.tmp            run feat_wand_inbox_setup
+   rename  w-001.tmp to w-001.req
+3. wait    run/config/devtool/inbox/w-001.result.json
+```
+
+For example, in a shell:
+
+```bash
+cd run/config/devtool/inbox
+printf 'run feat_wand_inbox_setup\n' > w-001.tmp && mv w-001.tmp w-001.req
+```
+
+The answer, once the bundle has ended:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "w-001",
+  "request": "run feat_wand_inbox_setup",
+  "verb": "run",
+  "outcome": "done",
+  "bundle": "feat_wand_inbox_setup",
+  "hash": "...",
+  "executed": 8,
+  "failed": 0,
+  "tolerated": 1,
+  "total": 8,
+  "stoppedEarly": false,
+  "durationTicks": 1
+}
+```
+
+**Ask a person for:** when the cue shows, hit the zombie named `probe` once, then say so.
+
+**Then write two more requests**, each with a new id, each through `.tmp`:
+
+```
+w-002   inspect entity @e[name=probe]
+w-003   screenshot after_strike
+```
+
+**Then read back:**
+
+- `INBOX action=opened operator=...`, then `INBOX action=claimed id=w-001`.
+- `BUNDLE_START bundle=feat_wand_inbox_setup caller=<operator> channel=inbox permissionLevel=2`. This is what proves the run came through the inbox and as whom.
+- `TOLERATED key=commands.generic.selector.notFound` for the `kill`, `MARK label=READY_STRIKE`, then `BUNDLE_END failed=0 tolerated=1` with the same counters as the result file.
+- `ENTITY_DAMAGE` after the mark, read as in example B.
+- `w-002.result.json` with `outcome=done`, and the `ENTITY_INSPECT` it caused.
+- `SCREENSHOT action=requested label=after_strike`, then `SCREENSHOT side=CLIENT action=saved file=screenshots/after_strike-<tick>.png`, and the image itself in the client's `screenshots` folder.
+
+**What would fool you:** reusing `w-001` for the second request. It is never run, and it gets only an `INBOX action=refused reason=duplicateId` record, no result file, so a loop waiting for that file waits forever: wait with a timeout, and look for that record when it runs out. A request written before the owner opened the inbox is refused with `placedBeforeOpen`. A bundle edited after the world opened, with no `reload` request, runs the old text; the `hash` in the result file and on `BUNDLE_START` tells you which text ran. A missing answer in single player may only mean the game is paused. If nobody created the arena, `arena reset` fails, the bundle stops there, and the result says `outcome=failed reason=bundleFailed` with `firstFailure` naming the missing arena. And `outcome=done` says the setup ran, not that the strike happened: only the `ENTITY_DAMAGE` after the mark says that.
 
 ## Limits
 

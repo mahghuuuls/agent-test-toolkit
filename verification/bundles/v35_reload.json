@@ -1,0 +1,9 @@
+{
+  "v35_reload": {
+    "description": "CYC4-015. The agent edits the mark label below while the owner is at the title screen, then the owner opens a world and the agent runs this through the inbox. Expect RELOAD trigger=serverStart when the world opened, and the new label in the MARK.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V35_LABEL_BEFORE_EDIT"
+    ]
+  }
+}

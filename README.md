@@ -16,7 +16,7 @@ You still play. The toolkit sets the world up, watches, and writes it down.
 | Parsing the log | [docs/logging.md](docs/logging.md) |
 | Deciding whether to install it | [MOD-PAGE.md](MOD-PAGE.md) |
 
-`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 35 record types, and eight worked examples of testing a freshly implemented feature. The `docs/` pages are the same material written for a person.
+`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 44 record types, and nine worked examples of testing a freshly implemented feature, one of them run entirely through the command inbox. The `docs/` pages are the same material written for a person.
 
 It also covers the traps that waste a test run: why an absent record is ambiguous, why `entity_spawn` floods, and why `latest.log` may not be the file you think it is.
 
@@ -62,7 +62,9 @@ Named lists of commands in JSON, under `config/devtool/bundles/`, scanned recurs
 - **Per command tick delays**: the toolkit waits, then runs that command. Measured from the previous command finishing, so inserting a command shifts what follows rather than compressing the gaps.
 - **Stop on failure**, on by default. A failure means the game raised a command error; a command that runs and changes nothing has succeeded, so neither a `kill` matching nothing nor a `clear` on an empty inventory halts a teardown on its second run.
 - **Nesting.** A bundle can run another. The parent waits, and the child's failure counts as one failed command. Cycles are refused by name before anything runs.
-- **`BUNDLE_START` and `BUNDLE_END`** in the log, so events your setup caused can be told apart from events of the test that followed. Both carry a hash of the bundle's text, and every load writes `BUNDLE_SOURCE` with the file's SHA-256, so a log line proves which text a run came from.
+- **`BUNDLE_START` and `BUNDLE_END`** in the log, so events your setup caused can be told apart from events of the test that followed. Both carry a hash of the bundle's text, and every load writes `BUNDLE_SOURCE` with the file's SHA-256, so a log line proves which text a run came from. `BUNDLE_START` also says who started the run and through which channel: chat, console, command block, join, inbox, or another bundle.
+- **Tolerated failures, on the record.** Declare the failure key a command may end with, such as `commands.fill.failed` on a second run, and the bundle carries on. Each tolerated step writes a `TOLERATED` record, so it never reads as a command that simply worked.
+- **Read again at every world start.** Bundles and configuration reload by themselves whenever a world opens, so a file edited at the title screen is used without typing `devtool reload`.
 - **Waits.** `devtool await chunks` parks the bundle until a region is loaded, with a timeout that is always finite. Never a guessed delay for something the toolkit can check.
 - **Checkpoints.** `devtool checkpoint arm` shows a label to the person and pauses until they type `devtool checkpoint ack`; `cue` shows a label without pausing. The ticks asked and answered are recorded.
 - **An operator and placeholders.** Bind one player with `devtool session operator @s`, then write `${operator.name}`, `${operator.uuid}`, `${operator.selector}` or `${fixture.<handle>.uuid}` in any command. Those four are the whole list, and an unknown one refuses the file.
@@ -73,6 +75,16 @@ Named lists of commands in JSON, under `config/devtool/bundles/`, scanned recurs
 They live outside the world save, so they survive making a fresh test world. They are deliberately **not** a scripting language: no variables, no conditionals, no loops, and the placeholders are lookups rather than expressions.
 
 A verdict from an assertion means only that an observation matched, or did not match, the value you declared. It never says the mod is right or wrong. Deciding that is still your job, and the toolkit's job is to make sure you decide from records rather than from a description.
+
+### Command inbox
+
+```
+/devtool inbox open
+```
+
+Off by default, and opened only by you typing it, once each time you open a world. While it is open, an AI assistant can start one of its bundles, reload, save, take a screenshot, or run a read-only inspection by writing a small file into `config/devtool/inbox/`, and reads the answer from a result file next to it. Requests run as you, with your permissions. Nothing else is accepted, and no vanilla command in particular: anything that changes the world has to be in a bundle, where you can read it. It closes when you leave, when the server stops, or when you type `/devtool inbox close`.
+
+Turn it on with `B:enabled=true` under `inbox` in the configuration, in a development or test instance only.
 
 ### Event logging
 
@@ -98,13 +110,27 @@ An excluded event and an event that never happened look identical in the log. So
 /devtool inspect block ~ ~-1 ~
 /devtool inspect container 10 64 -3
 /devtool inspect inventory
+/devtool inspect attributes
 /devtool entities nearby 20
 /devtool nbt held
 ```
 
 Structured records rather than chat output. A selector matching more than one entity is an error rather than an invitation to pick one, so name your fixtures and select on the name.
 
-`inspect block` answers what a block **is**: id, metadata, blockstate, tile entity class. `inspect container` answers what is **in** it, one record per occupied slot. For the raw tile entity tag, including a loot table that has not yet rolled, use `nbt block`.
+`inspect block` answers what a block **is**: id, metadata, blockstate, tile entity class. `inspect container` answers what is **in** it, one record per occupied slot, and reports a loot table that has not rolled yet without rolling it. For the raw tile entity tag, use `nbt block`.
+
+`inspect attributes` lists a living entity's attributes with every modifier, and `devtool assert attribute` checks a value or one modifier by UUID or name. With Baubles installed, `inspect inventory` includes the bauble slots, and `devtool baubles set` and `clear` fill and empty them. Baubles is optional and never required.
+
+Inspection only observes. A position whose chunk is not loaded is refused rather than loaded or generated.
+
+### Saves and screenshots
+
+```
+/devtool save
+/devtool screenshot inv_open 200
+```
+
+`save` saves player data and every loaded world, in single player too, and leaves a `save-off` in place. `screenshot` asks a player's client to save a labelled screenshot after a delay; that client needs the toolkit installed.
 
 NBT goes to the log, bounded by a configurable limit, and truncation is always reported along with the original length.
 
@@ -115,7 +141,7 @@ NBT goes to the log, bounded by a configurable limit, and truncation is always r
 /devtool mark ABOUT_TO_HIT
 ```
 
-A session stamps every record with its name and a tick counter from its start. A mark is a labelled bookmark carrying no verdict.
+A session stamps every record with its name and a tick counter from its start. A mark is a labelled bookmark carrying no verdict. A session belongs to one save: every world start writes a `WORLD` record, and opening a different save ends the session first.
 
 Put a mark before each step you ask a human to perform. Then a missing record means something: you can tell "the action produced nothing" from "they never got that far".
 
@@ -131,7 +157,7 @@ Put a mark before each step you ask a human to perform. Then a missing record me
 
 ## Configuration
 
-`config/devtool/devtool.cfg`. Arena defaults and construction block, the NBT truncation limit, whether a bundle runs when an operator joins, whether spawn logging includes dropped items, and optional client brightness and music defaults.
+`config/devtool/devtool.cfg`. Arena defaults and construction block, the NBT truncation limit, whether a bundle runs when an operator joins, whether spawn logging includes dropped items, whether the command inbox may be opened, and optional client defaults: brightness, music, master, weather, hostile, friendly and ambient volume, and keeping the game running when its window loses focus.
 
 Everything that could change your world or your settings without being asked is off until you turn it on.
 
@@ -139,7 +165,7 @@ Everything that could change your world or your settings without being asked is 
 
 **This mod modifies the world irreversibly and without confirmation.**
 
-`arena create` replaces every block in its volume. `arena reset` and `arena clear` delete every non-player entity inside the bounds, dropped items included. Nothing prompts, and nothing can be undone.
+`arena create` replaces every block in its volume. `arena reset` and `arena clear` delete every non-player entity inside the bounds, dropped items included. A loot chest inside the volume rolls its loot and drops it when it is replaced. Nothing prompts, and nothing can be undone.
 
 That is deliberate. A confirmation prompt would make these commands unusable from a bundle, and resetting the arena is the most common first step of a setup routine. The size limit on creation is the only guard.
 
@@ -184,9 +210,11 @@ The build is reproducible from a given commit. Building the same revision twice 
 
 ## Requirements
 
-Minecraft 1.12.2 with Forge. Everything the toolkit records happens on the server, so that is where it needs to be installed. In singleplayer that means installing it normally. The optional brightness and music defaults are the only part that acts on a client, and they need it installed there too.
+Minecraft 1.12.2 with Forge. Everything the toolkit records happens on the server, so that is where it needs to be installed. In singleplayer that means installing it normally. The optional client defaults and screenshots are the only parts that act on a client, and they need it installed there too. A client without the toolkit can still join a server that has it.
 
-Commands need permission level 2. Start with `/devtool help`.
+Baubles is optional. When it is installed, the toolkit loads after it and adds bauble slots to inventory inspection; without it, nothing else changes.
+
+Every subcommand needs permission level 2, typed or inside a bundle. Start with `/devtool help`.
 
 Example bundles are written to `config/devtool/bundles/` on first run and never overwritten, so edit them freely.
 

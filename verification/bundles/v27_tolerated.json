@@ -1,0 +1,30 @@
+{
+  "v27_tolerated": {
+    "description": "CYC4-001 reproduction of defect D1. A kill whose selector matches nobody, then a mark. Expect a TOLERATED record with key=commands.generic.selector.notFound before the mark, and BUNDLE_END with failed=0 tolerated=1. On 1.2.0 nothing appeared between BUNDLE_START and the mark.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "kill @e[name=nobody_has_this_name_v27]",
+      "devtool mark V27_AFTER_TOLERATED"
+    ]
+  },
+
+  "v27_tolerated_declared": {
+    "description": "A declared tolerated key. Gives one effect, clears it, then clears again, so the declared clear finds nothing. Expect one TOLERATED with key=commands.effect.failure.notActive.all and tolerated=1.",
+    "stopOnFailure": true,
+    "commands": [
+      "effect @p minecraft:speed 30 0 true",
+      "effect @p clear",
+      { "command": "effect @p clear", "toleratedFailures": ["commands.effect.failure.notActive.all"] },
+      "devtool mark V27_DECLARED_END"
+    ]
+  },
+
+  "v27_no_tolerance_control": {
+    "description": "Control. Nothing is tolerated. Expect no TOLERATED record and BUNDLE_END tolerated=0.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V27_CONTROL"
+    ]
+  }
+}

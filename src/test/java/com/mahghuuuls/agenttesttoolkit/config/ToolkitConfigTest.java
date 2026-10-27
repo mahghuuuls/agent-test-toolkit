@@ -165,6 +165,13 @@ class ToolkitConfigTest {
     }
 
     @Test
+    @DisplayName("no pause on lost focus is off by default and on only when asked for")
+    void noPauseOnLostFocus() {
+        assertFalse(ToolkitConfig.DEFAULTS.isClientNoPauseOnLostFocus(), "your own setting, so untouched");
+        assertTrue(ToolkitConfig.builder().clientNoPauseOnLostFocus(true).build().isClientNoPauseOnLostFocus());
+    }
+
+    @Test
     @DisplayName("a builder reused after build leaves the first configuration unchanged")
     void builderReuse() {
         ToolkitConfig.Builder builder = ToolkitConfig.builder().clientVolume(ToolkitConfig.Volume.WEATHER, 0.2F);

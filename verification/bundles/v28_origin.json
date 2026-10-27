@@ -1,0 +1,28 @@
+{
+  "v28_origin": {
+    "description": "CYC4-002. Run it from chat. Expect BUNDLE_START with caller, channel=chat and permissionLevel=2, then the nested child's BUNDLE_START with channel=nested.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V28_ORIGIN_BEGIN",
+      "devtool run v28_origin_child",
+      "devtool mark V28_ORIGIN_END"
+    ]
+  },
+
+  "v28_origin_child": {
+    "description": "The nested child of v28_origin. Expect channel=nested on its BUNDLE_START.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V28_CHILD"
+    ]
+  },
+
+  "v28_suggestion_control": {
+    "description": "A deliberately mistyped subcommand. Expect a red line that names log, and the bundle halting before the end mark.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool logging status",
+      "devtool mark V28_SHOULD_NOT_APPEAR"
+    ]
+  }
+}

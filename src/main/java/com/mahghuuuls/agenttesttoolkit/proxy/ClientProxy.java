@@ -25,10 +25,10 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
  * and a diagnostic tool rewriting them unasked would be a surprising thing for a mod to do.
  * Master, weather, hostile, friendly and ambient volume change only when a level is configured:
  * brightness and music serve a test environment, but these are preferences, so their defaults
- * leave them alone.
+ * leave them alone. The pause on lost focus is only ever turned off, and only when asked for.
  *
- * <p>Applied once per world join rather than once per launch, because a test session usually
- * means entering a fresh world and the settings should hold for it.
+ * <p>Applied once per launch, at the first world join; they are saved to {@code options.txt},
+ * so they hold for every later world in the launch.
  */
 public class ClientProxy extends CommonProxy {
 
@@ -78,6 +78,12 @@ public class ClientProxy extends CommonProxy {
         for (ToolkitConfig.Volume volume : set) {
             settings.setSoundLevel(category(volume), config.getClientVolume(volume));
         }
+        boolean previousPause = settings.pauseOnLostFocus;
+        boolean setPause = config.isClientNoPauseOnLostFocus();
+        if (setPause) {
+            // Only ever turned off: a test keeps running while another window has focus.
+            settings.pauseOnLostFocus = false;
+        }
         settings.saveOptions();
 
         // An operator whose brightness changed must be able to find out why from the log rather
@@ -94,6 +100,9 @@ public class ClientProxy extends CommonProxy {
             // Only when changed, so an absent field always means "left as it was".
             record.addDecimal(volume.getRecordPrefix() + "Was", previous[volume.ordinal()])
                     .addDecimal(volume.getRecordPrefix() + "Now", settings.getSoundLevel(category(volume)));
+        }
+        if (setPause) {
+            record.add("pauseOnLostFocusWas", previousPause).add("pauseOnLostFocusNow", settings.pauseOnLostFocus);
         }
         ToolkitLog.write(record);
     }

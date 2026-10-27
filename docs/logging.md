@@ -15,13 +15,13 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 - An absent optional value is **omitted entirely**, never rendered as a placeholder or an empty value. You will not see `field=`.
 - Block coordinates are integers. Entity positions and damage amounts are given to two decimal places.
 
-`side` is always reported. In this version observation is server side only, so it is effectively constant, but it is emitted so the format does not change when client side observation is added.
+`side` is always reported. Observation is server side only, so nearly every record says `SERVER`. Two records are written by the client and say `CLIENT`: `SCREENSHOT` with `action=saved` or `failed`, and the `ENVIRONMENT` record of the client defaults. With a dedicated server those two are in the client's log, not the server's.
 
 `worldTick` comes from the dimension in which the event occurred. Dimensions keep independent tick counts, so records from different dimensions are not comparable on this field.
 
 ## Every record type
 
-35 in total. The name in brackets is the whole vocabulary: nothing else appears, and these names do not change.
+44 in total. The name in brackets is the whole vocabulary: nothing else appears, and these names do not change.
 
 **Written only when their category is enabled.** These are the observed game events, and they are the only ones you can turn off.
 
@@ -40,10 +40,16 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 
 | Record | Written when |
 | --- | --- |
-| `SESSION_START` / `SESSION_STOP` | `devtool session start` / `stop` |
+| `SESSION_START` / `SESSION_STOP` | `devtool session start` / `stop`. `SESSION_STOP` is also written when a different save opens, with `reason=worldChanged` |
 | `OPERATOR` | `devtool session operator`, a disconnect, or a session stop. `action` is `bound` or `unbound`, with `name`, `uuid`, `replaced` when rebinding, and `reason` (`disconnect`, `sessionStop`) when unbound |
 | `MARK` | `devtool mark` |
-| `BUNDLE_START` / `BUNDLE_END` | A bundle begins and finishes. Both carry `bundle` and `hash`; `BUNDLE_END` also carries `executed`, `failed`, `total`, `stoppedEarly`, `durationTicks`, and `senderLost` when the caller disconnected |
+| `BUNDLE_START` / `BUNDLE_END` | A bundle begins and finishes. Both carry `bundle` and `hash`. `BUNDLE_START` also carries `commands`, `caller` (the sender's name), `channel` (`chat`, `console`, `commandBlock`, `join`, `inbox`, `nested` or `other`) and `permissionLevel` (always 2). `BUNDLE_END` also carries `executed`, `failed`, `tolerated`, `total`, `stoppedEarly`, `durationTicks`, `senderLost` when the caller disconnected, and `discardedOnServerStop` when the server stopped mid-run |
+| `TOLERATED` | One bundle command whose failure was tolerated, by a declared key or the built-in no-op set. Carries `bundle`, `hash`, `index`, `command` after placeholder substitution, and `key` |
+| `RELOAD` | `devtool reload`, and the same reload at every server start. Carries `bundles` loaded, `problems` found, and `trigger` (`command` or `serverStart`). Each problem's `ERROR` comes before it |
+| `SAVE` | `devtool save`. Carries `worlds` saved, `dimensions` (their ids, comma separated), and `durationMs` |
+| `INBOX` | The command inbox. `action` is `opened`, `closed`, `claimed`, `refused`, `dispatched` or `failed`, with `id` and `request` for a request, `operator`, and `reason` for closes, refusals and failures |
+| `SCREENSHOT` | `devtool screenshot`. On the server, `action=requested` with `label`, `delayTicks`, `target`, `requestTick` and `file`. On the client, `side=CLIENT` with `label`, `requestTick`, and `action=saved` with `file`, or `action=failed` with `reason`, plus the expected `file` when the reason is `noFile` |
+| `BAUBLES` | `devtool baubles`. A set carries `action=set`, `player`, `slot`, `slotType`, `item`, `count`, `meta`, `replaced` when the slot held something, and `outcome` (`set` or `rejected`). A clear carries `action=clear`, `player`, `slots`, `cleared` and `outcome=cleared` |
 | `BUNDLE_STEP` | One command of a bundle that set `trace`, written just before it runs. Carries `bundle`, `hash`, `index`, `command`, `dueTick`, and `elapsedTicks`, both counted from submission like `durationTicks`; the stamped `worldTick` is the absolute moment |
 | `BUNDLE_SOURCE` | Written at every load and reload. Per file: `source` and `sha256` of the bytes, and `bundles` loaded from it. Per bundle: `bundle`, `source`, and the normalized `hash`. `BUNDLE_START` and `BUNDLE_END` carry the same `hash` |
 | `AWAIT` | A wait ended, or a single check outside a bundle answered. `command`, `condition`, `outcome` of `satisfied`, `timedOut`, `cancelled` or `pending`, `reason` when cancelled, `waitedTicks`, `timeoutTicks`, plus the condition's own fields: for `chunks`, `dimension`, `chunks` bounds, `chunkCount`, `loadedChunks`, and `firstUnloadedChunk` when any. Inside a bundle also `bundle`, `hash`, `index` |
@@ -55,10 +61,12 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 | `PLAYER_INSPECT` | `devtool inspect player` |
 | `ENTITY_INSPECT` | `devtool inspect entity` |
 | `BLOCK_INSPECT` | `devtool inspect block` |
-| `INVENTORY_INSPECT` | `devtool inspect inventory`. One record per occupied slot, plus `occupiedSlots` even when zero |
+| `INVENTORY_INSPECT` | `devtool inspect inventory` and `devtool inspect container`. One record per occupied slot, plus `occupiedSlots` even when zero. A bauble slot carries `section=baubles`, `area=baubles` and `slotType`. A container whose loot has not rolled writes one record with `lootRolled=false` and `lootTable`, and no `occupiedSlots` |
+| `ATTRIBUTE` | `devtool inspect attributes`, one per attribute: `target`, `targetUuid`, `name`, `base`, `value` (the final value) and `modifiers` (the count) |
+| `ATTRIBUTE_MODIFIER` | `devtool inspect attributes`, one per modifier, after its attribute: `target`, `targetUuid`, `attribute`, `uuid`, `name`, `operation`, `operationName` (`add`, `multiplyBase` or `multiplyTotal`) and `amount` |
 | `NBT` | `devtool nbt`. Carries `truncated` always, not only when true |
 | `ENTITY_LIST` | `devtool entities nearby`, including when nothing matched |
-| `ENVIRONMENT` | `devtool environment` |
+| `ENVIRONMENT` | `devtool environment`. Also written once per launch by the client when client defaults apply, with `side=CLIENT` and the values before and after each setting it applied |
 | `CAPABILITIES` | `devtool capabilities`, and one per mod for `devtool mods` |
 | `LOG_CONFIG` | Any change to the enabled categories, and `devtool log status` |
 
@@ -67,6 +75,7 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 | Record | Written when |
 | --- | --- |
 | `STARTUP` | Once per launch. Carries the version and the bundle load result |
+| `WORLD` | Every server start, when the overworld loads, before any other toolkit record of that world. Carries `folder` (the save folder name), `seed`, and `sameAsSession` when a session was active |
 | `ERROR` | Anything that failed. Never silent, always with enough context to identify the cause |
 
 ## Categories
@@ -130,6 +139,8 @@ Filter it. Dropped items and experience orbs are excluded by default for the sam
 
 Entities arriving because a chunk loaded are **not** recorded. Only genuine spawns are.
 
+A spawn egg names its entity after the `ENTITY_SPAWN` record is written. Minecraft spawns the entity first and applies the egg's custom name afterwards, so the spawn record of an entity from a named egg has no `name`.
+
 ## Sessions
 
 ```
@@ -137,7 +148,23 @@ devtool session start spell_damage
 devtool session stop
 ```
 
-While a session is active, every record carries `session` and `sessionTick`, the latter counted from the session's start. Sessions survive returning to the title screen and leaving a world. They end when the game does.
+While a session is active, every record carries `session` and `sessionTick`, the latter counted from the session's start. A session survives returning to the title screen and reopening the same save. Opening a different save ends it, as described below. Otherwise it ends when the game does.
+
+## Worlds
+
+Every server start writes a `WORLD` record with the save's `folder` and `seed`, before any other toolkit record of that world. In single player a server starts each time a world opens.
+
+A session never spans two saves. Two saves are the same when their folder name and seed match.
+
+- Reopening the same save keeps the session, and `WORLD` carries `sameAsSession=true`.
+- Opening a different save writes `SESSION_STOP reason=worldChanged` first, after an `OPERATOR action=unbound` if an operator was bound, and then `WORLD sameAsSession=false` with no session. Nothing from the new save carries the old session's name. The session's fixtures are forgotten; the entities themselves stay.
+- With no session active, `WORLD` carries no `sameAsSession`.
+
+A world deleted and recreated with the same name and seed counts as the same save. A brand new world generates its spawn area before the `WORLD` record, so with `entity_spawn` still on from the previous world, its first animals are recorded under the old session.
+
+Enabled logging categories are not tied to a save. They last until the game closes.
+
+After `WORLD`, and before the first tick, the server start also reloads bundles and configuration, exactly as `devtool reload` does, and writes `RELOAD trigger=serverStart`. On a dedicated server the load records, `BUNDLE_SOURCE` and an `ERROR` for each load problem, therefore appear twice at start: once from the process starting and once from this reload, the second batch followed by the `RELOAD` record. In single player the first batch is at game start and the second when a world opens.
 
 ## Marks
 

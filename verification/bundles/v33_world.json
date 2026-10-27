@@ -1,0 +1,20 @@
+{
+  "v33_world": {
+    "description": "CYC4-006. Starts a session in the current world. Expect SESSION_START session=v33_world. After the owner reopens the same world: WORLD sameAsSession=true and the session still active. After the owner opens another world: SESSION_STOP reason=worldChanged first, then WORLD sameAsSession=false with no session field.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v33_world",
+      "devtool mark V33_SESSION_STARTED",
+      "devtool session status"
+    ]
+  },
+
+  "v33_check": {
+    "description": "CYC4-006. Run after a world switch. Its MARK carries the session name only if the session survived.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session status",
+      "devtool mark V33_CHECK"
+    ]
+  }
+}

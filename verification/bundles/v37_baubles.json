@@ -1,0 +1,34 @@
+{
+  "v37_baubles": {
+    "description": "CYC4-009, with Baubles. Clears the slots, puts a ring in slot 1, inspects, then tries a helmet in the ring slot. Expect BAUBLES action=clear outcome=cleared, BAUBLES action=set slot=1 slotType=ring outcome=set, INVENTORY_INSPECT section=baubles area=baubles slot=1 slotType=ring item=baubles:ring, and the helmet refused with devtool.baubles.rejected (tolerated).",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V37_BAUBLES_BEGIN",
+      "devtool baubles clear all",
+      "devtool baubles set 1 baubles:ring",
+      "devtool inspect inventory",
+      { "command": "devtool baubles set 2 minecraft:iron_helmet", "toleratedFailures": ["devtool.baubles.rejected"] },
+      "devtool mark V37_BAUBLES_END"
+    ]
+  },
+
+  "v37_baubles_check": {
+    "description": "CYC4-009. After a relog: the ring set before is still in slot 1. Then the teardown clears it.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool inspect inventory",
+      "devtool baubles clear all",
+      "devtool baubles clear all",
+      "devtool mark V37_CHECK_END"
+    ]
+  },
+
+  "v37_absent": {
+    "description": "CYC4-009, without Baubles. Expect the command failing with devtool.baubles.absent and an ERROR, and the end mark.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool baubles clear all",
+      "devtool mark V37_ABSENT_END"
+    ]
+  }
+}

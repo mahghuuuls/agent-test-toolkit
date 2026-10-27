@@ -1,0 +1,21 @@
+{
+  "v36_screenshot": {
+    "description": "CYC4-008. Shows OPEN_INVENTORY on screen, then asks the caller's client for a screenshot ten seconds later. The owner opens the inventory when the title shows. Expect SCREENSHOT action=requested on the server, then SCREENSHOT action=saved side=CLIENT file=screenshots/inv_open-<tick>.png, and the picture showing the inventory.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V36_SCREENSHOT_BEGIN",
+      "devtool checkpoint cue OPEN_INVENTORY title sound",
+      "devtool screenshot inv_open 200",
+      "devtool mark V36_SCREENSHOT_REQUESTED"
+    ]
+  },
+
+  "v36_bad_label": {
+    "description": "CYC4-008. A label with a slash is refused before anything is sent. Expect an ERROR and no SCREENSHOT record.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool screenshot ../escape",
+      "devtool mark V36_BAD_LABEL_END"
+    ]
+  }
+}

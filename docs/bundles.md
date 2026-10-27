@@ -25,7 +25,7 @@ A file is a JSON object mapping bundle names to definitions.
 - `stopOnFailure` defaults to **true**. Setup bundles build on each other, so continuing past a failure usually produces a half prepared environment.
 - `commands` is required. Each entry is either a bare string or an object with `command` and an optional `delayTicks` and `toleratedFailures`.
 - `trace` is optional and defaults to `false`. When `true`, a `BUNDLE_STEP` record is written just before each command runs, carrying the tick it became due and the tick it ran on. Turn it on when a delay is not doing what you expected.
-- `result` is optional and defaults to `false`. When `true`, a JSON file is written when the run ends, under `results` beside the toolkit configuration, named `<bundle>-<startTick>.json`. It lists the run's assertions, failures, markers, checkpoints and waits, copied from the same records the log received. The log stays complete without it.
+- `result` is optional and defaults to `false`. When `true`, a JSON file is written when the run ends, under `results` beside the toolkit configuration, named `<bundle>-<startTick>.json`. It lists the run's assertions, failures, markers, checkpoints, waits and tolerated steps, copied from the same records the log received. The log stays complete without it.
 
 ## Expected failures
 
@@ -44,9 +44,36 @@ That command may now fail **with that key only**. Any other failure, including a
 
 **Finding the key.** Run the command once and read the `ERROR` record. Its `detail` field is the key.
 
-**A tolerated failure is not a silent success.** The outcome is recorded as successful, with a note naming the tolerated key, so a reader can still tell that the command did nothing.
+**A tolerated failure is not a silent success.** The outcome is recorded as successful, with a note naming the tolerated key, so a reader can still tell that the command did nothing. Each tolerated command also writes one `TOLERATED` record with the bundle, its hash, the command's index, its text after placeholder substitution, and the `key`. `BUNDLE_END` counts them in `tolerated`. `executed` and `failed` keep their meaning: a tolerated command is executed and not failed.
 
-Three keys are tolerated for every command without being declared, because their no-op case is universal: `commands.generic.selector.notFound`, `commands.generic.entity.notFound`, `commands.generic.player.notFound`. So is `commands.clear.failure`. You do not need to declare those.
+Three keys are tolerated for every command without being declared, because their no-op case is universal: `commands.generic.selector.notFound`, `commands.generic.entity.notFound`, `commands.generic.player.notFound`. So is `commands.clear.failure`. You do not need to declare those. They still write a `TOLERATED` record.
+
+Two vanilla keys you will often want to declare, because they are the second run of an idempotent setup:
+
+- `commands.fill.failed`: `fill` changed no block, because the region already is the block you asked for.
+- `commands.setblock.noChange`: `setblock` found the block already there.
+
+Neither is tolerated unless you declare it.
+
+The toolkit's own failure keys are tolerated the same way, by declaring them:
+
+| Key | When |
+| --- | --- |
+| `devtool.wait.timeout` | A wait or an armed checkpoint ran out of time |
+| `devtool.wait.cancelled` | A wait became impossible, for example the caller changed dimension |
+| `devtool.placeholder.unbound` | A placeholder has no value yet |
+| `devtool.placeholder.unsafe` | A placeholder's value could break the command |
+| `devtool.assert.failed` | An assertion did not match |
+| `devtool.assert.unloaded` | An absence could not be judged because the place is not loaded |
+| `devtool.assert.ambiguous` | A modifier name matches several modifiers |
+| `devtool.scenario.mismatch` | A scenario checkpoint expects a different bundle, or different text |
+| `devtool.inspect.notLoaded` | An inspection names a position whose chunk is not loaded |
+| `devtool.save.failed` | `devtool save` could not save a world |
+| `devtool.screenshot.noClient` | The screenshot target's client does not have the toolkit |
+| `devtool.baubles.absent` | Baubles is not installed |
+| `devtool.baubles.rejected` | A bauble slot refused the item |
+
+A screenshot label with a forbidden character fails with a message, not a key, so it cannot be tolerated.
 
 ## You cannot comment a bundle file
 
@@ -118,7 +145,7 @@ Rules that keep this a lookup and not a language:
 
 ## Result files
 
-A bundle with `"result": true` leaves one JSON file per run: `run/config/devtool/results/<bundle>-<startTick>.json`. It has a `schemaVersion`, the bundle name and hash, the session and operator, start and end ticks, the `BUNDLE_END` counters, and arrays `assertions`, `failures`, `markers`, `checkpoints`, `awaits`, and `steps` when traced. Every entry is the fields of one log record, copied as strings. Nothing in the file is not also in `latest.log`; it exists so tooling can read a run without scraping prose, and the log remains the authority.
+A bundle with `"result": true` leaves one JSON file per run: `run/config/devtool/results/<bundle>-<startTick>.json`. It has a `schemaVersion`, the bundle name and hash, the session and operator, start and end ticks, the `BUNDLE_END` counters including `tolerated`, and arrays `assertions`, `failures`, `markers`, `checkpoints`, `awaits`, `toleratedSteps` (one entry per `TOLERATED` record), and `steps` when traced. Every entry is the fields of one log record, copied as strings. Nothing in the file is not also in `latest.log`; it exists so tooling can read a run without scraping prose, and the log remains the authority.
 
 A file that cannot be written is an `ERROR` record and nothing more. It never changes the bundle's outcome.
 
@@ -161,6 +188,8 @@ This boundary is a project identity decision, not a simplification waiting to be
 
 A bundle runs as whoever ran it. Commands the caller could not type themselves fail exactly as if they had typed them. A bundle is a convenience for typing, never a way to widen what the caller can do.
 
+Every `devtool` subcommand needs permission level 2, inside a bundle or not. A caller below level 2 cannot run any of them from a bundle either.
+
 This covers identity as well as permission. The command receives the caller's own sender object, so a command that acts on "the player who sent this" works with the argument omitted:
 
 ```
@@ -168,6 +197,28 @@ gamemode creative
 ```
 
 **This changed in 1.0.1.** In 1.0.0 the sender was substituted for a wrapper in order to read failure messages, and the eight vanilla commands that check their sender's concrete type failed with `commands.generic.player.unspecified` whenever their player argument was left out: `clear`, `gamemode`, `kill`, `scoreboard`, `setworldspawn`, `spawnpoint`, `tp`, `xp`. An explicit selector was the workaround and still works.
+
+## Where a run came from
+
+`BUNDLE_START` records who started the run and how: `caller`, the sender's name; `channel`; and `permissionLevel`, the level the toolkit checked, which is always 2. The channels are:
+
+| `channel` | Started by |
+| --- | --- |
+| `chat` | A player typing it |
+| `console` | The server console |
+| `commandBlock` | A command block or command block minecart |
+| `join` | Join automation, when an operator joins |
+| `inbox` | A request in the command inbox, run as the inbox operator |
+| `nested` | Another bundle |
+| `other` | A sender none of these describes, such as one wrapped by `/execute` or a function |
+
+`devtool run` refuses a call that does not come from the server thread. RCON runs its commands on its own thread, so RCON cannot start a bundle. Use the console or the inbox. The inbox is described in [commands.md](commands.md#command-inbox).
+
+## When files are read
+
+Bundle files and configuration are read when the game starts, on `devtool reload`, and again at every server start, which in single player is every time a world opens. That last reload is the same as a typed one and writes `RELOAD trigger=serverStart`, so a file edited while no world was open is used as it is on disk. After editing a file while a world is open, run `devtool reload`; its record says `trigger=command`.
+
+None of these touches an active session, its operator, fixtures, enabled logging categories, or a bundle already running.
 
 ## Provenance
 

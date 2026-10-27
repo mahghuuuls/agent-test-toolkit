@@ -1,0 +1,49 @@
+{
+  "v34_attributes": {
+    "description": "CYC4-007. Puts four iron armor pieces on the caller, inspects attributes, and asserts. Expect ATTRIBUTE name=generic.armor base=0.00 value=15.00 modifiers=4 with four ATTRIBUTE_MODIFIER records named Armor modifier (amounts 2, 5, 6, 2), and ATTRIBUTE name=generic.armorToughness with four Armor toughness modifiers of amount 0.00 under the same four UUIDs; UUIDs appear in lower case. Then ASSERT pass for value 15 and for the boots UUID with amount 2; ASSERT fail tolerated for amount 3; the shared name tolerated as devtool.assert.ambiguous; then the armor removed.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool mark V34_ATTRIBUTES_BEGIN",
+      "replaceitem entity @s slot.armor.feet minecraft:iron_boots",
+      "replaceitem entity @s slot.armor.legs minecraft:iron_leggings",
+      "replaceitem entity @s slot.armor.chest minecraft:iron_chestplate",
+      "replaceitem entity @s slot.armor.head minecraft:iron_helmet",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 2
+      },
+      "devtool inspect attributes",
+      "devtool assert attribute @s generic.armor value 15",
+      "devtool assert attribute @s generic.armor modifier 845DB27C-C624-495F-8C9F-6020A9A58B6B amount 2",
+      {
+        "command": "devtool assert attribute @s generic.armor modifier 845DB27C-C624-495F-8C9F-6020A9A58B6B amount 3",
+        "toleratedFailures": [
+          "devtool.assert.failed"
+        ]
+      },
+      {
+        "command": "devtool assert attribute @s generic.armor modifier Armor modifier amount 2",
+        "toleratedFailures": [
+          "devtool.assert.ambiguous"
+        ]
+      },
+      "replaceitem entity @s slot.armor.feet minecraft:air",
+      "replaceitem entity @s slot.armor.legs minecraft:air",
+      "replaceitem entity @s slot.armor.chest minecraft:air",
+      "replaceitem entity @s slot.armor.head minecraft:air",
+      "devtool mark V34_ATTRIBUTES_END"
+    ]
+  },
+  "v34_not_living": {
+    "description": "CYC4-007. A minecart has no attributes. Expect an ERROR and the inspect failing, then an ERROR and the assert failing, then the cart removed.",
+    "stopOnFailure": false,
+    "commands": [
+      "summon minecraft:minecart ~2 ~ ~ {CustomName:\"v34cart\"}",
+      "devtool inspect attributes @e[name=v34cart]",
+      "devtool assert attribute @e[name=v34cart] generic.armor value 0",
+      "kill @e[name=v34cart]",
+      "devtool mark V34_NOT_LIVING_END"
+    ]
+  }
+}

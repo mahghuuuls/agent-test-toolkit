@@ -47,6 +47,7 @@ public final class ToolkitConfig {
     private final float clientMusicVolume;
     /** One level per {@link Volume}, or {@link #LEAVE_MASTER_VOLUME} to leave that category alone. */
     private final float[] clientVolumes;
+    private final boolean clientNoPauseOnLostFocus;
     private final boolean inboxEnabled;
 
     /**
@@ -77,6 +78,7 @@ public final class ToolkitConfig {
         private float brightness = 1.0F;
         private float musicVolume;
         private final float[] volumes = leaveAll();
+        private boolean noPauseOnLostFocus;
         private boolean inbox;
 
         public Builder arenaSize(int w, int h, int l) {
@@ -136,6 +138,12 @@ public final class ToolkitConfig {
             return clientVolume(Volume.MASTER, value);
         }
 
+        /** Whether joining turns off vanilla's pause on lost focus. Off by default; never turns it on. */
+        public Builder clientNoPauseOnLostFocus(boolean value) {
+            this.noPauseOnLostFocus = value;
+            return this;
+        }
+
         /** One category's volume, 0 to 1, or any negative value to leave it alone. */
         public Builder clientVolume(Volume volume, float value) {
             this.volumes[volume.ordinal()] = value;
@@ -161,7 +169,7 @@ public final class ToolkitConfig {
         public ToolkitConfig build() {
             return new ToolkitConfig(width, height, length, block, ceiling, maxDimension,
                     nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle,
-                    clientDefaults, brightness, musicVolume, volumes, inbox);
+                    clientDefaults, brightness, musicVolume, volumes, noPauseOnLostFocus, inbox);
         }
     }
 
@@ -184,12 +192,14 @@ public final class ToolkitConfig {
                   float clientBrightness,
                   float clientMusicVolume,
                   float[] clientVolumes,
+                  boolean clientNoPauseOnLostFocus,
                   boolean inboxEnabled) {
         this.inboxEnabled = inboxEnabled;
         this.clientDefaultsEnabled = clientDefaultsEnabled;
         // Clamped rather than rejected: a bad value must not stop the toolkit loading.
         this.clientBrightness = clamp01(clientBrightness);
         this.clientMusicVolume = clamp01(clientMusicVolume);
+        this.clientNoPauseOnLostFocus = clientNoPauseOnLostFocus;
         // Negative means "leave it alone"; anything else is a level. These are preferences, so
         // turning applyOnJoin on changes none of them unless a level is given.
         this.clientVolumes = new float[Volume.values().length];
@@ -389,6 +399,15 @@ public final class ToolkitConfig {
     /** This category's level, 0 to 1, or {@link #LEAVE_MASTER_VOLUME}. */
     public float getClientVolume(Volume volume) {
         return clientVolumes[volume.ordinal()];
+    }
+
+    /**
+     * Whether joining turns off vanilla's pause on lost focus, when the client defaults apply at
+     * all (REQ-201). A preference like the volumes, so off unless asked for; it is only ever
+     * turned off, never on.
+     */
+    public boolean isClientNoPauseOnLostFocus() {
+        return clientNoPauseOnLostFocus;
     }
 
     /** Whether joining sets master volume, when the client defaults apply at all. */

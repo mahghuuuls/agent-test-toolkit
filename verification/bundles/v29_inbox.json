@@ -1,0 +1,20 @@
+{
+  "v29_inbox_target": {
+    "description": "CYC4-003. The bundle the agent starts through the inbox. Expect BUNDLE_START with channel=inbox and caller the opener, then its mark, and an INBOX action=dispatched record for the request.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V29_RAN_THROUGH_INBOX",
+      "devtool inspect player"
+    ]
+  },
+
+  "v29_bundle_opens_inbox": {
+    "description": "CYC4-003. A bundle may not open the inbox. Run it from chat while the inbox is closed. Expect INBOX action=refused reason=fromBundle, an ERROR for the open, no status.json, and the end mark.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool mark V29_BUNDLE_OPEN_BEGIN",
+      "devtool inbox open",
+      "devtool mark V29_BUNDLE_OPEN_END"
+    ]
+  }
+}

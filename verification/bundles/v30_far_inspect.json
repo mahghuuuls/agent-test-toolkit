@@ -1,0 +1,14 @@
+{
+  "v30_far_inspect": {
+    "description": "CYC4-013. Three reads at a position nobody has visited are refused with devtool.inspect.notLoaded (tolerated here), then a read under the caller still works. Expect three ERROR records, one BLOCK_INSPECT, and no new region file r.3906.3906.mca.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V30_FAR_BEGIN",
+      { "command": "devtool inspect block 2000000 64 2000000", "toleratedFailures": ["devtool.inspect.notLoaded"] },
+      { "command": "devtool inspect container 2000000 64 2000000", "toleratedFailures": ["devtool.inspect.notLoaded"] },
+      { "command": "devtool nbt block 2000000 64 2000000", "toleratedFailures": ["devtool.inspect.notLoaded"] },
+      "devtool inspect block ~ ~-1 ~",
+      "devtool mark V30_FAR_END"
+    ]
+  }
+}
