@@ -40,6 +40,10 @@ public final class InboxRequest {
             new HashSet<String>(Arrays.asList("mark", "inspect", "entities", "nbt")));
 
     private static final Pattern BUNDLE_NAME = Pattern.compile("[A-Za-z0-9_.\\-]{1,128}");
+    /** A screenshot label: the file name on the operator's computer, so no path characters. */
+    private static final Pattern SCREENSHOT_LABEL = Pattern.compile("[A-Za-z0-9_-]{1,48}");
+    /** 0 to 600, the command's own bounds. */
+    private static final Pattern DELAY = Pattern.compile("[0-9]|[1-9][0-9]|[1-5][0-9][0-9]|600");
     private static final Pattern REQUEST_ID = Pattern.compile("[A-Za-z0-9_.\\-]{1,64}");
 
     private final String id;
@@ -96,6 +100,14 @@ public final class InboxRequest {
                 return refused(id, line, verb, REASON_BAD_ARGUMENTS);
             }
             return accepted(id, line, verb, "devtool run " + args[0]);
+        }
+        if ("screenshot".equals(verb)) {
+            // screenshot <label> [delayTicks], to the operator only: no player argument here.
+            if (args.length < 1 || args.length > 2 || !SCREENSHOT_LABEL.matcher(args[0]).matches()
+                    || (args.length == 2 && !DELAY.matcher(args[1]).matches())) {
+                return refused(id, line, verb, REASON_BAD_ARGUMENTS);
+            }
+            return accepted(id, line, verb, "devtool screenshot " + join(args));
         }
         if (NO_ARGUMENT.contains(verb)) {
             if (args.length != 0) {

@@ -45,7 +45,8 @@ public final class ToolkitConfig {
     private final boolean clientDefaultsEnabled;
     private final float clientBrightness;
     private final float clientMusicVolume;
-    private final float clientMasterVolume;
+    /** One level per {@link Volume}, or {@link #LEAVE_MASTER_VOLUME} to leave that category alone. */
+    private final float[] clientVolumes;
     private final boolean inboxEnabled;
 
     /**
@@ -75,7 +76,7 @@ public final class ToolkitConfig {
         private boolean clientDefaults;
         private float brightness = 1.0F;
         private float musicVolume;
-        private float masterVolume = LEAVE_MASTER_VOLUME;
+        private final float[] volumes = leaveAll();
         private boolean inbox;
 
         public Builder arenaSize(int w, int h, int l) {
@@ -132,7 +133,12 @@ public final class ToolkitConfig {
 
         /** Master volume, 0 to 1, or any negative value to leave it alone. */
         public Builder clientMasterVolume(float value) {
-            this.masterVolume = value;
+            return clientVolume(Volume.MASTER, value);
+        }
+
+        /** One category's volume, 0 to 1, or any negative value to leave it alone. */
+        public Builder clientVolume(Volume volume, float value) {
+            this.volumes[volume.ordinal()] = value;
             return this;
         }
 
@@ -155,7 +161,7 @@ public final class ToolkitConfig {
         public ToolkitConfig build() {
             return new ToolkitConfig(width, height, length, block, ceiling, maxDimension,
                     nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle,
-                    clientDefaults, brightness, musicVolume, masterVolume, inbox);
+                    clientDefaults, brightness, musicVolume, volumes, inbox);
         }
     }
 
@@ -177,16 +183,20 @@ public final class ToolkitConfig {
                   boolean clientDefaultsEnabled,
                   float clientBrightness,
                   float clientMusicVolume,
-                  float clientMasterVolume,
+                  float[] clientVolumes,
                   boolean inboxEnabled) {
         this.inboxEnabled = inboxEnabled;
         this.clientDefaultsEnabled = clientDefaultsEnabled;
         // Clamped rather than rejected: a bad value must not stop the toolkit loading.
         this.clientBrightness = clamp01(clientBrightness);
         this.clientMusicVolume = clamp01(clientMusicVolume);
-        // Negative means "leave it alone"; anything else is a level. Overall volume is a
-        // preference, so turning applyOnJoin on does not change it unless a level is given.
-        this.clientMasterVolume = clientMasterVolume < 0 ? LEAVE_MASTER_VOLUME : clamp01(clientMasterVolume);
+        // Negative means "leave it alone"; anything else is a level. These are preferences, so
+        // turning applyOnJoin on changes none of them unless a level is given.
+        this.clientVolumes = new float[Volume.values().length];
+        for (int i = 0; i < this.clientVolumes.length; i++) {
+            float level = clientVolumes == null || i >= clientVolumes.length ? LEAVE_MASTER_VOLUME : clientVolumes[i];
+            this.clientVolumes[i] = level < 0 ? LEAVE_MASTER_VOLUME : clamp01(level);
+        }
         this.joinBundleName = joinBundleName == null ? "" : joinBundleName.trim();
         this.arenaSetsRespawn = arenaSetsRespawn;
         this.spawnIncludingItems = spawnIncludingItems;
@@ -324,17 +334,71 @@ public final class ToolkitConfig {
         return clientMusicVolume;
     }
 
-    /** The configured value that means "leave master volume as it is". The default. */
+    /** The configured value that means "leave this volume as it is". The default for every {@link Volume}. */
     public static final float LEAVE_MASTER_VOLUME = -1.0F;
+
+    /**
+     * The sound categories the client defaults may set besides music, each left alone unless a
+     * level is configured (REQ-193, REQ-200). The vanilla category name is kept as text so this
+     * package needs no client type; {@code friendly} is vanilla's {@code neutral}.
+     */
+    public enum Volume {
+        MASTER("masterVolume", "master", "master"),
+        WEATHER("weatherVolume", "weather", "weather"),
+        HOSTILE("hostileVolume", "hostile", "hostile"),
+        FRIENDLY("friendlyVolume", "neutral", "friendly"),
+        AMBIENT("ambientVolume", "ambient", "ambient");
+
+        private final String configKey;
+        private final String categoryName;
+        private final String recordPrefix;
+
+        Volume(String configKey, String categoryName, String recordPrefix) {
+            this.configKey = configKey;
+            this.categoryName = categoryName;
+            this.recordPrefix = recordPrefix;
+        }
+
+        /** The key under {@code client} in the configuration file. */
+        public String getConfigKey() {
+            return configKey;
+        }
+
+        /** Vanilla's {@code SoundCategory} name. */
+        public String getCategoryName() {
+            return categoryName;
+        }
+
+        /** The {@code <prefix>Was} and {@code <prefix>Now} fields of the report. */
+        public String getRecordPrefix() {
+            return recordPrefix;
+        }
+    }
+
+    private static float[] leaveAll() {
+        float[] all = new float[Volume.values().length];
+        java.util.Arrays.fill(all, LEAVE_MASTER_VOLUME);
+        return all;
+    }
+
+    /** Whether joining sets this category, when the client defaults apply at all. */
+    public boolean isClientVolumeSet(Volume volume) {
+        return clientVolumes[volume.ordinal()] >= 0;
+    }
+
+    /** This category's level, 0 to 1, or {@link #LEAVE_MASTER_VOLUME}. */
+    public float getClientVolume(Volume volume) {
+        return clientVolumes[volume.ordinal()];
+    }
 
     /** Whether joining sets master volume, when the client defaults apply at all. */
     public boolean isClientMasterVolumeEnabled() {
-        return clientMasterVolume >= 0;
+        return isClientVolumeSet(Volume.MASTER);
     }
 
     /** Master volume, 0 to 1, or {@link #LEAVE_MASTER_VOLUME}. */
     public float getClientMasterVolume() {
-        return clientMasterVolume;
+        return getClientVolume(Volume.MASTER);
     }
 
     /**

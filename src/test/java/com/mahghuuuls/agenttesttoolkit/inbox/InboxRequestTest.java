@@ -119,6 +119,22 @@ class InboxRequestTest {
     }
 
     @Test
+    @DisplayName("screenshot takes a safe label and an optional delay, to the operator only")
+    void screenshot() {
+        assertEquals("devtool screenshot inv_open", parse("screenshot inv_open").getCommandLine());
+        assertEquals("devtool screenshot inv_open 200", parse("screenshot inv_open 200").getCommandLine());
+        assertRefused("screenshot", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("screenshot ../x", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("screenshot a.png", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("screenshot x 20 Developer", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("screenshot x -5", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("screenshot x 1000", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("screenshot x 601", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertEquals("devtool screenshot x 600", parse("screenshot x 600").getCommandLine());
+        assertEquals("devtool screenshot x 0", parse("screenshot x 0").getCommandLine());
+    }
+
+    @Test
     @DisplayName("a UTF-8 byte order mark at the start is ignored")
     void byteOrderMark() {
         assertEquals("devtool run x", parse("﻿run x\r\n").getCommandLine());

@@ -124,4 +124,52 @@ class ToolkitConfigTest {
                 "NaN is not passed on to the options file");
         assertEquals(0.0F, ToolkitConfig.builder().clientMusicVolume(Float.NaN).build().getClientMusicVolume());
     }
+
+    @Test
+    @DisplayName("weather, hostile, friendly and ambient each leave their category alone unless set")
+    void otherVolumes() {
+        for (ToolkitConfig.Volume volume : ToolkitConfig.Volume.values()) {
+            assertFalse(ToolkitConfig.DEFAULTS.isClientVolumeSet(volume), volume.name());
+        }
+        ToolkitConfig quiet = ToolkitConfig.builder()
+                .clientVolume(ToolkitConfig.Volume.WEATHER, 0F)
+                .clientVolume(ToolkitConfig.Volume.HOSTILE, 0F)
+                .clientVolume(ToolkitConfig.Volume.FRIENDLY, 0F)
+                .clientVolume(ToolkitConfig.Volume.AMBIENT, 2F)
+                .build();
+        assertTrue(quiet.isClientVolumeSet(ToolkitConfig.Volume.WEATHER));
+        assertEquals(0F, quiet.getClientVolume(ToolkitConfig.Volume.HOSTILE));
+        assertEquals(1F, quiet.getClientVolume(ToolkitConfig.Volume.AMBIENT), "clamped");
+        assertFalse(quiet.isClientVolumeSet(ToolkitConfig.Volume.MASTER), "untouched categories stay untouched");
+    }
+
+    @Test
+    @DisplayName("each volume names its configuration key and a real vanilla 1.12.2 sound category")
+    void volumeNames() {
+        // Configuration keys and report prefixes are public: a rename breaks someone's file or parser.
+        String[][] expected = {
+                {"MASTER", "masterVolume", "master", "master"},
+                {"WEATHER", "weatherVolume", "weather", "weather"},
+                {"HOSTILE", "hostileVolume", "hostile", "hostile"},
+                {"FRIENDLY", "friendlyVolume", "neutral", "friendly"},
+                {"AMBIENT", "ambientVolume", "ambient", "ambient"}};
+        assertEquals(expected.length, ToolkitConfig.Volume.values().length);
+        for (String[] row : expected) {
+            ToolkitConfig.Volume volume = ToolkitConfig.Volume.valueOf(row[0]);
+            assertEquals(row[1], volume.getConfigKey());
+            assertEquals(row[2], volume.getCategoryName());
+            assertEquals(row[3], volume.getRecordPrefix());
+            assertTrue(net.minecraft.util.SoundCategory.getByName(volume.getCategoryName()) != null,
+                    "a real 1.12.2 category: " + volume.getCategoryName());
+        }
+    }
+
+    @Test
+    @DisplayName("a builder reused after build leaves the first configuration unchanged")
+    void builderReuse() {
+        ToolkitConfig.Builder builder = ToolkitConfig.builder().clientVolume(ToolkitConfig.Volume.WEATHER, 0.2F);
+        ToolkitConfig first = builder.build();
+        builder.clientVolume(ToolkitConfig.Volume.WEATHER, 0.9F).build();
+        assertEquals(0.2F, first.getClientVolume(ToolkitConfig.Volume.WEATHER));
+    }
 }

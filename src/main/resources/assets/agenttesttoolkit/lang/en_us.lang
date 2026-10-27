@@ -16,3 +16,6 @@ devtool.assert.ambiguous=[DevToolkit] Assertion is ambiguous: %s
 devtool.scenario.mismatch=[DevToolkit] Refused by the scenario checkpoint, %s
 devtool.inspect.notLoaded=[DevToolkit] Not loaded: %s
 devtool.save.failed=[DevToolkit] Save failed: %s
+devtool.screenshot.noClient=[DevToolkit] No screenshot: %s has no toolkit on their client
+devtool.baubles.absent=[DevToolkit] Baubles is not installed: %s
+devtool.baubles.rejected=[DevToolkit] Baubles refused %s

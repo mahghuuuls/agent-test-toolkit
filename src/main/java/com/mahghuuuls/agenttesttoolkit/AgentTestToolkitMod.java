@@ -37,7 +37,9 @@ import java.util.List;
         modid = Tags.MOD_ID,
         name = Tags.MOD_NAME,
         version = Tags.VERSION,
-        acceptableRemoteVersions = "*"
+        acceptableRemoteVersions = "*",
+        // Ordering only, with no version: Baubles is optional (ARC-018).
+        dependencies = "after:baubles"
 )
 public class AgentTestToolkitMod {
 
@@ -68,6 +70,9 @@ public class AgentTestToolkitMod {
         // Bundles load after configuration, since the bundles directory sits inside the
         // toolkit configuration directory that the loader establishes.
         BundleRegistry.LoadReport bundles = Bundles.reload();
+
+        // The channel is registered on both sides before any connection exists (ARC-017).
+        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.register();
 
         ToolkitStartup.announce(Tags.VERSION, bundles, configProblems);
     }
@@ -104,6 +109,17 @@ public class AgentTestToolkitMod {
 
         // No-op on a server. The client implementation registers its own handler.
         proxy.applyClientDefaults();
+    }
+
+    @Mod.EventHandler
+    public void postInit(net.minecraftforge.fml.common.event.FMLPostInitializationEvent event) {
+        // Decided once every mod has loaded; the bridge class is loaded only when Baubles is here.
+        String problem = com.mahghuuuls.agenttesttoolkit.integration.Integrations.init(
+                net.minecraftforge.fml.common.Loader.isModLoaded(
+                        com.mahghuuuls.agenttesttoolkit.integration.Integrations.BAUBLES_MOD_ID));
+        if (problem != null) {
+            com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog.error("Baubles integration unavailable", problem);
+        }
     }
 
     @Mod.EventHandler

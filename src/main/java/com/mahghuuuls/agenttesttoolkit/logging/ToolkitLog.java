@@ -47,9 +47,16 @@ public final class ToolkitLog {
     }
 
     private static volatile Tap tap;
+    /**
+     * The thread that set the tap. In single player the client thread writes records too (a
+     * screenshot, the client defaults); those must not land in a bundle's result file only
+     * because the server thread happened to be advancing that bundle at the same moment.
+     */
+    private static volatile Thread tapThread;
 
-    /** Makes this tap see every record until cleared. Null clears. */
+    /** Makes this tap see every record this thread writes until cleared. Null clears. */
     public static void setTap(Tap next) {
+        tapThread = next == null ? null : Thread.currentThread();
         tap = next;
     }
 
@@ -69,7 +76,7 @@ public final class ToolkitLog {
         }
         String rendered = record.render();
         Tap current = tap;
-        if (current != null) {
+        if (current != null && Thread.currentThread() == tapThread) {
             current.accept(record);
         }
         if (captureSink != null) {

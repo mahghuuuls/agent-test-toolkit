@@ -67,6 +67,9 @@ public final class CommandOutcomes {
     public static final String KEY_SCENARIO_MISMATCH = com.mahghuuuls.agenttesttoolkit.scenario.Scenarios.KEY_MISMATCH;
     public static final String KEY_INSPECT_NOT_LOADED = com.mahghuuuls.agenttesttoolkit.inspect.LoadedPositions.KEY_NOT_LOADED;
     public static final String KEY_SAVE_FAILED = com.mahghuuuls.agenttesttoolkit.command.sub.SaveSubCommand.KEY_FAILED;
+    public static final String KEY_SCREENSHOT_NO_CLIENT = com.mahghuuuls.agenttesttoolkit.command.sub.ScreenshotSubCommand.KEY_NO_CLIENT;
+    public static final String KEY_BAUBLES_ABSENT = com.mahghuuuls.agenttesttoolkit.command.sub.BaublesSubCommand.KEY_ABSENT;
+    public static final String KEY_BAUBLES_REJECTED = com.mahghuuuls.agenttesttoolkit.command.sub.BaublesSubCommand.KEY_REJECTED;
 
     private CommandOutcomes() {
     }

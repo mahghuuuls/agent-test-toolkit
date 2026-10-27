@@ -19,7 +19,7 @@ package com.mahghuuuls.agenttesttoolkit.proxy;
  */
 public class CommonProxy {
 
-    /** Called from mod initialization. Does nothing on a server. */
+    /** Called from mod initialization. Does nothing on a server; on a client, also installs the screenshot taker. */
     public void applyClientDefaults() {
     }
 }

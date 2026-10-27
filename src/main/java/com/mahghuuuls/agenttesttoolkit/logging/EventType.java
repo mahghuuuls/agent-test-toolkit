@@ -115,6 +115,15 @@ public enum EventType {
     /** {@code inspect attributes}: one modifier of an attribute, with {@code uuid}, {@code name}, {@code operation} and {@code amount}. */
     ATTRIBUTE_MODIFIER,
 
+    /**
+     * A screenshot: {@code action=requested} on the server with the target and file, then
+     * {@code action=saved} or {@code failed} with {@code side=CLIENT} from the client that took it.
+     */
+    SCREENSHOT,
+
+    /** {@code devtool baubles}: a slot set (or refused) or slots cleared, with the player and slot. */
+    BAUBLES,
+
     ARENA_CREATE,
     ARENA_RESET,
     ARENA_CLEAR,

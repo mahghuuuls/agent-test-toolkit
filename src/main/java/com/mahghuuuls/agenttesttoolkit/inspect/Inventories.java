@@ -47,6 +47,7 @@ public final class Inventories {
     public static final String SECTION_MAIN = "main";
     public static final String SECTION_ARMOR = "armor";
     public static final String SECTION_OFFHAND = "offhand";
+    public static final String SECTION_BAUBLES = "baubles";
 
     private Inventories() {
     }
@@ -56,6 +57,7 @@ public final class Inventories {
         collect(slots, SECTION_MAIN, player.inventory.mainInventory);
         collect(slots, SECTION_ARMOR, player.inventory.armorInventory);
         collect(slots, SECTION_OFFHAND, player.inventory.offHandInventory);
+        collectBaubles(slots, player);
 
         List<LogRecord> records = new ArrayList<LogRecord>();
         if (slots.isEmpty()) {
@@ -77,9 +79,30 @@ public final class Inventories {
             if (slot.hasNbt) {
                 record.add("hasNbt", true);
             }
+            if (slot.slotType != null) {
+                record.add("area", SECTION_BAUBLES).add("slotType", slot.slotType);
+            }
             records.add(record);
         }
         return records;
+    }
+
+    /** Occupied bauble slots, through the bridge, when Baubles is installed (REQ-189). */
+    private static void collectBaubles(List<Slot> into, EntityPlayer player) {
+        com.mahghuuuls.agenttesttoolkit.integration.BaublesBridge baubles =
+                com.mahghuuuls.agenttesttoolkit.integration.Integrations.baubles();
+        if (baubles == null) {
+            return;
+        }
+        for (int i = 0; i < baubles.slotCount(player); i++) {
+            ItemStack stack = baubles.get(player, i);
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
+            into.add(new Slot(SECTION_BAUBLES, i, id == null ? null : id.toString(), stack.getCount(),
+                    stack.getMetadata(), stack.hasTagCompound(), baubles.slotType(i)));
+        }
     }
 
     /**
@@ -228,8 +251,15 @@ public final class Inventories {
         private final int count;
         private final int meta;
         private final boolean hasNbt;
+        /** The bauble slot's type, or null for any other slot. */
+        private final String slotType;
 
         Slot(String section, int index, String itemId, int count, int meta, boolean hasNbt) {
+            this(section, index, itemId, count, meta, hasNbt, null);
+        }
+
+        Slot(String section, int index, String itemId, int count, int meta, boolean hasNbt, String slotType) {
+            this.slotType = slotType;
             this.section = section;
             this.index = index;
             this.itemId = itemId;

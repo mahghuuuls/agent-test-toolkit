@@ -23,8 +23,9 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
  *
  * <p><b>Off by default.</b> These are the operator's own application settings, not game state,
  * and a diagnostic tool rewriting them unasked would be a surprising thing for a mod to do.
- * Master volume changes only when a level is configured: brightness and music serve a test
- * environment, but overall volume is a preference, so its default leaves it alone.
+ * Master, weather, hostile, friendly and ambient volume change only when a level is configured:
+ * brightness and music serve a test environment, but these are preferences, so their defaults
+ * leave them alone.
  *
  * <p>Applied once per world join rather than once per launch, because a test session usually
  * means entering a fresh world and the settings should hold for it.
@@ -36,6 +37,11 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void applyClientDefaults() {
         MinecraftForge.EVENT_BUS.register(this);
+        // The one client-only handler besides this class (rule 12): screenshots on request.
+        com.mahghuuuls.agenttesttoolkit.client.ScreenshotTaker taker =
+                new com.mahghuuuls.agenttesttoolkit.client.ScreenshotTaker();
+        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setClientReceiver(taker);
+        MinecraftForge.EVENT_BUS.register(taker);
     }
 
     @SubscribeEvent
@@ -57,13 +63,20 @@ public class ClientProxy extends CommonProxy {
         GameSettings settings = mc.gameSettings;
         float previousGamma = settings.gammaSetting;
         float previousMusic = settings.getSoundLevel(SoundCategory.MUSIC);
-        float previousMaster = settings.getSoundLevel(SoundCategory.MASTER);
-        boolean setMaster = config.isClientMasterVolumeEnabled();
+        // Only the categories with a configured level; the rest are left as they were.
+        java.util.List<ToolkitConfig.Volume> set = new java.util.ArrayList<ToolkitConfig.Volume>();
+        float[] previous = new float[ToolkitConfig.Volume.values().length];
+        for (ToolkitConfig.Volume volume : ToolkitConfig.Volume.values()) {
+            if (config.isClientVolumeSet(volume)) {
+                set.add(volume);
+                previous[volume.ordinal()] = settings.getSoundLevel(category(volume));
+            }
+        }
 
         settings.gammaSetting = config.getClientBrightness();
         settings.setSoundLevel(SoundCategory.MUSIC, config.getClientMusicVolume());
-        if (setMaster) {
-            settings.setSoundLevel(SoundCategory.MASTER, config.getClientMasterVolume());
+        for (ToolkitConfig.Volume volume : set) {
+            settings.setSoundLevel(category(volume), config.getClientVolume(volume));
         }
         settings.saveOptions();
 
@@ -77,11 +90,15 @@ public class ClientProxy extends CommonProxy {
                 .addDecimal("brightnessNow", settings.gammaSetting)
                 .addDecimal("musicWas", previousMusic)
                 .addDecimal("musicNow", config.getClientMusicVolume());
-        if (setMaster) {
+        for (ToolkitConfig.Volume volume : set) {
             // Only when changed, so an absent field always means "left as it was".
-            record.addDecimal("masterWas", previousMaster)
-                    .addDecimal("masterNow", settings.getSoundLevel(SoundCategory.MASTER));
+            record.addDecimal(volume.getRecordPrefix() + "Was", previous[volume.ordinal()])
+                    .addDecimal(volume.getRecordPrefix() + "Now", settings.getSoundLevel(category(volume)));
         }
         ToolkitLog.write(record);
+    }
+
+    private static SoundCategory category(ToolkitConfig.Volume volume) {
+        return SoundCategory.getByName(volume.getCategoryName());
     }
 }

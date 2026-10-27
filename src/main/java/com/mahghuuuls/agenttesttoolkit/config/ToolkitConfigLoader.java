@@ -142,7 +142,7 @@ public final class ToolkitConfigLoader {
 
             boolean clientDefaults = cfg.getBoolean("applyOnJoin", CATEGORY_CLIENT,
                     d.isClientDefaultsEnabled(),
-                    "Whether the client sets brightness, music volume, and master volume when given, when joining a world. "
+                    "Whether the client sets brightness and music volume, and any of master, weather, hostile, friendly and ambient volume given a level, when joining a world. "
                             + "Off by default: these are your own application settings, not game "
                             + "state, and a diagnostic tool should not rewrite them unasked. "
                             + "Ignored on a dedicated server.");
@@ -155,11 +155,17 @@ public final class ToolkitConfigLoader {
                     d.getClientMusicVolume(),
                     "Music volume applied when applyOnJoin is enabled. 0 to 1.").getDouble();
 
-            float masterVolume = (float) cfg.get(CATEGORY_CLIENT, "masterVolume",
-                    d.getClientMasterVolume(),
-                    "Master volume applied when applyOnJoin is enabled, 0 to 1. -1, the default, "
-                            + "leaves it as it is: overall volume is a personal preference, not a "
-                            + "test setting.").getDouble();
+            // One key per category; -1, the default, leaves it as it is: these are personal
+            // preferences, not test settings, and enabling applyOnJoin must not change them.
+            float[] volumes = new float[ToolkitConfig.Volume.values().length];
+            for (ToolkitConfig.Volume volume : ToolkitConfig.Volume.values()) {
+                volumes[volume.ordinal()] = (float) cfg.get(CATEGORY_CLIENT, volume.getConfigKey(),
+                        d.getClientVolume(volume),
+                        "Volume of the " + volume.getRecordPrefix() + " sound category applied when "
+                                + "applyOnJoin is enabled, 0 to 1. -1, the default, leaves it as it is: "
+                                + "volume is a personal preference, not a test setting.")
+                        .getDouble();
+            }
 
             String joinBundle = cfg.getString("bundle", CATEGORY_JOIN, d.getJoinBundleName(),
                     "Bundle to run when an operator joins. Empty by default: a join hook that "
@@ -192,7 +198,7 @@ public final class ToolkitConfigLoader {
                             + "leaves or the game restarts. Use it in a development or test "
                             + "instance only.");
 
-            ToolkitConfig loaded = ToolkitConfig.builder()
+            ToolkitConfig.Builder builder = ToolkitConfig.builder()
                     .arenaSize(width, height, length)
                     .arenaBlock(block)
                     .arenaCeiling(ceiling)
@@ -205,9 +211,11 @@ public final class ToolkitConfigLoader {
                     .clientDefaultsEnabled(clientDefaults)
                     .clientBrightness(brightness)
                     .clientMusicVolume(musicVolume)
-                    .clientMasterVolume(masterVolume)
-                    .inboxEnabled(inbox)
-                    .build();
+                    .inboxEnabled(inbox);
+            for (ToolkitConfig.Volume volume : ToolkitConfig.Volume.values()) {
+                builder.clientVolume(volume, volumes[volume.ordinal()]);
+            }
+            ToolkitConfig loaded = builder.build();
 
             noteAdjustment(problems, "arena.defaultWidth", width, loaded.getDefaultArenaWidth());
             noteAdjustment(problems, "arena.defaultHeight", height, loaded.getDefaultArenaHeight());
