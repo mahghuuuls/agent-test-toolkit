@@ -15,6 +15,7 @@ import com.mahghuuuls.agenttesttoolkit.command.sub.HelpSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.InspectSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.LogSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.MarkSubCommand;
+import com.mahghuuuls.agenttesttoolkit.command.sub.InboxSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.ReloadSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.RunSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.ScenarioSubCommand;
@@ -57,10 +58,16 @@ public final class DevToolCommand extends CommandBase {
     public static final String NAME = "devtool";
     public static final String ALIAS = "att";
 
-    /** Permission level 2, matching vanilla operator gameplay commands. */
-    private static final int PERMISSION_LEVEL = 2;
+    /** The level every subcommand requires, matching vanilla operator gameplay commands.
+     * Stated on every bundle start record. */
+    public static final int PERMISSION_LEVEL = 2;
 
     private final Map<String, SubCommand> subCommands = new LinkedHashMap<String, SubCommand>();
+
+    /** The registered subcommand names, in registration order. For tests and suggestions. */
+    java.util.Set<String> subCommandNames() {
+        return java.util.Collections.unmodifiableSet(subCommands.keySet());
+    }
 
     public DevToolCommand() {
         register(new MarkSubCommand());
@@ -75,6 +82,7 @@ public final class DevToolCommand extends CommandBase {
         register(new FixtureSubCommand());
         register(new ScenarioSubCommand());
         register(new ReloadSubCommand());
+        register(new InboxSubCommand());
         register(new NbtSubCommand());
         register(new ArenaSubCommand());
         register(new EntitiesSubCommand());
@@ -123,8 +131,10 @@ public final class DevToolCommand extends CommandBase {
             // command as a success, so a bundle containing a typo would report executed with
             // no failures and run on past it, defeating stopOnFailure entirely.
             ToolkitLog.error("Unknown subcommand", name);
-            throw new CommandException(
-                    "[DevToolkit] Unknown subcommand: " + name + ". Try /devtool help");
+            String suggestion = CommandSuggestions.closest(name, subCommands.keySet());
+            throw new CommandException("[DevToolkit] Unknown subcommand: " + name + ". "
+                    + (suggestion == null ? "" : "Did you mean " + suggestion + "? ")
+                    + "Try /devtool help");
         }
 
         // Thrown for the same reason: a subcommand that cannot run must not report success.

@@ -64,6 +64,7 @@ public final class CommandOutcomes {
     public static final String KEY_ASSERT_FAILED = com.mahghuuuls.agenttesttoolkit.inspect.Assertions.KEY_FAILED;
     public static final String KEY_ASSERT_UNLOADED = com.mahghuuuls.agenttesttoolkit.inspect.Assertions.KEY_UNLOADED;
     public static final String KEY_SCENARIO_MISMATCH = com.mahghuuuls.agenttesttoolkit.scenario.Scenarios.KEY_MISMATCH;
+    public static final String KEY_INSPECT_NOT_LOADED = com.mahghuuuls.agenttesttoolkit.inspect.LoadedPositions.KEY_NOT_LOADED;
 
     private CommandOutcomes() {
     }
@@ -100,17 +101,17 @@ public final class CommandOutcomes {
         if (translationKey != null && declared != null && declared.contains(translationKey)) {
             // Named rather than summarised. A reader must be able to tell a tolerated failure
             // from a command that simply worked, and to see which failure was expected.
-            return CommandOutcome.success("tolerated failure: " + translationKey);
+            return CommandOutcome.tolerated(translationKey, "tolerated failure: " + translationKey);
         }
         if (isMatchedNothing(translationKey)) {
             // Recorded as a note rather than discarded. An agent looking at a bundle that
             // "worked" but changed nothing needs to see that the selector was empty.
-            return CommandOutcome.success("selector matched nothing");
+            return CommandOutcome.tolerated(translationKey, "selector matched nothing");
         }
         if (KEY_CLEAR_NOTHING.equals(translationKey)) {
             // Kept separate from the selector cases so the note stays accurate: nothing was
             // cleared, which is not the same as a selector matching nobody.
-            return CommandOutcome.success("nothing to clear");
+            return CommandOutcome.tolerated(translationKey, "nothing to clear");
         }
         return CommandOutcome.failure(describe(translationKey));
     }

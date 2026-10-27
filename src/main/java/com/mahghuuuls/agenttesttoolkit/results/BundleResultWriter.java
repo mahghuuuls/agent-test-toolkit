@@ -81,6 +81,7 @@ public final class BundleResultWriter {
         JsonArray checkpoints = new JsonArray();
         JsonArray awaits = new JsonArray();
         JsonArray steps = new JsonArray();
+        JsonArray tolerated = new JsonArray();
         String session = null;
         String operator = operatorAtStart;
 
@@ -97,6 +98,7 @@ public final class BundleResultWriter {
                     root.addProperty("endTick", fields.get("worldTick"));
                     copy(root, fields, "executed");
                     copy(root, fields, "failed");
+                    copy(root, fields, "tolerated");
                     copy(root, fields, "total");
                     copy(root, fields, "stoppedEarly");
                     copy(root, fields, "durationTicks");
@@ -121,6 +123,9 @@ public final class BundleResultWriter {
                 case BUNDLE_STEP:
                     steps.add(object(fields));
                     break;
+                case TOLERATED:
+                    tolerated.add(object(fields));
+                    break;
                 case OPERATOR:
                     // The last binding wins, and an unbinding clears it, so the file says who
                     // the operator was at the end of the run.
@@ -142,6 +147,7 @@ public final class BundleResultWriter {
         root.add("markers", markers);
         root.add("checkpoints", checkpoints);
         root.add("awaits", awaits);
+        root.add("toleratedSteps", tolerated);
         if (steps.size() > 0) {
             root.add("steps", steps);
         }

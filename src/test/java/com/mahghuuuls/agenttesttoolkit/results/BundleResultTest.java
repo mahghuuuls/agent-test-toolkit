@@ -75,9 +75,30 @@ class BundleResultTest {
             if (command.startsWith("mark")) {
                 ToolkitLog.write(LogRecord.of(EventType.MARK).add("label", command.substring(5)));
             }
+            if (command.startsWith("nobody")) {
+                return com.mahghuuuls.agenttesttoolkit.command.CommandOutcomes.classify(0,
+                        "commands.generic.selector.notFound");
+            }
             return command.equals("bad") ? CommandOutcome.failure("no such command") : CommandOutcome.success();
         }
     };
+
+    @Test
+    @DisplayName("a tolerated step is listed in the file and counted")
+    void toleratedStepInFile(@TempDir File dir) throws Exception {
+        BundleResultCollector sink = new BundleResultCollector(dir);
+        run(bundle("r2", true, "nobody kill", "mark END"), sink);
+
+        File[] files = dir.listFiles();
+        assertEquals(1, files.length);
+        JsonObject doc = new JsonParser().parse(
+                new String(Files.readAllBytes(files[0].toPath()), Charset.forName("UTF-8"))).getAsJsonObject();
+        assertEquals("1", doc.get("tolerated").getAsString());
+        assertEquals("0", doc.get("failed").getAsString());
+        assertEquals(1, doc.getAsJsonArray("toleratedSteps").size());
+        assertEquals("commands.generic.selector.notFound",
+                doc.getAsJsonArray("toleratedSteps").get(0).getAsJsonObject().get("key").getAsString());
+    }
 
     private static BundleExecution run(BundleDefinition definition, BundleResultCollector sink) {
         BundleExecution execution = new BundleExecution(definition, DISPATCHER, CONTEXT);
@@ -222,6 +243,7 @@ class BundleResultTest {
         JsonObject doc = new JsonParser().parse(
                 new String(Files.readAllBytes(files[0].toPath()), Charset.forName("UTF-8"))).getAsJsonObject();
         assertEquals("true", doc.get("discardedOnServerStop").getAsString());
+        assertEquals("0", doc.get("tolerated").getAsString());
         assertEquals("true", doc.get("stoppedEarly").getAsString());
         assertEquals("1", doc.get("executed").getAsString());
     }

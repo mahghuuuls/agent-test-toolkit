@@ -96,5 +96,10 @@ public final class RecordContext {
             this.side = side == null ? SERVER : side;
             this.worldTick = worldTick;
         }
+
+        /** @return the world tick this context was taken at, or -1 when there was no world. */
+        public long getWorldTick() {
+            return worldTick;
+        }
     }
 }

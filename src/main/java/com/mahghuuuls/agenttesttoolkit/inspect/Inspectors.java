@@ -4,6 +4,7 @@ import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.command.CommandException;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
 import net.minecraft.entity.EntityLivingBase;
@@ -95,7 +96,9 @@ public final class Inspectors {
         return record;
     }
 
-    public static LogRecord block(World world, BlockPos pos) {
+    /** Refuses an unloaded position, as {@link LoadedPositions#require} does, before reading. */
+    public static LogRecord block(World world, BlockPos pos) throws CommandException {
+        LoadedPositions.require(world, pos);
         IBlockState state = world.getBlockState(pos);
         Block block = state.getBlock();
         ResourceLocation id = Block.REGISTRY.getNameForObject(block);

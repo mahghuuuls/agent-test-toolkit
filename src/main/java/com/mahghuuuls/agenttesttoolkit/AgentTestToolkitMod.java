@@ -86,6 +86,10 @@ public class AgentTestToolkitMod {
         MinecraftForge.EVENT_BUS.register(damageObserver);
         MinecraftForge.EVENT_BUS.register(new JoinAutomation());
         MinecraftForge.EVENT_BUS.register(new OperatorLogoutListener());
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.inbox.InboxPoller());
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.inbox.InboxLogoutListener());
+        com.mahghuuuls.agenttesttoolkit.inbox.InboxPoller.setHandler(
+                new com.mahghuuuls.agenttesttoolkit.command.InboxDispatch());
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.scenario.Scenarios());
 
         // No-op on a server. The client implementation registers its own handler.
@@ -94,6 +98,12 @@ public class AgentTestToolkitMod {
 
     @Mod.EventHandler
     public void serverStarting(FMLServerStartingEvent event) {
+        // A status file left by a crash or a killed process would say "open" for an inbox that
+        // is closed. Only the toolkit's own file is touched.
+        if (!com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.isOpen()) {
+            com.mahghuuuls.agenttesttoolkit.inbox.InboxStatus.delete(
+                    com.mahghuuuls.agenttesttoolkit.inbox.InboxPoller.directory());
+        }
         event.registerServerCommand(new DevToolCommand());
     }
 
@@ -116,8 +126,16 @@ public class AgentTestToolkitMod {
         // Same rule, same reason: an in-flight bundle holds a sender from the world that is
         // unloading, and the scheduler is registered permanently, so an execution left here
         // would resume against the next world.
-        for (BundleExecution abandoned : Bundles.scheduler().discardAll()) {
-            BundleRecorder.recordDiscarded(abandoned);
+        try {
+            for (BundleExecution abandoned : Bundles.scheduler().discardAll()) {
+                BundleRecorder.recordDiscarded(abandoned);
+            }
+        } finally {
+            // The inbox is the exception to keeping state: with no server there is nothing to
+            // run requests on, and in single player the opener has already left. Closed with a
+            // record, in a finally so a failure above cannot leave it open into the next world.
+            com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.close("serverStopped",
+                    com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot.NONE);
         }
     }
 }

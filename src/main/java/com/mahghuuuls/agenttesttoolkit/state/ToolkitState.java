@@ -230,6 +230,23 @@ public final class ToolkitState {
         operator = binding;
     }
 
+    /**
+     * The command inbox's open state, or null while closed.
+     *
+     * <p>The process's lifetime at most, never persisted: a new process starts with the inbox
+     * closed. Owned by {@code InboxGate}, which records every change.
+     */
+    private static volatile InboxOpening inboxOpening;
+
+    public static InboxOpening getInboxOpening() {
+        return inboxOpening;
+    }
+
+    /** Intended for {@code InboxGate} only, which decides when the inbox may open. */
+    public static void setInboxOpening(InboxOpening opening) {
+        inboxOpening = opening;
+    }
+
     /** @return the UUID text of the fixture claimed under this handle, or null. */
     public static String getFixtureUuid(String handle) {
         return handle == null ? null : fixtureUuids.get(handle);
@@ -304,6 +321,7 @@ public final class ToolkitState {
     public static void resetForTesting() {
         activeSession = null;
         operator = null;
+        inboxOpening = null;
         clearFixtures();
         enabledCategories = Collections.unmodifiableSet(EnumSet.noneOf(LoggingCategory.class));
         filters = Collections.unmodifiableMap(

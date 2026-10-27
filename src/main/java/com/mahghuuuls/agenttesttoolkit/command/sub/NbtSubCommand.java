@@ -4,6 +4,7 @@ import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader;
 import com.mahghuuuls.agenttesttoolkit.inspect.EntityTarget;
+import com.mahghuuuls.agenttesttoolkit.inspect.LoadedPositions;
 import com.mahghuuuls.agenttesttoolkit.inspect.Truncation;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
@@ -111,6 +112,7 @@ public final class NbtSubCommand implements SubCommand {
             throw new WrongUsageException("/devtool nbt block <x> <y> <z>");
         }
         BlockPos pos = CommandBase.parseBlockPos(sender, args, 1, false);
+        LoadedPositions.require(sender.getEntityWorld(), pos);
         TileEntity tile = sender.getEntityWorld().getTileEntity(pos);
 
         LogRecord record = begin(sender, "block");

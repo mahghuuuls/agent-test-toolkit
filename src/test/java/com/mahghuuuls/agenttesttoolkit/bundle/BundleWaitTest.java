@@ -207,8 +207,52 @@ class BundleWaitTest {
 
         assertEquals(Arrays.asList("before", "wait", "after"), dispatcher.dispatched);
         assertEquals(0, execution.getFailed());
+        assertEquals(1, execution.getTolerated());
         assertTrue(records("AWAIT").get(0).contains("outcome=timedOut"));
         assertTrue(records("ERROR").isEmpty(), records("ERROR").toString());
+        assertEquals(1, records("TOLERATED").size(), records("TOLERATED").toString());
+        assertTrue(records("TOLERATED").get(0).contains("key=" + BundleExecution.KEY_WAIT_TIMEOUT),
+                records("TOLERATED").get(0));
+    }
+
+    @Test
+    @DisplayName("a wait's records show the command text after placeholders were filled in")
+    void waitRecordsShowSubstitutedText() {
+        final WaitCondition never = FakeCondition.never();
+        List<BundleCommand> commands = new ArrayList<BundleCommand>();
+        commands.add(new BundleCommand("wait for ${operator.name}", 0,
+                Collections.singletonList(BundleExecution.KEY_WAIT_TIMEOUT)));
+        BundleDefinition definition =
+                new BundleDefinition("substituted_wait", null, true, commands);
+        final BundleExecution[] holder = new BundleExecution[1];
+        CommandDispatcher bound = new CommandDispatcher() {
+            @Override
+            public CommandOutcome dispatch(String command) {
+                if (command.startsWith("wait")) {
+                    holder[0].await(never, 20);
+                }
+                return CommandOutcome.success();
+            }
+
+            @Override
+            public String resolve(String command) {
+                return command.replace("${operator.name}", "Developer");
+            }
+        };
+        BundleExecution execution = new BundleExecution(definition, bound, CONTEXT);
+        holder[0] = execution;
+        BundleRecorder recorder = new BundleRecorder();
+        int safety = 0;
+        while (!execution.isFinished() && safety++ < 100) {
+            execution.onTick();
+            execution.advance(recorder);
+        }
+
+        assertTrue(execution.isFinished(), "execution did not finish");
+        assertTrue(records("AWAIT").get(0).contains("command=\"wait for Developer\""),
+                records("AWAIT").get(0));
+        assertTrue(records("TOLERATED").get(0).contains("command=\"wait for Developer\""),
+                records("TOLERATED").get(0));
     }
 
     @Test

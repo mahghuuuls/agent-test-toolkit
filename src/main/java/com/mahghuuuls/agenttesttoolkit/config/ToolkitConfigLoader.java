@@ -28,6 +28,7 @@ public final class ToolkitConfigLoader {
     private static final String CATEGORY_DIAGNOSTICS = "diagnostics";
     private static final String CATEGORY_JOIN = "join";
     private static final String CATEGORY_CLIENT = "client";
+    private static final String CATEGORY_INBOX = "inbox";
 
     private static volatile ToolkitConfig current = ToolkitConfig.DEFAULTS;
     // Volatile for the same reason as `current`: written once during mod loading and read
@@ -176,6 +177,15 @@ public final class ToolkitConfigLoader {
                             + "default: one mob death produces a burst of both, which would "
                             + "bury the spawn actually being investigated.");
 
+            boolean inbox = cfg.getBoolean("enabled", CATEGORY_INBOX, d.isInboxEnabled(),
+                    "Whether the command inbox may be opened. The inbox lets an agent start "
+                            + "named bundles and read-only toolkit commands by writing files into "
+                            + "config/devtool/inbox, run as the player who opened it. Off by "
+                            + "default. Even when true, it listens only after an operator types "
+                            + "'devtool inbox open' in the game, and closes when that player "
+                            + "leaves or the game restarts. Use it in a development or test "
+                            + "instance only.");
+
             ToolkitConfig loaded = ToolkitConfig.builder()
                     .arenaSize(width, height, length)
                     .arenaBlock(block)
@@ -189,6 +199,7 @@ public final class ToolkitConfigLoader {
                     .clientDefaultsEnabled(clientDefaults)
                     .clientBrightness(brightness)
                     .clientMusicVolume(musicVolume)
+                    .inboxEnabled(inbox)
                     .build();
 
             noteAdjustment(problems, "arena.defaultWidth", width, loaded.getDefaultArenaWidth());

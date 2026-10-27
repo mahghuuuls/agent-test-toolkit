@@ -13,3 +13,4 @@
 devtool.assert.failed=[DevToolkit] Assertion failed: %s
 devtool.assert.unloaded=[DevToolkit] Assertion could not be evaluated, region not loaded: %s
 devtool.scenario.mismatch=[DevToolkit] Refused by the scenario checkpoint, %s
+devtool.inspect.notLoaded=[DevToolkit] Not loaded: %s

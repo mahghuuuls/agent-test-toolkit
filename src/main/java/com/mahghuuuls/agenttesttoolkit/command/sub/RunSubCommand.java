@@ -61,6 +61,14 @@ public final class RunSubCommand implements SubCommand {
         if (args.length == 0) {
             throw new WrongUsageException("/devtool " + getUsage());
         }
+        if (server != null && !server.isCallingFromMinecraftThread()) {
+            // RCON runs commands on its own thread. The scheduler and the run channel are
+            // server-thread state, so a bundle started from there could be taken for a nested
+            // run of whatever the server thread is advancing. Refused, with a way forward.
+            ToolkitLog.error("Bundle refused off the server thread", args[0]);
+            throw new CommandException("[DevToolkit] devtool run must be called on the server "
+                    + "thread. RCON runs commands on its own thread; use the console or the inbox.");
+        }
 
         String name = args[0];
         BundleDefinition bundle = Bundles.registry().get(name);
@@ -118,6 +126,10 @@ public final class RunSubCommand implements SubCommand {
                 new ServerCommandDispatcher(server, sender),
                 new SenderContextSource(sender));
         execution.setCallStack(stack);
+        execution.setOrigin(new com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin(sender.getName(),
+                parent == null ? com.mahghuuuls.agenttesttoolkit.command.RunChannel.of(sender)
+                        : com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin.NESTED,
+                com.mahghuuuls.agenttesttoolkit.command.DevToolCommand.PERMISSION_LEVEL));
 
         if (bundle.isResultRequested()) {
             // Attached before the start record, so the file covers the whole run. The
@@ -135,6 +147,11 @@ public final class RunSubCommand implements SubCommand {
         // inside the boundary rather than before it.
         BundleRecorder.recordStart(execution);
         Bundles.scheduler().submit(execution);
+        if (parent == null) {
+            // Taken only once the run is submitted, so a caller that offered a listener, the
+            // inbox, can treat "taken" as "this run exists and will end".
+            execution.addCompletionListener(com.mahghuuuls.agenttesttoolkit.command.RunCompletion.take());
+        }
 
         if (parent != null) {
             // The parent parks here. A child may itself contain delays, so it cannot be run to

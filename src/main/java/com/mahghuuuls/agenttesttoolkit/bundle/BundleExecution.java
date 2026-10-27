@@ -57,12 +57,35 @@ public final class BundleExecution {
                                  int waitedTicks, int timeoutTicks) {
         }
 
+        /**
+         * Called when a command failed with a key the toolkit tolerates, built in or declared,
+         * so the bundle went on. A default no-op so listeners that predate it keep compiling;
+         * the recorder writes the record that makes a tolerated step visible.
+         */
+        default void onCommandTolerated(BundleExecution execution, int index, String command,
+                                        String key) {
+        }
+
         /** Called only for a genuine command failure, never for a command that ran and
          * changed nothing. */
         void onCommandFailed(BundleExecution execution, int index, String command, String detail);
 
         void onFinished(BundleExecution execution);
     }
+
+    /**
+     * Told once when this one execution has ended, after its end record: normally, early, or
+     * discarded at server stop. Per execution, unlike {@link Listener}, so a caller that started
+     * a run can wait for exactly that run.
+     */
+    public interface CompletionListener {
+        void completed(BundleExecution execution, boolean discardedOnServerStop);
+    }
+
+    private final List<CompletionListener> completionListeners = new java.util.ArrayList<CompletionListener>();
+    private boolean completionNotified;
+    /** The detail of the first failure, which with stopOnFailure is the one that stopped it. */
+    private String firstFailure;
 
     private final String bundleName;
     private final String hash;
@@ -75,6 +98,7 @@ public final class BundleExecution {
     private int position;
     private int executed;
     private int failed;
+    private int tolerated;
     private int ticksElapsed;
 
     /**
@@ -110,12 +134,19 @@ public final class BundleExecution {
      */
     private WaitCondition wait;
     private int waitIndex;
+    /** The command text as dispatched, after placeholders, for the records a wait writes. */
+    private String waitCommandText;
+    /** The text being dispatched right now; read by {@link #await} to remember it. */
+    private String dispatchingText;
     private int waitStartedTick;
     private int waitDeadlineTick;
     private int waitTimeoutTicks;
 
     /** The chain of bundles that led here. Set for nested executions; see BundleCallStack. */
     private BundleCallStack callStack;
+
+    /** Who started this run and how. Set by the submitter; null when it did not say. */
+    private RunOrigin origin;
 
     /** Receives this execution's records and its end, or null when no result was asked for. */
     private ExecutionSink sink;
@@ -190,10 +221,12 @@ public final class BundleExecution {
             }
             boolean childFailed = child.getFailed() > 0 || child.isSenderLost();
             String childName = child.getBundleName();
+            String childFailure = child.getFirstFailure();
             child = null;
 
             if (childFailed) {
                 failed++;
+                noteFailure(childFailure != null ? childFailure : "nested bundle reported failures");
                 listener.onCommandFailed(this, position - 1,
                         "devtool run " + childName, "nested bundle reported failures");
                 if (stopOnFailure) {
@@ -223,7 +256,7 @@ public final class BundleExecution {
                 return;
             }
             endWait(listener, outcome, reason);
-            String command = commands.get(waitIndex).getCommand();
+            String command = waitCommandText;
             String kind = wait.kind();
             wait.ended();
             wait = null;
@@ -251,8 +284,12 @@ public final class BundleExecution {
 
             if (outcome != WaitOutcome.SATISFIED) {
                 String key = outcome == WaitOutcome.TIMED_OUT ? KEY_WAIT_TIMEOUT : KEY_WAIT_CANCELLED;
-                if (!commands.get(waitIndex).getToleratedFailures().contains(key)) {
+                if (commands.get(waitIndex).getToleratedFailures().contains(key)) {
+                    tolerated++;
+                    listener.onCommandTolerated(this, waitIndex, command, key);
+                } else {
                     failed++;
+                    noteFailure(key);
                     listener.onCommandFailed(this, waitIndex, command, key);
                     if (stopOnFailure) {
                         stoppedEarly = true;
@@ -290,9 +327,12 @@ public final class BundleExecution {
                     dueTick = ticksElapsed + commands.get(position).getDelayTicks();
                 }
                 if (command.getToleratedFailures().contains(e.getKey())) {
+                    tolerated++;
+                    listener.onCommandTolerated(this, index, command.getCommand(), e.getKey());
                     continue;
                 }
                 failed++;
+                noteFailure(e.getKey());
                 listener.onCommandFailed(this, index, command.getCommand(), e.getKey());
                 if (stopOnFailure) {
                     stoppedEarly = true;
@@ -303,8 +343,13 @@ public final class BundleExecution {
 
             listener.onCommandStarting(this, index, text, dueTick, ticksElapsed);
 
-            CommandOutcome outcome =
-                    dispatcher.dispatch(text, command.getToleratedFailures());
+            dispatchingText = text;
+            CommandOutcome outcome;
+            try {
+                outcome = dispatcher.dispatch(text, command.getToleratedFailures());
+            } finally {
+                dispatchingText = null;
+            }
 
             // The next command's delay is measured from *now*, the completion of this one,
             // rather than from the bundle's start. That is the behaviour someone editing a
@@ -323,10 +368,15 @@ public final class BundleExecution {
             }
 
             if (outcome == null || outcome.succeeded()) {
+                if (outcome != null && outcome.getToleratedKey() != null) {
+                    tolerated++;
+                    listener.onCommandTolerated(this, index, text, outcome.getToleratedKey());
+                }
                 continue;
             }
 
             failed++;
+            noteFailure(outcome.getDetail());
             listener.onCommandFailed(this, index, text, outcome.getDetail());
 
             if (stopOnFailure) {
@@ -345,10 +395,51 @@ public final class BundleExecution {
         if (sink != null) {
             sink.finished(this);
         }
+        notifyCompletion(false);
+    }
+
+    private void noteFailure(String detail) {
+        if (firstFailure == null) {
+            firstFailure = detail;
+        }
+    }
+
+    /** @return the detail of the first failed command, or null when none failed. */
+    public String getFirstFailure() {
+        return firstFailure;
+    }
+
+    /** Registers a listener told once when this execution ends. */
+    public void addCompletionListener(CompletionListener completion) {
+        if (completion != null) {
+            completionListeners.add(completion);
+        }
+    }
+
+    /** Called once the end record for a run discarded at server stop has been written. */
+    public void notifyDiscarded() {
+        notifyCompletion(true);
+    }
+
+    private void notifyCompletion(boolean discarded) {
+        if (completionNotified) {
+            return;
+        }
+        completionNotified = true;
+        for (CompletionListener completion : completionListeners) {
+            try {
+                completion.completed(this, discarded);
+            } catch (RuntimeException e) {
+                // Contained, so one listener cannot stop the next, the scheduler, or a server
+                // stop that still has bundles to record and an inbox to close.
+                com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog.error(
+                        "Bundle completion listener failed", bundleName + ": " + e);
+            }
+        }
     }
 
     private void endWait(Listener listener, WaitOutcome outcome, String reason) {
-        listener.onWaitEnded(this, waitIndex, commands.get(waitIndex).getCommand(), wait,
+        listener.onWaitEnded(this, waitIndex, waitCommandText, wait,
                 outcome, reason, ticksElapsed - waitStartedTick, waitTimeoutTicks);
     }
 
@@ -405,6 +496,13 @@ public final class BundleExecution {
         this.wait = condition;
         // position has already advanced past the command being dispatched.
         this.waitIndex = position - 1;
+        if (dispatchingText != null) {
+            this.waitCommandText = dispatchingText;
+        } else if (waitIndex >= 0 && waitIndex < commands.size()) {
+            this.waitCommandText = commands.get(waitIndex).getCommand();
+        } else {
+            this.waitCommandText = null;
+        }
         this.waitStartedTick = ticksElapsed;
         this.waitTimeoutTicks = timeoutTicks;
         this.waitDeadlineTick = ticksElapsed + timeoutTicks;
@@ -447,6 +545,15 @@ public final class BundleExecution {
         this.callStack = callStack;
     }
 
+    public void setOrigin(RunOrigin origin) {
+        this.origin = origin;
+    }
+
+    /** @return who started this run and how, or null when the submitter did not say. */
+    public RunOrigin getOrigin() {
+        return origin;
+    }
+
     public String getBundleName() {
         return bundleName;
     }
@@ -483,6 +590,12 @@ public final class BundleExecution {
 
     public int getFailed() {
         return failed;
+    }
+
+    /** Commands that failed with a tolerated key. Counted among {@link #getExecuted()} and not
+     * among {@link #getFailed()}. */
+    public int getTolerated() {
+        return tolerated;
     }
 
     /** The bundle's full length, so the number skipped after an early stop is derivable. */

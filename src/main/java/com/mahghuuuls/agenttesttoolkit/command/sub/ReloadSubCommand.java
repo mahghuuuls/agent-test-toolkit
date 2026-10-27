@@ -61,6 +61,17 @@ public final class ReloadSubCommand implements SubCommand {
         BundleRegistry.reportSources(report);
 
         int totalProblems = report.getProblems().size() + configProblems.size();
+
+        // A record beside the chat reply, so a reload is confirmed by its type rather than by
+        // matching chat text through a different logger on each side.
+        com.mahghuuuls.agenttesttoolkit.logging.LogRecord record =
+                com.mahghuuuls.agenttesttoolkit.logging.RecordContext.stamp(
+                        com.mahghuuuls.agenttesttoolkit.logging.LogRecord.of(
+                                com.mahghuuuls.agenttesttoolkit.logging.EventType.RELOAD), sender);
+        com.mahghuuuls.agenttesttoolkit.state.SessionStamp.apply(record);
+        record.add("bundles", report.getLoaded().size());
+        record.add("problems", totalProblems);
+        com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog.write(record);
         sender.sendMessage(new TextComponentString("[DevToolkit] Reloaded. bundles="
                 + report.getLoaded().size() + " problems=" + totalProblems));
 

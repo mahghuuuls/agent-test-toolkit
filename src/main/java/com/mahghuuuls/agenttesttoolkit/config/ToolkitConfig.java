@@ -45,6 +45,7 @@ public final class ToolkitConfig {
     private final boolean clientDefaultsEnabled;
     private final float clientBrightness;
     private final float clientMusicVolume;
+    private final boolean inboxEnabled;
 
     /**
      * A named-setter builder, because the positional constructor stopped being readable.
@@ -73,6 +74,7 @@ public final class ToolkitConfig {
         private boolean clientDefaults;
         private float brightness = 1.0F;
         private float musicVolume;
+        private boolean inbox;
 
         public Builder arenaSize(int w, int h, int l) {
             this.width = w;
@@ -136,10 +138,16 @@ public final class ToolkitConfig {
             return this;
         }
 
+        /** The configuration half of the inbox gate. Off unless the file says true. */
+        public Builder inboxEnabled(boolean value) {
+            this.inbox = value;
+            return this;
+        }
+
         public ToolkitConfig build() {
             return new ToolkitConfig(width, height, length, block, ceiling, maxDimension,
                     nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle,
-                    clientDefaults, brightness, musicVolume);
+                    clientDefaults, brightness, musicVolume, inbox);
         }
     }
 
@@ -160,7 +168,9 @@ public final class ToolkitConfig {
                   String joinBundleName,
                   boolean clientDefaultsEnabled,
                   float clientBrightness,
-                  float clientMusicVolume) {
+                  float clientMusicVolume,
+                  boolean inboxEnabled) {
+        this.inboxEnabled = inboxEnabled;
         this.clientDefaultsEnabled = clientDefaultsEnabled;
         // Clamped rather than rejected: a bad value must not stop the toolkit loading.
         this.clientBrightness = clamp01(clientBrightness);
@@ -299,5 +309,15 @@ public final class ToolkitConfig {
     /** Music volume, 0 to 1. Zero is silent. */
     public float getClientMusicVolume() {
         return clientMusicVolume;
+    }
+
+    /**
+     * The configuration half of the inbox gate.
+     *
+     * <p>Off by default. Even when true the inbox listens only after an operator opens it in
+     * the game, and closes again at every restart.
+     */
+    public boolean isInboxEnabled() {
+        return inboxEnabled;
     }
 }

@@ -27,6 +27,14 @@ public final class BundleRecorder implements BundleExecution.Listener {
         record.add("bundle", execution.getBundleName());
         record.add("hash", execution.getHash());
         record.add("commands", execution.getTotal());
+        RunOrigin origin = execution.getOrigin();
+        if (origin != null) {
+            // Who started it and how, so a run's authority is in the evidence rather than
+            // inferred from whether it worked.
+            record.add("caller", origin.getCaller());
+            record.add("channel", origin.getChannel());
+            record.add("permissionLevel", origin.getPermissionLevel());
+        }
         // Written during the caller's dispatch, when the tap belongs to whoever is running,
         // which for a nested bundle is the parent. Swapped for the span of this one write so
         // the start record reaches exactly this execution's sink and no other.
@@ -109,6 +117,25 @@ public final class BundleRecorder implements BundleExecution.Listener {
         }
     }
 
+    /**
+     * Makes a tolerated step visible. Without it a step whose selector matched nothing reads
+     * exactly like one that ran and printed nothing, which an agent scoring a check from the
+     * log cannot tell apart.
+     */
+    @Override
+    public void onCommandTolerated(BundleExecution execution, int index, String command,
+                                   String key) {
+        LogRecord record = RecordContext.stamp(
+                LogRecord.of(EventType.TOLERATED), execution.getContext());
+        SessionStamp.apply(record);
+        record.add("bundle", execution.getBundleName());
+        record.add("hash", execution.getHash());
+        record.add("index", index);
+        record.add("command", command);
+        record.add("key", key);
+        ToolkitLog.write(record);
+    }
+
     @Override
     public void onCommandFailed(BundleExecution execution, int index, String command,
                                 String detail) {
@@ -150,6 +177,7 @@ public final class BundleRecorder implements BundleExecution.Listener {
             record.add("hash", execution.getHash());
             record.add("executed", execution.getExecuted());
             record.add("failed", execution.getFailed());
+            record.add("tolerated", execution.getTolerated());
             record.add("total", execution.getTotal());
             record.add("stoppedEarly", true);
             record.add("discardedOnServerStop", true);
@@ -159,6 +187,7 @@ public final class BundleRecorder implements BundleExecution.Listener {
         } finally {
             ToolkitLog.setTap(previous);
         }
+        execution.notifyDiscarded();
         if (execution.getSink() != null) {
             execution.getSink().finished(execution);
         }
@@ -187,6 +216,7 @@ public final class BundleRecorder implements BundleExecution.Listener {
         // having to open the bundle file.
         record.add("executed", execution.getExecuted());
         record.add("failed", execution.getFailed());
+        record.add("tolerated", execution.getTolerated());
         record.add("total", execution.getTotal());
         record.add("stoppedEarly", execution.isStoppedEarly());
         record.add("durationTicks", execution.getDurationTicks());

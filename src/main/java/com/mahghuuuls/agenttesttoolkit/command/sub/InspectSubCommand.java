@@ -5,6 +5,7 @@ import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inspect.EntityTarget;
 import com.mahghuuuls.agenttesttoolkit.inspect.Inspectors;
 import com.mahghuuuls.agenttesttoolkit.inspect.Inventories;
+import com.mahghuuuls.agenttesttoolkit.inspect.LoadedPositions;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
@@ -217,6 +218,7 @@ public final class InspectSubCommand implements SubCommand {
 
         BlockPos pos = CommandBase.parseBlockPos(sender, args, 0, false);
         net.minecraft.world.World world = sender.getEntityWorld();
+        LoadedPositions.require(world, pos);
         net.minecraft.tileentity.TileEntity tile = world.getTileEntity(pos);
 
         if (tile == null) {

@@ -66,6 +66,9 @@ public final class JoinAutomation {
             BundleExecution execution = new BundleExecution(bundle,
                     new ServerCommandDispatcher(operator.server, operator),
                     new SenderContextSource(operator));
+            execution.setOrigin(new com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin(
+                    operator.getName(), com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin.JOIN,
+                    DevToolCommand.PERMISSION_LEVEL));
             BundleRecorder.recordStart(execution);
             Bundles.scheduler().submit(execution);
         } catch (RuntimeException e) {

@@ -45,6 +45,16 @@ public enum EventType {
     BUNDLE_STEP,
 
     /**
+     * One bundle command that failed with a key the toolkit tolerates, built in or declared,
+     * so the bundle went on. Carries the bundle, its hash, the command index and text, and the
+     * key. Counted on {@code BUNDLE_END} as {@code tolerated}.
+     */
+    TOLERATED,
+
+    /** {@code devtool reload} finished: the bundles loaded and the problems found. */
+    RELOAD,
+
+    /**
      * Where a bundle came from, written at every load and reload: one record per file with the
      * raw hash of its bytes, one per loaded bundle with its normalized hash. The same hash
      * reappears on the start and end records of every run, which is what ties evidence to text.
@@ -82,6 +92,13 @@ public enum EventType {
      * consulted before a run as resume or refuse, and cleared as completed or abandoned.
      */
     SCENARIO,
+
+    /**
+     * The command inbox: opened, closed, a request claimed, refused, dispatched or failed.
+     * Carries {@code action}, the request id and line where there is one, the opener, and
+     * {@code reason} for closes and refusals.
+     */
+    INBOX,
 
     ARENA_CREATE,
     ARENA_RESET,
