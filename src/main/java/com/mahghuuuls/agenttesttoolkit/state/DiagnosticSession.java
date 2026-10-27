@@ -23,14 +23,30 @@ package com.mahghuuuls.agenttesttoolkit.state;
 public final class DiagnosticSession {
 
     private final String name;
+    private final String worldKey;
     private long tick;
 
     public DiagnosticSession(String name) {
+        this(name, null);
+    }
+
+    /**
+     * @param worldKey the world the session started in, as {@code WorldIdentity.key()} text, or
+     *                 null when no world had loaded yet; a session without one is never stopped
+     *                 for a world change
+     */
+    public DiagnosticSession(String name, String worldKey) {
         if (name == null || name.isEmpty()) {
             throw new IllegalArgumentException("session name must not be null or empty");
         }
         this.name = name;
+        this.worldKey = worldKey;
         this.tick = 0L;
+    }
+
+    /** The world this session belongs to, or null. */
+    public String getWorldKey() {
+        return worldKey;
     }
 
     public String getName() {

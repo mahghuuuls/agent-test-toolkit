@@ -91,6 +91,16 @@ public class AgentTestToolkitMod {
         com.mahghuuuls.agenttesttoolkit.inbox.InboxPoller.setHandler(
                 new com.mahghuuuls.agenttesttoolkit.command.InboxDispatch());
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.scenario.Scenarios());
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.session.WorldChangeListener());
+        // Checkpoints belong to the session but live in wait, which session may not depend on.
+        // Installed here so every stop forgets them: the command, a replacing start, and a
+        // world change alike.
+        com.mahghuuuls.agenttesttoolkit.session.SessionManager.setStopHook(new Runnable() {
+            @Override
+            public void run() {
+                com.mahghuuuls.agenttesttoolkit.wait.OperatorCheckpoints.reset();
+            }
+        });
 
         // No-op on a server. The client implementation registers its own handler.
         proxy.applyClientDefaults();
@@ -98,6 +108,21 @@ public class AgentTestToolkitMod {
 
     @Mod.EventHandler
     public void serverStarting(FMLServerStartingEvent event) {
+        // Files may have changed since the game started, as when an agent edits a bundle while
+        // the owner sits at the title screen. Reloading here makes a world run them as they are
+        // on disk, without anyone typing devtool reload (REQ-199).
+        // Contained: a broken file must never stop a world from opening, and the command below
+        // must still be registered.
+        try {
+            net.minecraft.world.World overworld = event.getServer().getEntityWorld();
+            com.mahghuuuls.agenttesttoolkit.command.sub.ReloadSubCommand.reloadFromDisk(
+                    overworld == null ? com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot.NONE
+                            : com.mahghuuuls.agenttesttoolkit.logging.RecordContext.snapshot(overworld),
+                    com.mahghuuuls.agenttesttoolkit.command.sub.ReloadSubCommand.TRIGGER_SERVER_START);
+        } catch (RuntimeException e) {
+            com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog.error("Reload at server start failed", String.valueOf(e));
+        }
+
         // A status file left by a crash or a killed process would say "open" for an inbox that
         // is closed. Only the toolkit's own file is touched.
         if (!com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.isOpen()) {

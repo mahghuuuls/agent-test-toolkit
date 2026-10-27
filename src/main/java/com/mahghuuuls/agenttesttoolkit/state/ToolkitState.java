@@ -247,6 +247,23 @@ public final class ToolkitState {
         inboxOpening = opening;
     }
 
+    /**
+     * The world the running server serves, as {@code WorldIdentity.key()} text, or null before
+     * any world has loaded. Plain text because {@code world} depends on {@code state}, not the
+     * other way round. Set when the overworld loads; kept across a server stop like the
+     * session, so a session started now can be compared with the next world.
+     */
+    private static volatile String currentWorldKey;
+
+    public static String getCurrentWorldKey() {
+        return currentWorldKey;
+    }
+
+    /** Intended for the world-load listener in {@code session} only. */
+    public static void setCurrentWorldKey(String key) {
+        currentWorldKey = key;
+    }
+
     /** @return the UUID text of the fixture claimed under this handle, or null. */
     public static String getFixtureUuid(String handle) {
         return handle == null ? null : fixtureUuids.get(handle);
@@ -322,6 +339,7 @@ public final class ToolkitState {
         activeSession = null;
         operator = null;
         inboxOpening = null;
+        currentWorldKey = null;
         clearFixtures();
         enabledCategories = Collections.unmodifiableSet(EnumSet.noneOf(LoggingCategory.class));
         filters = Collections.unmodifiableMap(

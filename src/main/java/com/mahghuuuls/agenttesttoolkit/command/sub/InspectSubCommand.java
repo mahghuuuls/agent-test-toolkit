@@ -2,6 +2,7 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
+import com.mahghuuuls.agenttesttoolkit.inspect.Attributes;
 import com.mahghuuuls.agenttesttoolkit.inspect.EntityTarget;
 import com.mahghuuuls.agenttesttoolkit.inspect.Inspectors;
 import com.mahghuuuls.agenttesttoolkit.inspect.Inventories;
@@ -15,8 +16,11 @@ import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityList;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
 
@@ -43,7 +47,7 @@ public final class InspectSubCommand implements SubCommand {
      */
     public static final List<String> TARGETS =
             Collections.unmodifiableList(
-                    Arrays.asList("player", "entity", "block", "container", "inventory"));
+                    Arrays.asList("player", "entity", "block", "container", "inventory", "attributes"));
 
     @Override
     public String getName() {
@@ -58,7 +62,7 @@ public final class InspectSubCommand implements SubCommand {
     @Override
     public String getUsage() {
         return "inspect <player [selector]|entity <selector>|block <x> <y> <z>"
-                + "|container <x> <y> <z>|inventory [selector]>";
+                + "|container <x> <y> <z>|inventory [selector]|attributes [selector|uuid]>";
     }
 
     @Override
@@ -88,6 +92,8 @@ public final class InspectSubCommand implements SubCommand {
             inspectContainer(sender, rest);
         } else if ("inventory".equals(target)) {
             inspectInventory(server, sender, rest);
+        } else if ("attributes".equals(target)) {
+            inspectAttributes(server, sender, rest);
         } else {
             // Thrown rather than reported and returned. A command that returns normally counts
             // as a success, so from inside a bundle a typo here would be invisible.
@@ -160,6 +166,37 @@ public final class InspectSubCommand implements SubCommand {
                 + records.size() + " record" + (records.size() == 1 ? "" : "s") + ")."));
     }
 
+    /** Every attribute and modifier of one living entity: the sender, or the one named. */
+    private void inspectAttributes(MinecraftServer server, ICommandSender sender, String[] args)
+            throws CommandException {
+        Entity entity;
+        if (args.length == 0) {
+            entity = sender.getCommandSenderEntity();
+            if (entity == null) {
+                ToolkitLog.error("inspect attributes requires a selector when run without an entity sender");
+                throw new CommandException("inspect attributes requires a selector when run from the console.");
+            }
+        } else {
+            entity = resolveOrReport(server, sender, args[0]);
+            if (entity == null) {
+                return;
+            }
+        }
+        if (!(entity instanceof EntityLivingBase)) {
+            ToolkitLog.error("Target has no attributes", String.valueOf(EntityList.getKey(entity)));
+            throw new CommandException("[DevToolkit] That entity is not a living entity, so it has no attributes.");
+        }
+        ResourceLocation id = EntityList.getKey(entity);
+        String target = entity instanceof EntityPlayer ? "minecraft:player" : id == null ? "unknown" : id.toString();
+        List<LogRecord> records = Attributes.records(target, entity.getUniqueID().toString(),
+                Attributes.read((EntityLivingBase) entity));
+        for (LogRecord record : records) {
+            write(record, sender);
+        }
+        sender.sendMessage(new TextComponentString("[DevToolkit] Attributes written to log ("
+                + records.size() + " record" + (records.size() == 1 ? "" : "s") + ")."));
+    }
+
     private void inspectEntity(MinecraftServer server, ICommandSender sender, String[] args)
             throws CommandException {
         if (args.length == 0) {
@@ -229,6 +266,15 @@ public final class InspectSubCommand implements SubCommand {
         }
 
         String blockId = describeBlock(world, pos);
+        String pendingLoot = Inventories.pendingLootTable(tile);
+        if (pendingLoot != null) {
+            // Checked before any slot is read: the first slot access rolls the loot, which
+            // would turn an observation into a change to the world.
+            write(Inventories.unrolledLoot(blockId, pos, pendingLoot), sender);
+            sender.sendMessage(new TextComponentString(
+                    "[DevToolkit] Loot not rolled yet. Container left untouched; written to log."));
+            return;
+        }
         List<Inventories.Slot> slots = collectSlots(tile);
 
         if (slots == null) {

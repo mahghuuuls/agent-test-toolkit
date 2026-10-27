@@ -9,6 +9,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.storage.loot.ILootContainer;
 import net.minecraftforge.items.IItemHandler;
 
 import java.util.ArrayList;
@@ -126,6 +127,33 @@ public final class Inventories {
             records.add(record);
         }
         return records;
+    }
+
+    /**
+     * Reports a container whose loot table has not been rolled yet.
+     *
+     * <p>Reading any slot of such a container rolls the loot: vanilla fills it on the first
+     * slot access. So the slots are never read, and the record says why instead. It carries
+     * no {@code occupiedSlots}, because "not rolled" and "empty" are different answers and
+     * a reader must not mistake one for the other.
+     */
+    public static LogRecord unrolledLoot(String blockId, BlockPos pos, String lootTable) {
+        return containerBase(blockId, pos)
+                .add("lootRolled", false)
+                .add("lootTable", lootTable);
+    }
+
+    /**
+     * The loot table a container will roll on its first slot access, or null when there is
+     * none. Asks vanilla's {@link ILootContainer}, which every vanilla loot chest, hopper,
+     * dispenser and shulker box implements; reading the table does not roll it.
+     */
+    public static String pendingLootTable(Object tile) {
+        if (!(tile instanceof ILootContainer)) {
+            return null;
+        }
+        ResourceLocation table = ((ILootContainer) tile).getLootTable();
+        return table == null ? null : table.toString();
     }
 
     /** Collects occupied slots from a vanilla inventory. */

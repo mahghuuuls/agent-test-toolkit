@@ -106,4 +106,22 @@ class ToolkitConfigTest {
         assertEquals(4096, c.getMaxNbtOutputLength());
         assertTrue(c.isJoinExecutionEnabled());
     }
+
+    @Test
+    @DisplayName("master volume is off by default, passes a valid level through, and clamps the rest")
+    void masterVolume() {
+        assertFalse(ToolkitConfig.DEFAULTS.isClientMasterVolumeEnabled(), "a preference, so left alone");
+        assertEquals(ToolkitConfig.LEAVE_MASTER_VOLUME, ToolkitConfig.DEFAULTS.getClientMasterVolume());
+
+        ToolkitConfig half = ToolkitConfig.builder().clientMasterVolume(0.5F).build();
+        assertTrue(half.isClientMasterVolumeEnabled());
+        assertEquals(0.5F, half.getClientMasterVolume());
+
+        assertEquals(1.0F, ToolkitConfig.builder().clientMasterVolume(3.0F).build().getClientMasterVolume());
+        assertFalse(ToolkitConfig.builder().clientMasterVolume(-0.2F).build().isClientMasterVolumeEnabled(),
+                "any negative value leaves it alone");
+        assertEquals(0.0F, ToolkitConfig.builder().clientMasterVolume(Float.NaN).build().getClientMasterVolume(),
+                "NaN is not passed on to the options file");
+        assertEquals(0.0F, ToolkitConfig.builder().clientMusicVolume(Float.NaN).build().getClientMusicVolume());
+    }
 }

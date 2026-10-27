@@ -23,8 +23,8 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
  *
  * <p><b>Off by default.</b> These are the operator's own application settings, not game state,
  * and a diagnostic tool rewriting them unasked would be a surprising thing for a mod to do.
- * Sound volume generally is deliberately not touched: brightness and music serve a test
- * environment, but overall volume is a preference.
+ * Master volume changes only when a level is configured: brightness and music serve a test
+ * environment, but overall volume is a preference, so its default leaves it alone.
  *
  * <p>Applied once per world join rather than once per launch, because a test session usually
  * means entering a fresh world and the settings should hold for it.
@@ -57,20 +57,31 @@ public class ClientProxy extends CommonProxy {
         GameSettings settings = mc.gameSettings;
         float previousGamma = settings.gammaSetting;
         float previousMusic = settings.getSoundLevel(SoundCategory.MUSIC);
+        float previousMaster = settings.getSoundLevel(SoundCategory.MASTER);
+        boolean setMaster = config.isClientMasterVolumeEnabled();
 
         settings.gammaSetting = config.getClientBrightness();
         settings.setSoundLevel(SoundCategory.MUSIC, config.getClientMusicVolume());
+        if (setMaster) {
+            settings.setSoundLevel(SoundCategory.MASTER, config.getClientMasterVolume());
+        }
         settings.saveOptions();
 
         // An operator whose brightness changed must be able to find out why from the log rather
         // than by guessing. Both the old and new values are recorded so the change can be
         // undone by hand.
-        ToolkitLog.write(LogRecord.of(EventType.ENVIRONMENT)
+        LogRecord record = LogRecord.of(EventType.ENVIRONMENT)
                 .add("side", "CLIENT")
                 .add("clientDefaultsApplied", true)
                 .addDecimal("brightnessWas", previousGamma)
                 .addDecimal("brightnessNow", settings.gammaSetting)
                 .addDecimal("musicWas", previousMusic)
-                .addDecimal("musicNow", config.getClientMusicVolume()));
+                .addDecimal("musicNow", config.getClientMusicVolume());
+        if (setMaster) {
+            // Only when changed, so an absent field always means "left as it was".
+            record.addDecimal("masterWas", previousMaster)
+                    .addDecimal("masterNow", settings.getSoundLevel(SoundCategory.MASTER));
+        }
+        ToolkitLog.write(record);
     }
 }

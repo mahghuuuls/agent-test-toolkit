@@ -217,9 +217,13 @@ class InboxPollerTest {
         InboxGate.open(true, OWNER, "Dev", CONTEXT);
         InboxPoller.refuseLeftovers(new InboxFiles(dir), CONTEXT);
         write(dir, "a1.req", "run first");
+        write(dir, "b1.req", "bogus");
         Recorder handler = new Recorder();
         InboxPoller.pollOnce(new InboxFiles(dir), handler, null, CONTEXT, true);
+        String earlierAnswer = new String(java.nio.file.Files.readAllBytes(
+                new File(dir, "b1.result.json").toPath()), "UTF-8");
         write(dir, "a1.req", "run again");
+        write(dir, "b1.req", "mark reused");
 
         InboxPoller.pollOnce(new InboxFiles(dir), handler, null, CONTEXT, true);
         InboxPoller.pollOnce(new InboxFiles(dir), handler, null, CONTEXT, true);
@@ -228,9 +232,16 @@ class InboxPollerTest {
         for (String record : records("refused")) {
             if (record.contains("reason=duplicateId")) {
                 duplicates++;
+                assertTrue(record.contains("id=a1 request=\"run again\"")
+                        || record.contains("id=b1 request=\"mark reused\""), record);
             }
         }
-        assertEquals(1, duplicates);
+        assertEquals(2, duplicates);
+        assertTrue(new File(dir, "a1.req").exists(), "the reused request is left waiting, not claimed");
+        assertEquals("run first", new String(java.nio.file.Files.readAllBytes(
+                new File(dir, "a1.claimed").toPath()), "UTF-8"), "the earlier claim is untouched");
+        assertEquals(earlierAnswer, new String(java.nio.file.Files.readAllBytes(
+                new File(dir, "b1.result.json").toPath()), "UTF-8"), "the earlier answer is not overwritten");
     }
 
     @Test

@@ -113,6 +113,18 @@ public final class InboxFiles {
         return new File(directory, id + CLAIMED_SUFFIX).exists();
     }
 
+    /**
+     * Reads a waiting request without claiming it, for the record of a request that cannot be
+     * claimed. Null when it cannot be read or is over the cap.
+     */
+    public String peek(String id) {
+        try {
+            return readBounded(new File(directory, id + REQUEST_SUFFIX));
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     /** Reads at most one byte past the cap, so a file that grows while read is still bounded. */
     private static String readBounded(File file) throws IOException {
         java.io.InputStream in = new java.io.FileInputStream(file);

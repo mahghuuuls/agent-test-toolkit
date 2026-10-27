@@ -120,7 +120,7 @@ public final class InboxPoller {
             InboxFiles.Claim claim = files.claim(id);
             if (claim == null) {
                 if (files.isAlreadyClaimed(id)) {
-                    reportDuplicate(context, id);
+                    reportDuplicate(context, id, files);
                 }
                 continue;
             }
@@ -155,8 +155,13 @@ public final class InboxPoller {
         return claimed;
     }
 
-    /** Says once per opening that a request id is already taken and will not run. */
-    private static void reportDuplicate(RecordContext.Snapshot context, String id) {
+    /**
+     * Says once per opening that a request id is already taken and will not run.
+     *
+     * <p>A reused id is answered by this record only, never by a result file: writing one would
+     * overwrite the earlier request's answer. The request text is read without claiming it.
+     */
+    private static void reportDuplicate(RecordContext.Snapshot context, String id, InboxFiles files) {
         synchronized (reportedDuplicates) {
             if (!reportedDuplicates.add(id)) {
                 return;
@@ -166,6 +171,9 @@ public final class InboxPoller {
         SessionStamp.apply(record);
         record.add("action", "refused");
         record.add("id", id);
+        // Read after the once-only check, so a duplicate left in the folder is read once.
+        String content = files.peek(id);
+        record.add("request", content == null ? null : InboxRequest.parse(id, content).getLine());
         InboxOpening opening = InboxGate.current();
         record.add("operator", opening == null ? null : opening.getOperatorName());
         record.add("reason", "duplicateId");

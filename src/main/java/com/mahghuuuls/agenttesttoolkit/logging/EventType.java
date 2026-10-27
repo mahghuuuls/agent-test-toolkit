@@ -100,6 +100,21 @@ public enum EventType {
      */
     INBOX,
 
+    /** {@code devtool save}: player data and every loaded world saved, with {@code worlds} and {@code durationMs}. */
+    SAVE,
+
+    /**
+     * The overworld of a server loaded: {@code folder}, {@code seed}, and {@code sameAsSession} when
+     * a session was active. Written before any other toolkit record of that world.
+     */
+    WORLD,
+
+    /** {@code inspect attributes}: one attribute with {@code name}, {@code base}, {@code value} and {@code modifiers}. */
+    ATTRIBUTE,
+
+    /** {@code inspect attributes}: one modifier of an attribute, with {@code uuid}, {@code name}, {@code operation} and {@code amount}. */
+    ATTRIBUTE_MODIFIER,
+
     ARENA_CREATE,
     ARENA_RESET,
     ARENA_CLEAR,

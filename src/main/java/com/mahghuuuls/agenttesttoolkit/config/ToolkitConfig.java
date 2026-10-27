@@ -45,6 +45,7 @@ public final class ToolkitConfig {
     private final boolean clientDefaultsEnabled;
     private final float clientBrightness;
     private final float clientMusicVolume;
+    private final float clientMasterVolume;
     private final boolean inboxEnabled;
 
     /**
@@ -74,6 +75,7 @@ public final class ToolkitConfig {
         private boolean clientDefaults;
         private float brightness = 1.0F;
         private float musicVolume;
+        private float masterVolume = LEAVE_MASTER_VOLUME;
         private boolean inbox;
 
         public Builder arenaSize(int w, int h, int l) {
@@ -128,6 +130,12 @@ public final class ToolkitConfig {
             return this;
         }
 
+        /** Master volume, 0 to 1, or any negative value to leave it alone. */
+        public Builder clientMasterVolume(float value) {
+            this.masterVolume = value;
+            return this;
+        }
+
         public Builder spawnIncludingItems(boolean value) {
             this.spawnItems = value;
             return this;
@@ -147,7 +155,7 @@ public final class ToolkitConfig {
         public ToolkitConfig build() {
             return new ToolkitConfig(width, height, length, block, ceiling, maxDimension,
                     nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle,
-                    clientDefaults, brightness, musicVolume, inbox);
+                    clientDefaults, brightness, musicVolume, masterVolume, inbox);
         }
     }
 
@@ -169,12 +177,16 @@ public final class ToolkitConfig {
                   boolean clientDefaultsEnabled,
                   float clientBrightness,
                   float clientMusicVolume,
+                  float clientMasterVolume,
                   boolean inboxEnabled) {
         this.inboxEnabled = inboxEnabled;
         this.clientDefaultsEnabled = clientDefaultsEnabled;
         // Clamped rather than rejected: a bad value must not stop the toolkit loading.
         this.clientBrightness = clamp01(clientBrightness);
         this.clientMusicVolume = clamp01(clientMusicVolume);
+        // Negative means "leave it alone"; anything else is a level. Overall volume is a
+        // preference, so turning applyOnJoin on does not change it unless a level is given.
+        this.clientMasterVolume = clientMasterVolume < 0 ? LEAVE_MASTER_VOLUME : clamp01(clientMasterVolume);
         this.joinBundleName = joinBundleName == null ? "" : joinBundleName.trim();
         this.arenaSetsRespawn = arenaSetsRespawn;
         this.spawnIncludingItems = spawnIncludingItems;
@@ -285,7 +297,8 @@ public final class ToolkitConfig {
     }
 
     static float clamp01(float v) {
-        if (v < 0.0F) {
+        // Not (v >= 0) also catches NaN, which every comparison fails and Forge parses.
+        if (!(v >= 0.0F)) {
             return 0.0F;
         }
         return v > 1.0F ? 1.0F : v;
@@ -309,6 +322,19 @@ public final class ToolkitConfig {
     /** Music volume, 0 to 1. Zero is silent. */
     public float getClientMusicVolume() {
         return clientMusicVolume;
+    }
+
+    /** The configured value that means "leave master volume as it is". The default. */
+    public static final float LEAVE_MASTER_VOLUME = -1.0F;
+
+    /** Whether joining sets master volume, when the client defaults apply at all. */
+    public boolean isClientMasterVolumeEnabled() {
+        return clientMasterVolume >= 0;
+    }
+
+    /** Master volume, 0 to 1, or {@link #LEAVE_MASTER_VOLUME}. */
+    public float getClientMasterVolume() {
+        return clientMasterVolume;
     }
 
     /**

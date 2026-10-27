@@ -24,7 +24,18 @@ import java.util.UUID;
  */
 public final class SessionManager {
 
+    /**
+     * Run after every stop, whatever caused it. Session-owned state kept in packages this one
+     * may not depend on, such as operator checkpoints in {@code wait}, is forgotten through it.
+     */
+    private static volatile Runnable stopHook;
+
     private SessionManager() {
+    }
+
+    /** Installed once at mod initialisation; null removes it. */
+    public static void setStopHook(Runnable hook) {
+        stopHook = hook;
     }
 
     /**
@@ -38,7 +49,8 @@ public final class SessionManager {
             replaced = ToolkitState.getActiveSession().getName();
             stop(context);
         }
-        DiagnosticSession session = new DiagnosticSession(name);
+        // The session belongs to the world it starts in (ARC-019).
+        DiagnosticSession session = new DiagnosticSession(name, ToolkitState.getCurrentWorldKey());
         ToolkitState.setActiveSession(session);
         ToolkitLog.write(RecordContext.stamp(LogRecord.of(EventType.SESSION_START), context)
                 .add("session", name));
@@ -51,6 +63,14 @@ public final class SessionManager {
      * @return the stopped session's name, or null when none was active
      */
     public static String stop(RecordContext.Snapshot context) {
+        return stop(context, null);
+    }
+
+    /**
+     * As {@link #stop(RecordContext.Snapshot)}, with a {@code reason} on the stop record, such
+     * as {@code worldChanged}; null omits it.
+     */
+    public static String stop(RecordContext.Snapshot context, String reason) {
         DiagnosticSession session = ToolkitState.getActiveSession();
         if (session == null) {
             return null;
@@ -61,8 +81,13 @@ public final class SessionManager {
         ToolkitState.clearFixtures();
         ToolkitLog.write(RecordContext.stamp(LogRecord.of(EventType.SESSION_STOP), context)
                 .add("session", session.getName())
-                .add("sessionTick", session.getTick()));
+                .add("sessionTick", session.getTick())
+                .add("reason", reason));
         ToolkitState.setActiveSession(null);
+        Runnable hook = stopHook;
+        if (hook != null) {
+            hook.run();
+        }
         return session.getName();
     }
 

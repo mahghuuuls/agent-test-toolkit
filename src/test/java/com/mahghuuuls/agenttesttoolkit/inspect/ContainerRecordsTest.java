@@ -4,12 +4,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.storage.loot.ILootContainer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -112,5 +115,36 @@ class ContainerRecordsTest {
             assertTrue(rendered.contains("reportedSlots=" + Inventories.MAX_CONTAINER_SLOTS),
                     rendered);
         }
+    }
+
+    private static ILootContainer lootContainer(final String table) {
+        return new ILootContainer() {
+            @Override
+            public ResourceLocation getLootTable() {
+                return table == null ? null : new ResourceLocation(table);
+            }
+        };
+    }
+
+    @Test
+    @DisplayName("a pending loot table is found, and nothing else counts as one")
+    void pendingLootTable() {
+        assertEquals("minecraft:chests/simple_dungeon",
+                Inventories.pendingLootTable(lootContainer("minecraft:chests/simple_dungeon")));
+        assertNull(Inventories.pendingLootTable(lootContainer(null)), "already rolled");
+        assertNull(Inventories.pendingLootTable("not a container"));
+        assertNull(Inventories.pendingLootTable(null));
+    }
+
+    @Test
+    @DisplayName("an unrolled container says so, and never reads as empty")
+    void unrolledLootIsNotEmpty() {
+        String rendered = Inventories.unrolledLoot(BLOCK, POS, "minecraft:chests/simple_dungeon").render();
+
+        assertTrue(rendered.contains("[INVENTORY_INSPECT]"), rendered);
+        assertTrue(rendered.contains("block=minecraft:chest"), rendered);
+        assertTrue(rendered.contains("lootRolled=false"), rendered);
+        assertTrue(rendered.contains("lootTable=minecraft:chests/simple_dungeon"), rendered);
+        assertFalse(rendered.contains("occupiedSlots"), "not rolled is not empty: " + rendered);
     }
 }

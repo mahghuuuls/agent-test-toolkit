@@ -22,6 +22,8 @@ public final class Assertions {
     public static final String KEY_FAILED = "devtool.assert.failed";
     /** Failure key for a comparison that could not be made because the region is not loaded. */
     public static final String KEY_UNLOADED = "devtool.assert.unloaded";
+    /** Failure key for a modifier name that matches several modifiers. Never resolved by picking one. */
+    public static final String KEY_AMBIGUOUS = "devtool.assert.ambiguous";
 
     public enum Outcome {
         PASS, FAIL, UNLOADED;
@@ -37,12 +39,18 @@ public final class Assertions {
         private final String expected;
         private final String observed;
         private final String note;
+        private final boolean ambiguous;
 
         Result(Outcome outcome, String expected, String observed, String note) {
+            this(outcome, expected, observed, note, false);
+        }
+
+        Result(Outcome outcome, String expected, String observed, String note, boolean ambiguous) {
             this.outcome = outcome;
             this.expected = expected;
             this.observed = observed;
             this.note = note;
+            this.ambiguous = ambiguous;
         }
 
         public Outcome getOutcome() {
@@ -70,7 +78,7 @@ public final class Assertions {
         public String failureKey() {
             switch (outcome) {
                 case FAIL:
-                    return KEY_FAILED;
+                    return ambiguous ? KEY_AMBIGUOUS : KEY_FAILED;
                 case UNLOADED:
                     return KEY_UNLOADED;
                 default:
@@ -125,6 +133,58 @@ public final class Assertions {
         boolean inside = distance <= radius;
         return new Result(inside ? Outcome.PASS : Outcome.FAIL,
                 "within " + format(radius), format(distance), null);
+    }
+
+    /**
+     * An attribute's final value. Equal when the two agree to the two decimals the records
+     * show, so a value read from the log always matches the verdict.
+     *
+     * @param observed null when the entity has no attribute by that name
+     */
+    public static Result attributeValue(double expected, Double observed) {
+        if (observed == null) {
+            return new Result(Outcome.FAIL, format(expected), "absent", "no such attribute");
+        }
+        boolean same = format(expected).equals(format(observed));
+        return new Result(same ? Outcome.PASS : Outcome.FAIL, format(expected), format(observed), null);
+    }
+
+    /**
+     * One modifier, named by UUID or by name, optionally with its amount.
+     *
+     * <p>A UUID names at most one modifier. A name may name several: vanilla gives all four
+     * armor pieces the name {@code Armor modifier}. Several matches fail as ambiguous with
+     * {@link #KEY_AMBIGUOUS}; choosing one would make the verdict depend on iteration order.
+     *
+     * @param modifiers null when the entity has no attribute by that name
+     * @param amount    null to check presence only
+     */
+    public static Result modifier(String reference, Double amount, java.util.List<Attributes.Modifier> modifiers) {
+        String expected = amount == null ? "present" : "amount " + format(amount);
+        if (modifiers == null) {
+            return new Result(Outcome.FAIL, expected, "absent", "no such attribute");
+        }
+        boolean byUuid = Attributes.looksLikeUuid(reference);
+        java.util.List<Attributes.Modifier> matches = new java.util.ArrayList<Attributes.Modifier>();
+        for (Attributes.Modifier modifier : modifiers) {
+            if (byUuid ? modifier.getUuid().equalsIgnoreCase(reference) : reference.equals(modifier.getName())) {
+                matches.add(modifier);
+            }
+        }
+        if (matches.isEmpty()) {
+            return new Result(Outcome.FAIL, expected, "absent", null);
+        }
+        if (matches.size() > 1) {
+            return new Result(Outcome.FAIL, expected, matches.size() + " matches",
+                    "name matches several modifiers; assert by UUID", true);
+        }
+        Attributes.Modifier match = matches.get(0);
+        String observed = "amount " + format(match.getAmount());
+        if (amount == null) {
+            return new Result(Outcome.PASS, expected, observed, null);
+        }
+        boolean same = format(amount).equals(format(match.getAmount()));
+        return new Result(same ? Outcome.PASS : Outcome.FAIL, expected, observed, null);
     }
 
     private static String format(double value) {

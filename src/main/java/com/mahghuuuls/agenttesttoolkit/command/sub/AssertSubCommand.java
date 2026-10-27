@@ -3,6 +3,8 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inspect.Assertions;
+import com.mahghuuuls.agenttesttoolkit.inspect.Attributes;
+import com.mahghuuuls.agenttesttoolkit.inspect.EntityTarget;
 import com.mahghuuuls.agenttesttoolkit.inspect.RadiusFilter;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
@@ -16,6 +18,7 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
@@ -47,11 +50,17 @@ import java.util.UUID;
  * assert entity &lt;uuid&gt; within &lt;r&gt; of &lt;x&gt; &lt;y&gt; &lt;z&gt;
  * assert player &lt;name&gt; dimension &lt;d&gt;
  * assert player &lt;name&gt; gamemode &lt;mode&gt;
+ * assert attribute &lt;target&gt; &lt;attribute&gt; value &lt;n&gt;
+ * assert attribute &lt;target&gt; &lt;attribute&gt; modifier &lt;uuid|name&gt; [amount &lt;n&gt;]
  * </pre>
+ *
+ * <p>An attribute target that matches nothing, several entities, or a non-living one fails
+ * before any comparison, with the resolver's own error, and writes no {@code ASSERT} record;
+ * there is no observation to compare.
  */
 public final class AssertSubCommand implements SubCommand {
 
-    private static final List<String> SUBJECTS = Arrays.asList("entities", "entity", "player");
+    private static final List<String> SUBJECTS = Arrays.asList("entities", "entity", "player", "attribute");
     private static final double MAX_RADIUS = 256.0D;
 
     @Override
@@ -68,7 +77,8 @@ public final class AssertSubCommand implements SubCommand {
     public String getUsage() {
         return "assert <entities count <n> within <r> [type <id>] [name <name>]"
                 + " | entity <uuid> <present|absent [at <x> <y> <z>] | dimension <d> | within <r> of <x> <y> <z>>"
-                + " | player <name> <dimension <d> | gamemode <mode>>>";
+                + " | player <name> <dimension <d> | gamemode <mode>>"
+                + " | attribute <target> <attribute> <value <n> | modifier <uuid|name> [amount <n>]>>";
     }
 
     @Override
@@ -93,6 +103,8 @@ public final class AssertSubCommand implements SubCommand {
             result = entity(server, sender, args, record);
         } else if ("player".equals(subject)) {
             result = player(server, args, record);
+        } else if ("attribute".equals(subject)) {
+            result = attribute(server, sender, args, record);
         } else {
             throw new WrongUsageException("/devtool " + getUsage());
         }
@@ -248,6 +260,85 @@ public final class AssertSubCommand implements SubCommand {
         }
 
         throw new WrongUsageException("/devtool assert entity <uuid> <present|absent|dimension|within> ...");
+    }
+
+    /**
+     * {@code attribute <target> <attribute> value <n>} and
+     * {@code attribute <target> <attribute> modifier <uuid|name> [amount <n>]}. A name may hold
+     * spaces, as vanilla's {@code Armor modifier} does: every word up to {@code amount} is the name.
+     */
+    private Assertions.Result attribute(MinecraftServer server, ICommandSender sender, String[] args,
+                                        LogRecord record) throws CommandException {
+        String usage = "/devtool assert attribute <target> <attribute> <value <n> | modifier <uuid|name> [amount <n>]>";
+        if (args.length < 5) {
+            throw new WrongUsageException(usage);
+        }
+        Entity entity = EntityTarget.requireExactlyOne(server, sender, args[1]);
+        if (!(entity instanceof EntityLivingBase)) {
+            ToolkitLog.error("Target has no attributes", args[1] + " is " + EntityList.getKey(entity));
+            throw new CommandException("[DevToolkit] " + args[1] + " is not a living entity, so it has no attributes.");
+        }
+        record.add("targetUuid", entity.getUniqueID().toString());
+        Attributes.Attribute observed = Attributes.read((EntityLivingBase) entity, args[2]);
+        // The registry name as Minecraft knows it; lookup ignores case, so the typed text may differ.
+        record.add("attribute", observed == null ? args[2] : observed.getName());
+        String form = args[3].toLowerCase(Locale.ROOT);
+        if ("value".equals(form)) {
+            if (args.length != 5) {
+                throw new WrongUsageException(usage);
+            }
+            record.add("predicate", "attribute.value");
+            return Assertions.attributeValue(CommandBase.parseDouble(args[4]),
+                    observed == null ? null : observed.getValue());
+        }
+        if ("modifier".equals(form)) {
+            ModifierArgs parsed = parseModifier(args, 4, usage);
+            record.add("predicate", "attribute.modifier");
+            record.add("modifier", parsed.reference);
+            return Assertions.modifier(parsed.reference, parsed.amount,
+                    observed == null ? null : observed.getModifiers());
+        }
+        throw new WrongUsageException(usage);
+    }
+
+    /** A modifier reference and the optional amount after it. */
+    static final class ModifierArgs {
+        final String reference;
+        final Double amount;
+
+        ModifierArgs(String reference, Double amount) {
+            this.reference = reference;
+            this.amount = amount;
+        }
+    }
+
+    /**
+     * Reads {@code <uuid|name> [amount <n>]} from {@code args[from]} on. The name may hold spaces;
+     * a trailing {@code amount <n>} (any case) is the amount, and a trailing {@code amount} with no
+     * number is a usage error rather than part of the name.
+     */
+    static ModifierArgs parseModifier(String[] args, int from, String usage) throws CommandException {
+        int end = args.length;
+        if (end > from && "amount".equalsIgnoreCase(args[end - 1])) {
+            throw new WrongUsageException(usage);
+        }
+        if (end - from == 2 && "amount".equalsIgnoreCase(args[from])) {
+            // An amount with no reference before it.
+            throw new WrongUsageException(usage);
+        }
+        Double amount = null;
+        if (end - from >= 3 && "amount".equalsIgnoreCase(args[end - 2])) {
+            amount = CommandBase.parseDouble(args[end - 1]);
+            end -= 2;
+        }
+        if (end <= from) {
+            throw new WrongUsageException(usage);
+        }
+        StringBuilder reference = new StringBuilder(args[from]);
+        for (int i = from + 1; i < end; i++) {
+            reference.append(' ').append(args[i]);
+        }
+        return new ModifierArgs(reference.toString(), amount);
     }
 
     /** {@code player <name> dimension <d>} and {@code player <name> gamemode <mode>}. */

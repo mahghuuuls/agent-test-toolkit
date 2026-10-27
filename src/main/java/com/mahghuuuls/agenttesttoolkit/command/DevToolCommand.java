@@ -17,6 +17,7 @@ import com.mahghuuuls.agenttesttoolkit.command.sub.LogSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.MarkSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.InboxSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.ReloadSubCommand;
+import com.mahghuuuls.agenttesttoolkit.command.sub.SaveSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.RunSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.ScenarioSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.SessionSubCommand;
@@ -82,6 +83,7 @@ public final class DevToolCommand extends CommandBase {
         register(new FixtureSubCommand());
         register(new ScenarioSubCommand());
         register(new ReloadSubCommand());
+        register(new SaveSubCommand());
         register(new InboxSubCommand());
         register(new NbtSubCommand());
         register(new ArenaSubCommand());

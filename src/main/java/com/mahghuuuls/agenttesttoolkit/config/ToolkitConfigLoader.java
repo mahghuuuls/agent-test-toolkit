@@ -142,7 +142,7 @@ public final class ToolkitConfigLoader {
 
             boolean clientDefaults = cfg.getBoolean("applyOnJoin", CATEGORY_CLIENT,
                     d.isClientDefaultsEnabled(),
-                    "Whether the client sets brightness and music volume when joining a world. "
+                    "Whether the client sets brightness, music volume, and master volume when given, when joining a world. "
                             + "Off by default: these are your own application settings, not game "
                             + "state, and a diagnostic tool should not rewrite them unasked. "
                             + "Ignored on a dedicated server.");
@@ -154,6 +154,12 @@ public final class ToolkitConfigLoader {
             float musicVolume = (float) cfg.get(CATEGORY_CLIENT, "musicVolume",
                     d.getClientMusicVolume(),
                     "Music volume applied when applyOnJoin is enabled. 0 to 1.").getDouble();
+
+            float masterVolume = (float) cfg.get(CATEGORY_CLIENT, "masterVolume",
+                    d.getClientMasterVolume(),
+                    "Master volume applied when applyOnJoin is enabled, 0 to 1. -1, the default, "
+                            + "leaves it as it is: overall volume is a personal preference, not a "
+                            + "test setting.").getDouble();
 
             String joinBundle = cfg.getString("bundle", CATEGORY_JOIN, d.getJoinBundleName(),
                     "Bundle to run when an operator joins. Empty by default: a join hook that "
@@ -199,6 +205,7 @@ public final class ToolkitConfigLoader {
                     .clientDefaultsEnabled(clientDefaults)
                     .clientBrightness(brightness)
                     .clientMusicVolume(musicVolume)
+                    .clientMasterVolume(masterVolume)
                     .inboxEnabled(inbox)
                     .build();
 
