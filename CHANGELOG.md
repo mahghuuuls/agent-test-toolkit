@@ -1,5 +1,55 @@
 # Changelog
 
+## 1.3.0
+
+Most items in this release came from AI assistants that used 1.2.0 to test other mods, and from the developer's own test sessions. The theme is letting an assistant run a test session itself, from start to finish, while the person at the keyboard only opens the door.
+
+### Added
+
+- **A command inbox.** `devtool inbox open`, typed by a person once each time a world opens, lets an assistant write small request files into `config/devtool/inbox/` and read one result file per request: `run <bundle>`, `reload`, `save`, `mark`, the read-only `inspect`, `entities` and `nbt` commands, and `screenshot`. Requests run as the player who opened it, with that player's permissions. Nothing else is accepted, and no vanilla command. Off by default: the configuration key `inbox.enabled` must be true as well, and a bundle can never open it. It closes when that player leaves or the server stops, and `status.json` is present exactly while it is open. Every claim, refusal and result writes an `INBOX` record.
+
+- **Who started a run.** `BUNDLE_START` now says who started the run and through which channel: chat, console, command block, join, inbox, or another bundle.
+
+- **`devtool save`.** Saves player data and every loaded world, in single player and on a dedicated server, and leaves a `save-off` typed earlier in place. Writes `SAVE` with the dimensions saved. A failure fails with `devtool.save.failed`.
+
+- **Screenshots on request.** `devtool screenshot <label> [delayTicks] [player]` asks a player's client to save a labelled screenshot after a delay, named after the label and the tick it was asked for. The client needs the toolkit installed; a player without it fails with `devtool.screenshot.noClient`, and can still join.
+
+- **Attributes.** `devtool inspect attributes` lists a living entity's attributes with every modifier. `devtool assert attribute <target> <attribute> value <n>` checks the final value, and `... modifier <uuid|name> [amount <n>]` one modifier. A name matching several modifiers fails with `devtool.assert.ambiguous`.
+
+- **Optional Baubles support.** With Baubles installed, `inspect inventory` includes the bauble slots with their slot type, and `devtool baubles set` and `clear` fill and empty them through Baubles' own handler, calling the bauble's equip and unequip hooks. Without Baubles, `devtool baubles` fails with `devtool.baubles.absent` and nothing else changes. Baubles is never required.
+
+- **A session belongs to one world.** Every world start writes a `WORLD` record with the save folder and seed. Opening a different save ends the active session first, with `SESSION_STOP reason=worldChanged`.
+
+- **Reload at every world start.** Bundles and configuration are read again whenever a world starts, writing `RELOAD trigger=serverStart`, so a file edited at the title screen is used without typing `devtool reload`. `devtool reload` now writes `RELOAD trigger=command` too.
+
+- **Quieter, steadier test clients.** The opt-in client defaults can now also set master, weather, hostile, friendly and ambient volume, each left alone unless given a value, and `client.noPauseOnLostFocus` keeps the game running when its window loses focus. All only when `client.applyOnJoin` is on.
+
+- **Nine new record types**, for 44 in total: `TOLERATED`, `RELOAD`, `INBOX`, `SAVE`, `WORLD`, `ATTRIBUTE`, `ATTRIBUTE_MODIFIER`, `SCREENSHOT`, `BAUBLES`.
+
+### Changed
+
+- **Inspection never loads a chunk.** `inspect block`, `inspect container` and `nbt block` refuse a position whose chunk is not loaded, with `devtool.inspect.notLoaded`, instead of making the game load or generate it.
+
+- **Inspecting a container never rolls its loot.** A chest whose loot table has not rolled yet is reported as `lootRolled=false` with the table name, and stays unrolled.
+
+- **An unknown subcommand names the closest real one** in the chat reply: `devtool logging` answers "Did you mean log?".
+
+### Fixed
+
+- **A tolerated failure now leaves a record.** 1.1.0 promised that a tolerated step would carry a note saying so; that note was never written. Each tolerated step now writes a `TOLERATED` record naming the key, and `BUNDLE_END` counts them as `tolerated`.
+
+### Documentation
+
+- `AGENTS.md` gains a worked example of a whole test run through the inbox, the full inbox reference, and every new command, record and failure key. A build check now fails if a record type or a `devtool.` failure key is missing from it.
+- Every subcommand needs permission level 2, typed or inside a bundle.
+- Arena commands roll and drop the loot of a loot chest they replace.
+- On a dedicated server the bundle load records appear twice at start, once for the load and once for the start-up reload.
+
+### Notes
+
+- Bundles written for 1.2.0 work unchanged, except one that inspects a position whose chunk is not loaded: it now fails with `devtool.inspect.notLoaded` instead of loading the chunk. No command was removed.
+- The client defaults and screenshots are the only parts that act on a client. Everything else still needs the toolkit on the server only.
+
 ## 1.2.0
 
 Every item in this release came from one report written by an AI assistant that used 1.1.0 to test another mod. Ten items, ten answers.
