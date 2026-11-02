@@ -1,0 +1,30 @@
+{
+  "v40_one_hit_kill": {
+    "description": "REQ-212. A pig killed by one hit (instant damage; a zombie would be healed by it): its ENTITY_DAMAGE must come before its ENTITY_DEATH in the log, in the same tick. In 1.3.0 the death came first.",
+    "commands": [
+      "devtool log all off",
+      "kill @e[name=v40z]",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v40z\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool log entity_damage on",
+      "devtool log entity_death on",
+      "devtool mark V40_KILL_BEGIN",
+      { "command": "effect @e[name=v40z] minecraft:instant_damage 1 5", "delayTicks": 5 },
+      { "command": "devtool mark V40_KILL_END", "delayTicks": 5 },
+      "devtool log all off"
+    ]
+  },
+  "v40_hit_then_log_off": {
+    "description": "REQ-212. A hit and `devtool log all off` in the same tick: the ENTITY_DAMAGE must come before the LOG_CONFIG. An instant effect hurts at the target's next update, one tick after `/effect`, so the log-off waits one tick to land in the tick of the hit. The pig survives the hit and is killed afterwards with logging off.",
+    "commands": [
+      "devtool log all off",
+      "kill @e[name=v40p]",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v40p\",NoAI:1b,PersistenceRequired:1b,Health:10.0f}",
+      "devtool log entity_damage on",
+      "devtool mark V40_HIT_BEGIN",
+      { "command": "effect @e[name=v40p] minecraft:instant_damage 1 0", "delayTicks": 5 },
+      { "command": "devtool log all off", "delayTicks": 1 },
+      { "command": "devtool mark V40_HIT_END", "delayTicks": 5 },
+      "kill @e[name=v40p]"
+    ]
+  }
+}

@@ -3,6 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.observe.damage;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.LoggingCategory;
+import com.mahghuuuls.agenttesttoolkit.logging.PendingRecords;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.observe.ObserverGate;
@@ -50,7 +51,7 @@ import java.util.List;
  * {@code stoppedAt=HURT}, which is exactly right. Opting in there would flip the outcome to
  * applied for damage that never touched health.
  */
-public final class DamageObserver {
+public final class DamageObserver implements PendingRecords.Flusher {
 
     private final DamageCorrelationBuffer<Entity> buffer = new DamageCorrelationBuffer<Entity>();
 
@@ -105,6 +106,35 @@ public final class DamageObserver {
         }
         List<DamageCorrelationBuffer.Entry<Entity>> drained = buffer.drain();
         for (DamageCorrelationBuffer.Entry<Entity> entry : drained) {
+            emit(entry.getTarget(), entry.getCorrelation());
+        }
+    }
+
+    /**
+     * Writes one target's finished hits now, before its death record (ARC-025). Every stage of
+     * a normal hit fires before the death it causes, so nothing is split.
+     */
+    @Override
+    public void flushFinished(Object target) {
+        if (!(target instanceof Entity) || buffer.isEmpty()) {
+            return;
+        }
+        for (DamageCorrelationBuffer.Entry<Entity> entry : buffer.drainFinished((Entity) target)) {
+            emit(entry.getTarget(), entry.getCorrelation());
+        }
+    }
+
+    /**
+     * Writes everything pending now, before a logging change (ARC-025). Commands never run
+     * inside a damage call, so every pending hit has gone as far as it will go; after a disable
+     * the stage handlers are gated off and an open entry could never complete anyway.
+     */
+    @Override
+    public void flushAll() {
+        if (buffer.isEmpty()) {
+            return;
+        }
+        for (DamageCorrelationBuffer.Entry<Entity> entry : buffer.drain()) {
             emit(entry.getTarget(), entry.getCorrelation());
         }
     }

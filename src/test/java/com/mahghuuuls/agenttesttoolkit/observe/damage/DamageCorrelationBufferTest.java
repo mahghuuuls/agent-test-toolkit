@@ -249,4 +249,58 @@ class DamageCorrelationBufferTest {
         assertTrue(buffer.drain().isEmpty());
         assertEquals(0, buffer.discardPending());
     }
+
+    // --- Early writing at a death (REQ-212) -------------------------------------------
+
+    @Test
+    @DisplayName("at a death, only that target's finished hits are taken, in order")
+    void drainFinishedTakesOnlyThatTargetsFinishedHits() {
+        attack(ZOMBIE, 4.0, 20.0);
+        buffer.onHurt(ZOMBIE, 4.0);
+        buffer.onDamage(ZOMBIE, 4.0);
+        attack(SKELETON, 3.0, 20.0);
+        buffer.onHurt(SKELETON, 3.0);
+        buffer.onDamage(SKELETON, 3.0);
+        attack(ZOMBIE, 30.0, 16.0);
+        buffer.onHurt(ZOMBIE, 30.0);
+        buffer.onDamage(ZOMBIE, 30.0);
+
+        List<DamageCorrelationBuffer.Entry<String>> taken = buffer.drainFinished(ZOMBIE);
+        assertEquals(2, taken.size());
+        assertEquals(4.0, taken.get(0).getCorrelation().getAmountRaw());
+        assertEquals(30.0, taken.get(1).getCorrelation().getAmountRaw());
+        assertEquals(1, buffer.size());
+        assertSame(SKELETON, buffer.drain().get(0).getTarget());
+    }
+
+    @Test
+    @DisplayName("a kill from inside an outer hit does not split that hit")
+    void nestedKillLeavesTheOpenHitWhole() {
+        // Another mod's handler kills the zombie with a nested attack while the outer hit is
+        // still between its attack and hurt stages. The death fires inside the outer hit.
+        DamageCorrelation outer = attack(ZOMBIE, 5.0, 20.0);
+        DamageCorrelation inner = attack(ZOMBIE, 100.0, 20.0);
+        buffer.onHurt(ZOMBIE, 100.0);
+        buffer.onDamage(ZOMBIE, 100.0);
+
+        List<DamageCorrelationBuffer.Entry<String>> atDeath = buffer.drainFinished(ZOMBIE);
+        assertEquals(1, atDeath.size());
+        assertSame(inner, atDeath.get(0).getCorrelation());
+
+        // The outer hit then carries on and completes, and is still one whole record.
+        buffer.onHurt(ZOMBIE, 5.0);
+        buffer.onDamage(ZOMBIE, 5.0);
+        List<DamageCorrelationBuffer.Entry<String>> atTickEnd = buffer.drain();
+        assertEquals(1, atTickEnd.size());
+        assertSame(outer, atTickEnd.get(0).getCorrelation());
+        assertTrue(outer.reachedDamage());
+    }
+
+    @Test
+    @DisplayName("an attack that never reached the damage stage stays for the tick end")
+    void unfinishedAttackWaits() {
+        attack(ZOMBIE, 5.0, 20.0);
+        assertTrue(buffer.drainFinished(ZOMBIE).isEmpty());
+        assertFalse(buffer.isEmpty());
+    }
 }

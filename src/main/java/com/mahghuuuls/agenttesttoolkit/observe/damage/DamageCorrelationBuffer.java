@@ -2,6 +2,7 @@ package com.mahghuuuls.agenttesttoolkit.observe.damage;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -117,6 +118,26 @@ public final class DamageCorrelationBuffer<T> {
         }
         List<Entry<T>> drained = new ArrayList<Entry<T>>(pending);
         pending.clear();
+        return drained;
+    }
+
+    /**
+     * Removes and returns one target's entries that have reached the damage stage, in order.
+     *
+     * <p>Used at that target's death, so its hits are written before its death record. Only
+     * finished entries are taken: another mod can kill the target from inside a handler while an
+     * outer hit is still between stages, and taking that open entry now would write it as
+     * stopped early and lose its later stages. Open entries wait for the tick end as before.
+     */
+    public List<Entry<T>> drainFinished(T target) {
+        List<Entry<T>> drained = new ArrayList<Entry<T>>();
+        for (Iterator<Entry<T>> it = pending.iterator(); it.hasNext(); ) {
+            Entry<T> entry = it.next();
+            if (entry.target == target && entry.correlation.reachedDamage()) {
+                drained.add(entry);
+                it.remove();
+            }
+        }
         return drained;
     }
 

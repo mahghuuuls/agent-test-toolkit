@@ -1,0 +1,35 @@
+{
+  "v39_fixture_clear": {
+    "description": "CYCLE-005 intake D2, REQ-210. A claimed pig is cleared: no ENTITY_DEATH, no dropped item near it, FIXTURE outcome=removed written a tick later, and an absent assertion two ticks after the clear passes. In 1.3.0 the pig died with drops and the assertion found it present.",
+    "result": true,
+    "commands": [
+      "devtool session start v39",
+      "devtool log all off",
+      "kill @e[name=v39pig]",
+      "kill @e[type=item,r=12]",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v39pig\",NoAI:1b,PersistenceRequired:1b,UUIDMost:0L,UUIDLeast:39L}",
+      "devtool fixture claim p @e[name=v39pig]",
+      "devtool log entity_death on",
+      "devtool log entity_spawn on radius 16",
+      "devtool mark V39_CLEAR_BEGIN",
+      "devtool fixture clear p",
+      { "command": "devtool assert entity 00000000-0000-0000-0000-000000000027 absent at ~3 ~1 ~", "delayTicks": 2 },
+      "devtool assert entities count 0 within 12 type minecraft:item",
+      "devtool mark V39_CLEAR_END",
+      "devtool log all off",
+      "devtool session stop"
+    ]
+  },
+  "v39_dead_is_absent": {
+    "description": "REQ-211. A pig killed in this tick is still listed by the world while it dies; an absent assertion in the same tick passes, with dead=true on the ASSERT record. Wait two seconds before running it again: the pig of the last run is still dying under the same UUID and the summon would fail.",
+    "result": true,
+    "commands": [
+      "kill @e[name=v39dead]",
+      "summon minecraft:pig ~-3 ~1 ~ {CustomName:\"v39dead\",NoAI:1b,PersistenceRequired:1b,UUIDMost:0L,UUIDLeast:40L}",
+      "devtool mark V39_DEAD_BEGIN",
+      { "command": "kill @e[name=v39dead]", "delayTicks": 2 },
+      "devtool assert entity 00000000-0000-0000-0000-000000000028 absent at ~-3 ~1 ~",
+      "devtool mark V39_DEAD_END"
+    ]
+  }
+}

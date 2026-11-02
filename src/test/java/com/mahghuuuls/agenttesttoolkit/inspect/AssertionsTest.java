@@ -78,4 +78,15 @@ class AssertionsTest {
         assertEquals(Assertions.Outcome.UNLOADED, unknown.getOutcome());
         assertTrue(unknown.getNote().contains("no position"), unknown.getNote());
     }
+
+    @Test
+    @DisplayName("a dead entity still listed by the world is absent (REQ-211)")
+    void deadIsAbsent() {
+        Assertions.Result absent = Assertions.presence(false, true, true, Boolean.TRUE);
+        assertTrue(absent.passed());
+        assertEquals("absent", absent.getObserved());
+        assertEquals(Assertions.Outcome.FAIL, Assertions.presence(true, true, true, Boolean.TRUE).getOutcome());
+        // Alive is unchanged.
+        assertEquals(Assertions.Outcome.FAIL, Assertions.presence(false, true, false, Boolean.TRUE).getOutcome());
+    }
 }

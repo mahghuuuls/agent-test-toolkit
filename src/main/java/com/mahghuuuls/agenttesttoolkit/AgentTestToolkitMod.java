@@ -89,6 +89,8 @@ public class AgentTestToolkitMod {
         MinecraftForge.EVENT_BUS.register(new DiscreteActionObserver());
         MinecraftForge.EVENT_BUS.register(new EntitySpawnObserver());
         MinecraftForge.EVENT_BUS.register(damageObserver);
+        com.mahghuuuls.agenttesttoolkit.logging.PendingRecords.install(damageObserver);
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.fixture.FixtureRemovals());
         MinecraftForge.EVENT_BUS.register(new JoinAutomation());
         MinecraftForge.EVENT_BUS.register(new OperatorLogoutListener());
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.inbox.InboxPoller());
@@ -163,6 +165,7 @@ public class AgentTestToolkitMod {
         if (damageObserver != null) {
             damageObserver.discardPending();
         }
+        com.mahghuuuls.agenttesttoolkit.fixture.FixtureRemovals.discardPending();
 
         // Same rule, same reason: an in-flight bundle holds a sender from the world that is
         // unloading, and the scheduler is registered permanently, so an execution left here

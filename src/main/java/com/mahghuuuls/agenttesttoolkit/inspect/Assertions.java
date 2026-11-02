@@ -105,7 +105,20 @@ public final class Assertions {
      *                      where that place is
      */
     public static Result presence(boolean expectPresent, boolean found, Boolean regionLoaded) {
+        return presence(expectPresent, found, false, regionLoaded);
+    }
+
+    /**
+     * As above, where a found entity may be dead and about to leave the world. A dead entity is
+     * absent, as vanilla selectors treat it (REQ-211): a fixture cleared or a mob killed this
+     * tick is gone in every sense a test cares about, even while the world still lists it.
+     */
+    public static Result presence(boolean expectPresent, boolean found, boolean dead, Boolean regionLoaded) {
         String expected = expectPresent ? "present" : "absent";
+        if (found && dead) {
+            return new Result(expectPresent ? Outcome.FAIL : Outcome.PASS, expected, "absent",
+                    "dead, about to leave the world");
+        }
         if (found) {
             return new Result(expectPresent ? Outcome.PASS : Outcome.FAIL, expected, "present", null);
         }

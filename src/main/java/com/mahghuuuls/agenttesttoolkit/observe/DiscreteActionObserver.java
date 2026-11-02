@@ -3,6 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.observe;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.LoggingCategory;
+import com.mahghuuuls.agenttesttoolkit.logging.PendingRecords;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.state.SessionStamp;
@@ -143,6 +144,10 @@ public final class DiscreteActionObserver {
         EntityLivingBase victim = event.getEntityLiving();
         if (victim == null || victim.world == null || event.isCanceled()) {
             return;
+        }
+        if (!victim.world.isRemote) {
+            // The hits that caused this death come first in the file, not after it (REQ-212).
+            PendingRecords.flushFinished(victim);
         }
         if (!ObserverGate.shouldRecord(LoggingCategory.ENTITY_DEATH, victim.world.isRemote,
                 victim.world.provider.getDimension(), victim.posX, victim.posY, victim.posZ)) {

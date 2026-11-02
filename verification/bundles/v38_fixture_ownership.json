@@ -1,0 +1,81 @@
+{
+  "v38_stale_setup": {
+    "description": "CYCLE-005 intake D1, part one. Claims a pig as handle a in session v38s, then stops the session, which empties the cache and leaves the tag on the pig. Run v38_stale_adopt or v38_stale_refuse next.",
+    "commands": [
+      "devtool session start v38s",
+      "kill @e[name=v38pig]",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v38pig\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool fixture claim a @e[name=v38pig]",
+      "devtool mark V38_STALE_LEFT",
+      "devtool session stop"
+    ]
+  },
+  "v38_stale_adopt": {
+    "description": "Run v38_stale_setup first. Part two. A new session of the same name claims the pig again under a: FIXTURE action=claim adopted=true; list shows it loaded; clear a removes it. In 1.3.0 the claim was refused as already claimed and the clear found no handle.",
+    "commands": [
+      "devtool session start v38s",
+      "devtool fixture claim a @e[name=v38pig]",
+      "devtool fixture list",
+      "devtool fixture clear a",
+      "devtool mark V38_ADOPTED_AND_CLEARED",
+      "devtool session stop"
+    ]
+  },
+  "v38_stale_refuse": {
+    "description": "Run v38_stale_setup first. Part two, other handle. The new session tries handle b for the same pig: refused, naming a (expect failed=1). Then clear all finds the pig by its tag and removes it.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool session start v38s",
+      "devtool fixture claim b @e[name=v38pig]",
+      "devtool fixture clear all",
+      "devtool mark V38_REFUSED_THEN_CLEARED",
+      "devtool session stop"
+    ]
+  },
+  "v38_scope": {
+    "description": "Session a must not own session a.b's fixtures. Claims a pig in session a.b, switches to session a, claims a second pig there, and runs clear all: only session a's pig is removed. Then back to a.b, whose clear all removes the first pig.",
+    "commands": [
+      "devtool session start a.b",
+      "kill @e[name=v38scope]",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v38scope\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool fixture claim h @e[name=v38scope]",
+      "devtool session start a",
+      "kill @e[name=v38own]",
+      "summon minecraft:pig ~-3 ~1 ~ {CustomName:\"v38own\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool fixture claim mine @e[name=v38own]",
+      "devtool fixture list",
+      "devtool fixture clear all",
+      "devtool mark V38_SCOPE_A_CLEARED_ONLY_ITS_OWN",
+      "devtool session start a.b",
+      "devtool fixture clear all",
+      "devtool mark V38_SCOPE_AB_CLEARED",
+      "devtool session stop"
+    ]
+  },
+  "v38_release": {
+    "description": "fixture release removes the tag and keeps the entity: FIXTURE action=release outcome=released, then the NBT shows no devtool.fx tag. The bundle kills the pig at the end.",
+    "commands": [
+      "devtool session start v38r",
+      "kill @e[name=v38rel]",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v38rel\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool fixture claim r @e[name=v38rel]",
+      "devtool fixture release r",
+      "devtool nbt entity @e[name=v38rel]",
+      "devtool mark V38_RELEASED",
+      "kill @e[name=v38rel]",
+      "devtool session stop"
+    ]
+  },
+  "v38_dotted_handle": {
+    "description": "A handle with a dot is refused (expect failed=1); the pig is killed afterwards.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool session start v38d",
+      "kill @e[name=v38dot]",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"v38dot\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool fixture claim my.pig @e[name=v38dot]",
+      "kill @e[name=v38dot]",
+      "devtool session stop"
+    ]
+  }
+}

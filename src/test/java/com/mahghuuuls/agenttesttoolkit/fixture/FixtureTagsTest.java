@@ -58,6 +58,30 @@ class FixtureTagsTest {
     }
 
     @Test
+    @DisplayName("a handle may not contain the dot that separates it from the session part")
+    void handleAlphabet() {
+        assertTrue(FixtureTags.isHandleSafe("pig_1-a"));
+        assertFalse(FixtureTags.isHandleSafe("my.pig"));
+        assertFalse(FixtureTags.isHandleSafe(""));
+        assertFalse(FixtureTags.isHandleSafe(null));
+    }
+
+    @Test
+    @DisplayName("the session part has no dot, so session a never owns session a.b's fixtures")
+    void dottedSessions() {
+        assertEquals("a_b", FixtureTags.scope("a.b"));
+        assertEquals("devtool.fx.a_b.h", FixtureTags.tag("a.b", "h"));
+        assertTrue(FixtureTags.ownedBy("devtool.fx.a_b.h", "a.b"));
+        assertFalse(FixtureTags.ownedBy("devtool.fx.a_b.h", "a"));
+        // A tag 1.3.0 wrote for session a.b belongs to nobody now, session a included.
+        assertFalse(FixtureTags.ownedBy("devtool.fx.a.b.h", "a"));
+        assertFalse(FixtureTags.ownedBy("devtool.fx.a.b.h", "a.b"));
+        assertNull(FixtureTags.handleOf("devtool.fx.a.b.h", "a"));
+        // Names that map to the same session part share fixtures, as documented.
+        assertTrue(FixtureTags.ownedBy(FixtureTags.tag("my_test", "p"), "my test"));
+    }
+
+    @Test
     @DisplayName("the registry keeps handle, uuid and last place, and forgets on clear")
     void registry() {
         ToolkitState.putFixture("source", "0f01c58f-7f2e-4afd-860b-1e8dbd9e197b");

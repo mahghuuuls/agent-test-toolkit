@@ -158,6 +158,9 @@ public final class LogSubCommand implements SubCommand {
      * to answer "what was on at this point".
      */
     private void recordState(ICommandSender sender, String action, LoggingCategory category) {
+        // Hits observed this tick are written before the change that would otherwise follow
+        // them in the file (REQ-212).
+        com.mahghuuuls.agenttesttoolkit.logging.PendingRecords.flushAll();
         LogRecord record = RecordContext.stamp(LogRecord.of(EventType.LOG_CONFIG), sender);
         SessionStamp.apply(record);
         record.add("action", action);

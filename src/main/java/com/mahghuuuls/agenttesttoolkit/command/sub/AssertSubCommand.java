@@ -228,7 +228,11 @@ public final class AssertSubCommand implements SubCommand {
             if (regionLoaded != null) {
                 record.add("regionLoaded", regionLoaded.booleanValue());
             }
-            return Assertions.presence("present".equals(form), found != null, regionLoaded);
+            boolean dead = found != null && !found.isEntityAlive();
+            if (dead) {
+                record.add("dead", true);
+            }
+            return Assertions.presence("present".equals(form), found != null, dead, regionLoaded);
         }
 
         if (found == null) {
