@@ -77,6 +77,22 @@ public final class InboxGate {
         }
     }
 
+    /**
+     * Suspends the opening when this player's leave is the one their own reconnect announced
+     * ({@link InboxRejoin#suspendsOnLogout}), until the configured window has passed.
+     *
+     * @return true when it is suspended now
+     */
+    public static boolean suspendIfLeaving(UUID player, long nowMillis, long windowMillis,
+                                           RecordContext.Snapshot context) {
+        if (!InboxRejoin.suspendsOnLogout(ToolkitState.getInboxOpening(), player, ToolkitState.getPendingRejoin(),
+                nowMillis)) {
+            return false;
+        }
+        suspend(nowMillis + windowMillis, context);
+        return true;
+    }
+
     /** The operator's client said it is leaving on that reconnect: its logout now suspends. */
     public static void onReconnectLeaving(UUID player, long requestTick, long nowMillis) {
         PendingRejoin pending = ToolkitState.getPendingRejoin();

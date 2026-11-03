@@ -1,7 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.inbox;
 
 import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader;
-import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -28,13 +27,14 @@ public final class InboxLogoutListener {
         if (!InboxGate.isOperator(player.getUniqueID())) {
             return;
         }
-        long now = System.currentTimeMillis();
-        if (InboxRejoin.suspendsOnLogout(InboxGate.current(), player.getUniqueID(),
-                ToolkitState.getPendingRejoin(), now)) {
-            // The toolkit sent this client away and expects it back (D19, ARC-023).
-            InboxGate.suspend(now + ToolkitConfigLoader.get().getInboxRejoinWindowSeconds() * 1000L,
-                    RecordContext.snapshot(player.world));
-        } else if (!InboxGate.current().isSuspended()) {
+        // The toolkit sent this client away and expects it back (D19, ARC-023). In single player
+        // there is no logout event for the host: the server's stop handles that leave.
+        if (InboxGate.suspendIfLeaving(player.getUniqueID(), System.currentTimeMillis(),
+                ToolkitConfigLoader.get().getInboxRejoinWindowSeconds() * 1000L,
+                RecordContext.snapshot(player.world))) {
+            return;
+        }
+        if (!InboxGate.current().isSuspended()) {
             InboxGate.close("operatorLeft", RecordContext.snapshot(player.world));
         }
     }

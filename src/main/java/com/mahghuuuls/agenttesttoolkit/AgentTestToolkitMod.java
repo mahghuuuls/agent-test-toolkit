@@ -205,12 +205,19 @@ public class AgentTestToolkitMod {
             // run requests on, and in single player the opener has already left. Closed with a
             // record, in a finally so a failure above cannot leave it open into the next world.
             // A suspended opening survives the integrated server's stop: its operator's client
-            // left on the toolkit's request and reopens the world in this same process. A
-            // dedicated server's stop always closes it.
+            // left on the toolkit's request and reopens the world in this same process. The
+            // host of single player gets no logout event when its own server stops, so its
+            // announced leave is suspended here. A dedicated server's stop always closes it.
+            boolean physicalClient = net.minecraftforge.fml.common.FMLCommonHandler.instance().getSide().isClient();
             com.mahghuuuls.agenttesttoolkit.state.InboxOpening opening =
                     com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.current();
-            boolean keep = opening != null && opening.isSuspended()
-                    && net.minecraftforge.fml.common.FMLCommonHandler.instance().getSide().isClient();
+            if (physicalClient && opening != null && !opening.isSuspended()) {
+                com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.suspendIfLeaving(opening.getOperatorUuid(),
+                        System.currentTimeMillis(), ToolkitConfigLoader.get().getInboxRejoinWindowSeconds() * 1000L,
+                        com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot.NONE);
+                opening = com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.current();
+            }
+            boolean keep = opening != null && opening.isSuspended() && physicalClient;
             if (!keep) {
                 com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.close("serverStopped",
                         com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot.NONE);
