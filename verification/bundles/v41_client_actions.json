@@ -10,10 +10,11 @@
     ]
   },
   "v41_close_nothing": {
-    "description": "REQ-205. Close with no screen open: the server sends it, the client refuses with reason=noScreen, and the server writes the report.",
+    "description": "REQ-205. Close with no screen open: the server sends it, the client refuses with reason=noScreen, and the server writes the report. A first close clears the chat the person may have left open.",
     "result": true,
     "commands": [
-      "devtool mark V41_NOTHING_BEGIN",
+      "devtool client close",
+      { "command": "devtool mark V41_NOTHING_BEGIN", "delayTicks": 10 },
       "devtool client close",
       { "command": "devtool mark V41_NOTHING_END", "delayTicks": 10 }
     ]
