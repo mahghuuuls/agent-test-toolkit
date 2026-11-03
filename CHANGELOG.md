@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.5.0
+
+The theme is a test that starts at the title screen and ends with the game closed, while the person at the keyboard only launches the game. The items came from the developer's own test sessions with an AI assistant.
+
+### Added
+
+- **`devtool client quit`** closes the game of whoever ran it, from chat, a bundle or the inbox, after the run or request that asked has its answer. In single player the world is saved first; on a server the player leaves as from the pause menu. It needs the toolkit 1.5.0 on the client and `client.allowActions`, as the other client actions do. The server refuses at once, with a key a bundle can tolerate, a client without the toolkit 1.5.0 (`devtool.client.noClient`), one that does not allow it (`devtool.client.notAllowed`) and one still busy with another client action (`devtool.client.busy`).
+
+- **A client request channel.** At the title screen no server runs, so nothing can reach the game through the inbox. With `client.requestChannel` true in the client's own configuration, the client reads small request files from `config/devtool/client-inbox/` and takes one of four menu steps: `create <name> [option=value ...]` makes a single-player world with the settings of the Create New World screen (seed, type `default`, `flat`, `largeBiomes` or `amplified`, a flat layer string, structures, cheats, game mode, bonus chest; creative with cheats on by default) and opens it; `open <save folder>` opens a save; `connect <host[:port]>` joins a server on this computer or the local network only; `quit` closes the game. A create never replaces an existing save. Every value is checked before anything happens, and a request is refused with a reason (`exists`, `notFound`, `notLocal`, `inWorld`, `busy`, `badArguments` with a detail, and others), each with its own result file. Requests left from an earlier launch are refused `placedBeforeStart`. `status.json` says when the channel listens. Off by default; with it on, it listens from game start with no click.
+
+- **The inbox opens by itself at your own join.** With `inbox.openOnLocalJoin` true as well as `inbox.enabled`, the command inbox opens without `devtool inbox open` when you join from your own computer: as the single-player host with cheats on, or as an operator on a development server whose folder your client shares and which you join through `localhost`. The server proves the second case with a secret file, `config/devtool/local-join.secret`, written at its start and removed at its stop, which only a client reading that folder can send back. A join from anywhere else opens nothing. Off by default.
+
+- **One new record type**, `MENU_STEP`, for 46 in total.
+
+### Compatibility
+
+- **Forge's startup questions.** A yes/no question while a world starts, such as one about missing blocks or items, holds the game until someone clicks, and a menu step gets no answer meanwhile. Launch the game with the JVM argument `-Dfml.queryResult=cancel` to answer every such question with cancel at once: the world does not open, and the step fails `loadAborted`. A "missing mods" notice still waits for a click.
+
 ## 1.4.0
 
 The theme is a test session that runs without anyone at the keyboard between its steps. Most items came from the developer's own test sessions with an AI assistant.

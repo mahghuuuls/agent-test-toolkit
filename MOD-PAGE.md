@@ -11,7 +11,7 @@ It does that by:
 - recording what happens in the world into the log
 - reporting the state of players, entities and blocks on demand
 
-Everything it records happens on the server, so that is where it goes. In singleplayer, that just means installing it. Screenshots, the optional client settings and client actions also need it on the client; a client without it can still join. Commands need operator permission; `/devtool help` lists them.
+Everything it records happens on the server, so that is where it goes. In singleplayer, that just means installing it. Screenshots, the optional client settings, client actions and the client request channel also need it on the client; a client without it can still join. Commands need operator permission; `/devtool help` lists them.
 
 If you are working with an AI assistant, point it at `AGENTS.md`. That file tells it what the toolkit can do, how to keep the log readable, and the traps worth knowing about before it wastes a test run.
 
@@ -37,9 +37,11 @@ If you are reading yourself, start with `README.md`, then `docs/commands.md` for
 
 **Fixtures and restarts.** Name the one entity a bundle just summoned, find it again later by that name, and remove exactly it, without a death or a drop. A checkpoint stored in the world save remembers which bundle must run next across a stop and restart, and refuses anything else until it has run.
 
-**A command inbox for your assistant.** Type `/devtool inbox open` once after opening a world, and an AI assistant can start its own bundles, save, take a screenshot, or look something up, by writing a small file and reading the answer from another. It runs as you, with your permissions, and only bundles and read-only commands are accepted. Off by default, and only a person can open it.
+**A command inbox for your assistant.** Type `/devtool inbox open` once after opening a world, and an AI assistant can start its own bundles, save, take a screenshot, or look something up, by writing a small file and reading the answer from another. It runs as you, with your permissions, and only bundles and read-only commands are accepted. Off by default. A person opens it, or, if you allow it, it opens by itself when you join your own single-player world or your own development server from your computer.
 
-**Client actions.** A bundle or your assistant can ask your own game to leave the world and come back, press Respawn after a death, or close the screen that is open, so a test that needs a rejoin or a death no longer waits for you. The inbox stays open across a rejoin it asked for. Off unless you allow it in your client's configuration, and it only ever acts on the game of whoever asked.
+**Client actions.** A bundle or your assistant can ask your own game to leave the world and come back, press Respawn after a death, close the screen that is open, or close the game, so a test that needs a rejoin or a death no longer waits for you. The inbox stays open across a rejoin it asked for. Off unless you allow it in your client's configuration, and it only ever acts on the game of whoever asked.
+
+**From the title screen.** With the client request channel on, your assistant can create a test world with any setting of the Create New World screen (a flat world with cheats and no structures, for example), open a save, join a server on your own computer or home network, or quit, by writing a small file. It never replaces a save and never connects outside your own network. Off by default. You launch the game; the rest of the test needs no click.
 
 **Saves, screenshots, attributes.** Save the world from a bundle, ask your client for a labelled screenshot after a delay, and read or check an entity's attributes and modifiers. With Baubles installed, the bauble slots can be inspected, filled and emptied too. Baubles is optional.
 
