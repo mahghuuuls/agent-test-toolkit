@@ -14,6 +14,10 @@ package com.mahghuuuls.agenttesttoolkit.config;
  */
 public final class ToolkitConfig {
 
+    public static final int DEFAULT_REJOIN_WINDOW_SECONDS = 120;
+    public static final int MIN_REJOIN_WINDOW_SECONDS = 10;
+    public static final int MAX_REJOIN_WINDOW_SECONDS = 600;
+
     /**
      * Smallest arena that can exist. Two of every axis are consumed by the walls, floor and
      * ceiling, so anything under three leaves no interior at all.
@@ -48,7 +52,9 @@ public final class ToolkitConfig {
     /** One level per {@link Volume}, or {@link #LEAVE_MASTER_VOLUME} to leave that category alone. */
     private final float[] clientVolumes;
     private final boolean clientNoPauseOnLostFocus;
+    private final boolean clientAllowActions;
     private final boolean inboxEnabled;
+    private final int inboxRejoinWindowSeconds;
 
     /**
      * A named-setter builder, because the positional constructor stopped being readable.
@@ -79,7 +85,9 @@ public final class ToolkitConfig {
         private float musicVolume;
         private final float[] volumes = leaveAll();
         private boolean noPauseOnLostFocus;
+        private boolean allowActions;
         private boolean inbox;
+        private int rejoinWindowSeconds = DEFAULT_REJOIN_WINDOW_SECONDS;
 
         public Builder arenaSize(int w, int h, int l) {
             this.width = w;
@@ -160,6 +168,16 @@ public final class ToolkitConfig {
             return this;
         }
 
+        public Builder clientAllowActions(boolean value) {
+            this.allowActions = value;
+            return this;
+        }
+
+        public Builder inboxRejoinWindowSeconds(int value) {
+            this.rejoinWindowSeconds = value;
+            return this;
+        }
+
         /** The configuration half of the inbox gate. Off unless the file says true. */
         public Builder inboxEnabled(boolean value) {
             this.inbox = value;
@@ -169,7 +187,8 @@ public final class ToolkitConfig {
         public ToolkitConfig build() {
             return new ToolkitConfig(width, height, length, block, ceiling, maxDimension,
                     nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle,
-                    clientDefaults, brightness, musicVolume, volumes, noPauseOnLostFocus, inbox);
+                    clientDefaults, brightness, musicVolume, volumes, noPauseOnLostFocus, allowActions,
+                    inbox, rejoinWindowSeconds);
         }
     }
 
@@ -193,8 +212,14 @@ public final class ToolkitConfig {
                   float clientMusicVolume,
                   float[] clientVolumes,
                   boolean clientNoPauseOnLostFocus,
-                  boolean inboxEnabled) {
+                  boolean clientAllowActions,
+                  boolean inboxEnabled,
+                  int inboxRejoinWindowSeconds) {
         this.inboxEnabled = inboxEnabled;
+        this.clientAllowActions = clientAllowActions;
+        // Clamped like the other numbers: a bad value must not stop the toolkit loading.
+        this.inboxRejoinWindowSeconds = Math.max(MIN_REJOIN_WINDOW_SECONDS,
+                Math.min(MAX_REJOIN_WINDOW_SECONDS, inboxRejoinWindowSeconds));
         this.clientDefaultsEnabled = clientDefaultsEnabled;
         // Clamped rather than rejected: a bad value must not stop the toolkit loading.
         this.clientBrightness = clamp01(clientBrightness);
@@ -418,6 +443,23 @@ public final class ToolkitConfig {
     /** Master volume, 0 to 1, or {@link #LEAVE_MASTER_VOLUME}. */
     public float getClientMasterVolume() {
         return getClientVolume(Volume.MASTER);
+    }
+
+    /**
+     * Whether this client lets a server ask it for a lifecycle step: leave and come back,
+     * respawn, close the open screen (REQ-203). Read on the client and told to the server at
+     * every join. Off by default, and independent of {@code applyOnJoin}.
+     */
+    public boolean isClientAllowActions() {
+        return clientAllowActions;
+    }
+
+    /**
+     * How long, in wall-clock seconds, an inbox opening waits for its operator to come back
+     * after a reconnect the toolkit started (REQ-207).
+     */
+    public int getInboxRejoinWindowSeconds() {
+        return inboxRejoinWindowSeconds;
     }
 
     /**

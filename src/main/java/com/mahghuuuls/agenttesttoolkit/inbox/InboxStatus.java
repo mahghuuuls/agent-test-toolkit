@@ -42,6 +42,13 @@ public final class InboxStatus {
         }
         root.addProperty("openedWorldTick", opening.getOpenedWorldTick());
         root.addProperty("openedAtMillis", opening.getOpenedAtMillis());
+        if (opening.isSuspended()) {
+            // Requests may still be written: they wait and run when the operator is back. Past
+            // the deadline the inbox has closed, even if a crash left this file behind.
+            root.addProperty("suspended", true);
+            root.addProperty("reason", "reconnect");
+            root.addProperty("resumeDeadlineMillis", opening.getSuspendedUntilMillis());
+        }
         File target = new File(directory, FILE_NAME);
         File temporary = new File(directory, FILE_NAME + ".tmp");
         try {

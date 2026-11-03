@@ -91,6 +91,30 @@ public class AgentTestToolkitMod {
         MinecraftForge.EVENT_BUS.register(damageObserver);
         com.mahghuuuls.agenttesttoolkit.logging.PendingRecords.install(damageObserver);
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.fixture.FixtureRemovals());
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.net.ClientCapabilities.LogoutListener());
+        // A returning client's reconnect report resumes a suspended inbox (ARC-023). Wired here,
+        // so inbox does not depend on net.
+        com.mahghuuuls.agenttesttoolkit.net.ClientCapabilities.setReportListener(
+                new com.mahghuuuls.agenttesttoolkit.net.ClientCapabilities.ReportListener() {
+                    @Override
+                    public void onReport(net.minecraft.entity.player.EntityPlayerMP player,
+                                         com.mahghuuuls.agenttesttoolkit.net.ClientActionReport report) {
+                        if (!"reconnect".equals(report.getStep())) {
+                            return;
+                        }
+                        if ("left".equals(report.getResult())) {
+                            com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.onReconnectLeaving(
+                                    player.getUniqueID(), report.getRequestTick(), System.currentTimeMillis());
+                        } else if ("refused".equals(report.getResult())) {
+                            com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.onReconnectRefused(
+                                    player.getUniqueID(), report.getRequestTick());
+                        } else if ("done".equals(report.getResult())) {
+                            com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.onReturn(player.getUniqueID(),
+                                    report.getToken(),
+                                    com.mahghuuuls.agenttesttoolkit.logging.RecordContext.snapshot(player));
+                        }
+                    }
+                });
         MinecraftForge.EVENT_BUS.register(new JoinAutomation());
         MinecraftForge.EVENT_BUS.register(new OperatorLogoutListener());
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.inbox.InboxPoller());
@@ -99,6 +123,8 @@ public class AgentTestToolkitMod {
                 new com.mahghuuuls.agenttesttoolkit.command.InboxDispatch());
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.scenario.Scenarios());
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.session.WorldChangeListener());
+        // After the world listener, so the WORLD record and the current world key come first.
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.inbox.InboxRejoinListener());
         // Checkpoints belong to the session but live in wait, which session may not depend on.
         // Installed here so every stop forgets them: the command, a replacing start, and a
         // world change alike.
@@ -178,8 +204,17 @@ public class AgentTestToolkitMod {
             // The inbox is the exception to keeping state: with no server there is nothing to
             // run requests on, and in single player the opener has already left. Closed with a
             // record, in a finally so a failure above cannot leave it open into the next world.
-            com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.close("serverStopped",
-                    com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot.NONE);
+            // A suspended opening survives the integrated server's stop: its operator's client
+            // left on the toolkit's request and reopens the world in this same process. A
+            // dedicated server's stop always closes it.
+            com.mahghuuuls.agenttesttoolkit.state.InboxOpening opening =
+                    com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.current();
+            boolean keep = opening != null && opening.isSuspended()
+                    && net.minecraftforge.fml.common.FMLCommonHandler.instance().getSide().isClient();
+            if (!keep) {
+                com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.close("serverStopped",
+                        com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot.NONE);
+            }
         }
     }
 }

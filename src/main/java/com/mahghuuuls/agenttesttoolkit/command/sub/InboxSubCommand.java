@@ -68,7 +68,8 @@ public final class InboxSubCommand implements SubCommand {
             InboxOpening opening = InboxGate.current();
             sender.sendMessage(new TextComponentString(opening == null
                     ? "[DevToolkit] Inbox closed."
-                    : "[DevToolkit] Inbox open for " + opening.getOperatorName() + "."));
+                    : "[DevToolkit] Inbox open for " + opening.getOperatorName()
+                    + (opening.isSuspended() ? ", suspended until they are back from a reconnect." : ".")));
         } else {
             throw new WrongUsageException("/devtool " + getUsage());
         }

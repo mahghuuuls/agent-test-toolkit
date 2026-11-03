@@ -172,6 +172,22 @@ class ToolkitConfigTest {
     }
 
     @Test
+    @DisplayName("client actions are off by default and on only when asked for (REQ-203)")
+    void allowActions() {
+        assertFalse(ToolkitConfig.DEFAULTS.isClientAllowActions());
+        assertTrue(ToolkitConfig.builder().clientAllowActions(true).build().isClientAllowActions());
+    }
+
+    @Test
+    @DisplayName("the inbox rejoin window defaults to 120 seconds and is clamped to 10 to 600")
+    void rejoinWindow() {
+        assertEquals(120, ToolkitConfig.DEFAULTS.getInboxRejoinWindowSeconds());
+        assertEquals(10, ToolkitConfig.builder().inboxRejoinWindowSeconds(1).build().getInboxRejoinWindowSeconds());
+        assertEquals(600, ToolkitConfig.builder().inboxRejoinWindowSeconds(5000).build().getInboxRejoinWindowSeconds());
+        assertEquals(45, ToolkitConfig.builder().inboxRejoinWindowSeconds(45).build().getInboxRejoinWindowSeconds());
+    }
+
+    @Test
     @DisplayName("a builder reused after build leaves the first configuration unchanged")
     void builderReuse() {
         ToolkitConfig.Builder builder = ToolkitConfig.builder().clientVolume(ToolkitConfig.Volume.WEATHER, 0.2F);

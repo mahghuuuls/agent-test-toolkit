@@ -5,6 +5,7 @@ import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.state.InboxOpening;
+import com.mahghuuuls.agenttesttoolkit.state.PendingRejoin;
 import com.mahghuuuls.agenttesttoolkit.state.SessionStamp;
 import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
 
@@ -36,8 +37,91 @@ public final class InboxGate {
     private InboxGate() {
     }
 
+    /** Open or suspended: an opening exists, and its status file says so. */
     public static boolean isOpen() {
         return ToolkitState.getInboxOpening() != null;
+    }
+
+    /** Open and not suspended: requests are read and run. */
+    public static boolean isListening() {
+        InboxOpening opening = ToolkitState.getInboxOpening();
+        return opening != null && !opening.isSuspended();
+    }
+
+    /**
+     * Suspends the opening while its operator is away on a reconnect the toolkit started
+     * (ARC-023), until the deadline. Requests wait in the folder; nothing is read meanwhile.
+     */
+    public static void suspend(long deadlineMillis, RecordContext.Snapshot context) {
+        InboxOpening existing = ToolkitState.getInboxOpening();
+        if (existing == null || existing.isSuspended()) {
+            return;
+        }
+        InboxOpening suspended = existing.suspendedUntil(deadlineMillis);
+        ToolkitState.setInboxOpening(suspended);
+        InboxStatus.write(InboxPoller.directory(), suspended, worldFolder());
+        LogRecord record = RecordContext.stamp(LogRecord.of(EventType.INBOX), context);
+        SessionStamp.apply(record);
+        record.add("action", "suspended");
+        record.add("operator", existing.getOperatorName());
+        record.add("reason", "reconnect");
+        record.add("resumeDeadlineMillis", deadlineMillis);
+        ToolkitLog.write(record);
+    }
+
+    /** The suspended operator logged in again; their client has a moment to show its token. */
+    public static void markReturned(java.util.UUID player, long nowMillis) {
+        InboxOpening existing = ToolkitState.getInboxOpening();
+        if (existing != null && existing.isSuspended() && existing.getOperatorUuid().equals(player)) {
+            ToolkitState.setInboxOpening(existing.returnedAt(nowMillis));
+        }
+    }
+
+    /** The operator's client said it is leaving on that reconnect: its logout now suspends. */
+    public static void onReconnectLeaving(UUID player, long requestTick, long nowMillis) {
+        PendingRejoin pending = ToolkitState.getPendingRejoin();
+        if (InboxRejoin.isAbout(pending, player, requestTick)) {
+            ToolkitState.setPendingRejoin(pending.leaving(nowMillis));
+        }
+    }
+
+    /** The operator's client refused that reconnect: no leave is coming. */
+    public static void onReconnectRefused(UUID player, long requestTick) {
+        if (InboxRejoin.isAbout(ToolkitState.getPendingRejoin(), player, requestTick)) {
+            ToolkitState.setPendingRejoin(null);
+        }
+    }
+
+    /** A returning client's report: resume on the right token, close on a wrong one. */
+    public static void onReturn(java.util.UUID player, String token, RecordContext.Snapshot context) {
+        InboxOpening existing = ToolkitState.getInboxOpening();
+        InboxRejoin.Return decision = InboxRejoin.onReturn(existing, player, token, ToolkitState.getPendingRejoin());
+        if (decision == InboxRejoin.Return.NOT_SUSPENDED) {
+            return;
+        }
+        if (InboxRejoin.closeReason(existing, System.currentTimeMillis()) != null) {
+            // Too late: the deadline passed, even if no check has closed it yet.
+            checkSuspension(System.currentTimeMillis(), context);
+            return;
+        }
+        ToolkitState.setPendingRejoin(null);
+        if (decision == InboxRejoin.Return.TOKEN_MISMATCH) {
+            close("tokenMismatch", context);
+            return;
+        }
+        InboxOpening resumed = existing.resumed();
+        ToolkitState.setInboxOpening(resumed);
+        InboxStatus.write(InboxPoller.directory(), resumed, worldFolder());
+        write(context, "resumed", existing.getOperatorName(), null);
+    }
+
+    /** Closes a suspended opening whose deadline passed, or whose operator came back without the token. */
+    public static void checkSuspension(long nowMillis, RecordContext.Snapshot context) {
+        String reason = InboxRejoin.closeReason(ToolkitState.getInboxOpening(), nowMillis);
+        if (reason != null) {
+            ToolkitState.setPendingRejoin(null);
+            close(reason, context);
+        }
     }
 
     /** @return the current opening, or null when closed. */
@@ -60,7 +144,7 @@ public final class InboxGate {
             return OpenResult.OPEN_FOR_ANOTHER;
         }
         ToolkitState.setInboxOpening(new InboxOpening(operator, name, context.getWorldTick(),
-                System.currentTimeMillis()));
+                System.currentTimeMillis(), ToolkitState.getCurrentWorldKey()));
         write(context, "opened", name, null);
         return OpenResult.OPENED;
     }
@@ -81,6 +165,12 @@ public final class InboxGate {
         InboxStatus.delete(InboxPoller.directory());
         write(context, "closed", existing.getOperatorName(), reason);
         return true;
+    }
+
+    private static String worldFolder() {
+        net.minecraft.server.MinecraftServer server =
+                net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance();
+        return server == null ? null : server.getFolderName();
     }
 
     /** True when this player opened the inbox now open. */

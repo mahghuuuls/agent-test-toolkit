@@ -43,6 +43,8 @@ public final class InboxRequest {
     /** A screenshot label: the file name on the operator's computer, so no path characters. */
     private static final Pattern SCREENSHOT_LABEL = Pattern.compile("[A-Za-z0-9_-]{1,48}");
     /** 0 to 600, the command's own bounds. */
+    /** A reconnect's away time, 0 to 60 seconds. */
+    private static final Pattern AWAY = Pattern.compile("(?:[0-9]|[1-5][0-9]|60)");
     private static final Pattern DELAY = Pattern.compile("[0-9]|[1-9][0-9]|[1-5][0-9][0-9]|600");
     private static final Pattern REQUEST_ID = Pattern.compile("[A-Za-z0-9_.\\-]{1,64}");
 
@@ -108,6 +110,17 @@ public final class InboxRequest {
                 return refused(id, line, verb, REASON_BAD_ARGUMENTS);
             }
             return accepted(id, line, verb, "devtool screenshot " + join(args));
+        }
+        if ("client".equals(verb)) {
+            // client reconnect [awaySeconds] | respawn | close, to the operator only.
+            boolean ok = args.length >= 1
+                    && (("reconnect".equals(args[0]) && (args.length == 1
+                            || (args.length == 2 && AWAY.matcher(args[1]).matches())))
+                    || (("respawn".equals(args[0]) || "close".equals(args[0])) && args.length == 1));
+            if (!ok) {
+                return refused(id, line, verb, REASON_BAD_ARGUMENTS);
+            }
+            return accepted(id, line, verb, "devtool client " + join(args));
         }
         if (NO_ARGUMENT.contains(verb)) {
             if (args.length != 0) {

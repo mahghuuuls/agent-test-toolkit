@@ -7,6 +7,7 @@ import com.mahghuuuls.agenttesttoolkit.command.sub.BaublesSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.BundleSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.CapabilitiesSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.CheckpointSubCommand;
+import com.mahghuuuls.agenttesttoolkit.command.sub.ClientSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.EntitiesSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.EnvironmentSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.FixtureSubCommand;
@@ -87,6 +88,7 @@ public final class DevToolCommand extends CommandBase {
         register(new ReloadSubCommand());
         register(new SaveSubCommand());
         register(new ScreenshotSubCommand());
+        register(new ClientSubCommand());
         register(new BaublesSubCommand());
         register(new InboxSubCommand());
         register(new NbtSubCommand());

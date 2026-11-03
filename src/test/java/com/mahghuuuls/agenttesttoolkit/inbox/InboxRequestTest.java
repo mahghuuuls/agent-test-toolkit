@@ -135,6 +135,23 @@ class InboxRequestTest {
     }
 
     @Test
+    @DisplayName("client takes reconnect with 0 to 60 seconds, respawn and close, to the operator only (REQ-208)")
+    void client() {
+        assertEquals("devtool client respawn", parse("client respawn").getCommandLine());
+        assertEquals("devtool client close", parse("client close").getCommandLine());
+        assertEquals("devtool client reconnect", parse("client reconnect").getCommandLine());
+        assertEquals("devtool client reconnect 3", parse("client reconnect 3").getCommandLine());
+        assertEquals("devtool client reconnect 60", parse("client reconnect 60").getCommandLine());
+        assertRefused("client", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client reconnect 99", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client reconnect 61", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client reconnect -1", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client respawn Developer", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client close now", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client attack", InboxRequest.REASON_BAD_ARGUMENTS);
+    }
+
+    @Test
     @DisplayName("a UTF-8 byte order mark at the start is ignored")
     void byteOrderMark() {
         assertEquals("devtool run x", parse("﻿run x\r\n").getCommandLine());

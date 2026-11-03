@@ -255,6 +255,21 @@ public final class ToolkitState {
      */
     private static volatile String currentWorldKey;
 
+    /**
+     * The one reconnect the toolkit has sent a player's client on, or null (ARC-023). Process
+     * lifetime, never persisted, like the inbox opening it may keep.
+     */
+    private static volatile PendingRejoin pendingRejoin;
+
+    public static PendingRejoin getPendingRejoin() {
+        return pendingRejoin;
+    }
+
+    /** Intended for the {@code client} command and {@code InboxGate} only. */
+    public static void setPendingRejoin(PendingRejoin rejoin) {
+        pendingRejoin = rejoin;
+    }
+
     public static String getCurrentWorldKey() {
         return currentWorldKey;
     }
@@ -340,6 +355,7 @@ public final class ToolkitState {
         operator = null;
         inboxOpening = null;
         currentWorldKey = null;
+        pendingRejoin = null;
         clearFixtures();
         enabledCategories = Collections.unmodifiableSet(EnumSet.noneOf(LoggingCategory.class));
         filters = Collections.unmodifiableMap(

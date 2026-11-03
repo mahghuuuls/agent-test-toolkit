@@ -121,6 +121,12 @@ public enum EventType {
      */
     SCREENSHOT,
 
+    /**
+     * A client lifecycle step: {@code action=requested} on the server, then {@code action=reported}
+     * with the client's result; {@code side=CLIENT} from the client that took it.
+     */
+    CLIENT_ACTION,
+
     /** {@code devtool baubles}: a slot set (or refused) or slots cleared, with the player and slot. */
     BAUBLES,
 

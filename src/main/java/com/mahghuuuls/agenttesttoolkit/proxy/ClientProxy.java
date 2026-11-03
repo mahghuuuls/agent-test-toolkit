@@ -37,11 +37,16 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void applyClientDefaults() {
         MinecraftForge.EVENT_BUS.register(this);
-        // The one client-only handler besides this class (rule 12): screenshots on request.
+        // The client-only handlers besides this class (rule 12): screenshots on request.
         com.mahghuuuls.agenttesttoolkit.client.ScreenshotTaker taker =
                 new com.mahghuuuls.agenttesttoolkit.client.ScreenshotTaker();
         com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setClientReceiver(taker);
         MinecraftForge.EVENT_BUS.register(taker);
+        // And the lifecycle steps of ARC-022, the same way.
+        com.mahghuuuls.agenttesttoolkit.client.ClientActionExecutor executor =
+                new com.mahghuuuls.agenttesttoolkit.client.ClientActionExecutor();
+        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setActionReceiver(executor);
+        MinecraftForge.EVENT_BUS.register(executor);
     }
 
     @SubscribeEvent

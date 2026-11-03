@@ -1,0 +1,50 @@
+{
+  "v41_close_inventory": {
+    "description": "CYCLE-005 D18, REQ-202, REQ-205. Cues the person to open their inventory, then five seconds later asks their own client to close it. Expect CLIENT_ACTION requested on the server, then on the client result=done with the inventory's class as screen and showing=none, then reported done.",
+    "result": true,
+    "commands": [
+      "devtool mark V41_CLOSE_BEGIN",
+      "devtool checkpoint cue OPEN_INVENTORY_NOW title sound",
+      { "command": "devtool client close", "delayTicks": 100 },
+      { "command": "devtool mark V41_CLOSE_END", "delayTicks": 10 }
+    ]
+  },
+  "v41_close_nothing": {
+    "description": "REQ-205. Close with no screen open: the server sends it, the client refuses with reason=noScreen, and the server writes the report.",
+    "result": true,
+    "commands": [
+      "devtool mark V41_NOTHING_BEGIN",
+      "devtool client close",
+      { "command": "devtool mark V41_NOTHING_END", "delayTicks": 10 }
+    ]
+  },
+  "v41_respawn_alive": {
+    "description": "REQ-204, CYC5-005. A respawn asked of a living player fails at once on the server with devtool.client.notDead, tolerated here; nothing is sent to the client.",
+    "result": true,
+    "commands": [
+      "devtool mark V41_ALIVE_BEGIN",
+      { "command": "devtool client respawn", "toleratedFailures": ["devtool.client.notDead"] },
+      "devtool mark V41_ALIVE_END"
+    ]
+  },
+  "v41_death_close_respawn": {
+    "description": "REQ-204, REQ-205. Kills the caller, then asks for a close on the death screen (refused deathScreenUseRespawn), then a respawn (done once the death screen has been up 20 ticks). keepInventory is set first so nothing drops. The respawn is the last step: the bundle's caller is the player who died.",
+    "result": true,
+    "commands": [
+      "gamerule keepInventory true",
+      "devtool mark V41_DEATH_BEGIN",
+      "kill",
+      { "command": "devtool client close", "delayTicks": 40 },
+      { "command": "devtool client respawn", "delayTicks": 10 }
+    ]
+  },
+  "v41_kill": {
+    "description": "B14. Kills the caller with keepInventory on, so the next inbox request can be client respawn.",
+    "result": true,
+    "commands": [
+      "gamerule keepInventory true",
+      "devtool mark V41_KILL",
+      "kill"
+    ]
+  }
+}

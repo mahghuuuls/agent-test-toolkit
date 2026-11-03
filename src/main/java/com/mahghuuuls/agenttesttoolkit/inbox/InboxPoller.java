@@ -7,6 +7,7 @@ import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.state.InboxOpening;
 import com.mahghuuuls.agenttesttoolkit.state.SessionStamp;
+import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.World;
 import net.minecraftforge.common.DimensionManager;
@@ -58,10 +59,13 @@ public final class InboxPoller {
         if (!InboxGate.isOpen()) {
             return;
         }
+        // A suspended opening waits for its operator; past its deadline it closes here.
+        InboxGate.checkSuspension(System.currentTimeMillis(), context());
         MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
         if (server == null) {
             return;
         }
+        // Called while suspended too: it closes on a key turned off before it reads anything.
         pollOnce(new InboxFiles(directory()), handler, server, context(),
                 ToolkitConfigLoader.get().isInboxEnabled());
     }
@@ -106,15 +110,20 @@ public final class InboxPoller {
             return 0;
         }
         if (!configEnabled) {
-            // Both halves of the gate must hold. A reload that turned the key off closes it.
+            // Both halves of the gate must hold, suspended or not.
             InboxGate.close("disabled", context);
+            return 0;
+        }
+        if (!InboxGate.isListening()) {
             return 0;
         }
         int claimed = 0;
         for (String id : files.pendingIds()) {
-            // The gate is checked per request: a request that closes the inbox, such as one
-            // whose operator has gone, must stop the rest of the batch.
-            if (!InboxGate.isOpen()) {
+            // The gate is checked per request: a request that closes or suspends the inbox,
+            // such as one whose operator has gone, must stop the rest of the batch.
+            if (!InboxGate.isListening()
+                    || InboxRejoin.holdsPoll(InboxGate.current(), ToolkitState.getPendingRejoin(),
+                    System.currentTimeMillis())) {
                 break;
             }
             InboxFiles.Claim claim = files.claim(id);

@@ -163,6 +163,13 @@ public final class ToolkitConfigLoader {
                             + "off again; press F3+P in game to turn the pause back on. Esc still opens "
                             + "the menu.");
 
+            boolean allowActions = cfg.getBoolean("allowActions", CATEGORY_CLIENT,
+                    d.isClientAllowActions(),
+                    "Whether a server with the toolkit may ask this client to leave and come back, "
+                            + "respawn, or close the open screen, for the player who asked. Off by "
+                            + "default. Independent of applyOnJoin; takes effect at the next world "
+                            + "join. Use it in a development or test instance only.");
+
             // One key per category; -1, the default, leaves it as it is: these are personal
             // preferences, not test settings, and enabling applyOnJoin must not change them.
             float[] volumes = new float[ToolkitConfig.Volume.values().length];
@@ -206,6 +213,13 @@ public final class ToolkitConfigLoader {
                             + "leaves or the game restarts. Use it in a development or test "
                             + "instance only.");
 
+            int rejoinWindow = cfg.getInt("rejoinWindowSeconds", CATEGORY_INBOX,
+                    d.getInboxRejoinWindowSeconds(), ToolkitConfig.MIN_REJOIN_WINDOW_SECONDS,
+                    ToolkitConfig.MAX_REJOIN_WINDOW_SECONDS,
+                    "How long the inbox waits, in seconds, for its operator to come back after a "
+                            + "'devtool client reconnect' the toolkit itself started. While it waits, "
+                            + "requests are kept and run on return; after it, the inbox closes.");
+
             ToolkitConfig.Builder builder = ToolkitConfig.builder()
                     .arenaSize(width, height, length)
                     .arenaBlock(block)
@@ -220,7 +234,9 @@ public final class ToolkitConfigLoader {
                     .clientBrightness(brightness)
                     .clientMusicVolume(musicVolume)
                     .clientNoPauseOnLostFocus(noPause)
-                    .inboxEnabled(inbox);
+                    .clientAllowActions(allowActions)
+                    .inboxEnabled(inbox)
+                    .inboxRejoinWindowSeconds(rejoinWindow);
             for (ToolkitConfig.Volume volume : ToolkitConfig.Volume.values()) {
                 builder.clientVolume(volume, volumes[volume.ordinal()]);
             }
