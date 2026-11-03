@@ -16,7 +16,7 @@ You still play. The toolkit sets the world up, watches, and writes it down.
 | Parsing the log | [docs/logging.md](docs/logging.md) |
 | Deciding whether to install it | [MOD-PAGE.md](MOD-PAGE.md) |
 
-`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 44 record types, and nine worked examples of testing a freshly implemented feature, one of them run entirely through the command inbox. The `docs/` pages are the same material written for a person.
+`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 45 record types, and ten worked examples of testing a freshly implemented feature, one of them run entirely through the command inbox and one with a reconnect in the middle. The `docs/` pages are the same material written for a person.
 
 It also covers the traps that waste a test run: why an absent record is ambiguous, why `entity_spawn` floods, and why `latest.log` may not be the file you think it is.
 
@@ -69,7 +69,7 @@ Named lists of commands in JSON, under `config/devtool/bundles/`, scanned recurs
 - **Checkpoints.** `devtool checkpoint arm` shows a label to the person and pauses until they type `devtool checkpoint ack`; `cue` shows a label without pausing. The ticks asked and answered are recorded.
 - **An operator and placeholders.** Bind one player with `devtool session operator @s`, then write `${operator.name}`, `${operator.uuid}`, `${operator.selector}` or `${fixture.<handle>.uuid}` in any command. Those four are the whole list, and an unknown one refuses the file.
 - **Assertions and result files.** `devtool assert` compares a count, a presence, a dimension or a game mode with a value you declare, and writes the outcome; `"result": true` on a bundle also writes one JSON file per run with every assertion, failure, marker, checkpoint and wait.
-- **Fixtures.** `devtool fixture claim` names the one entity you just summoned; `list` says whether it is still there; `clear` removes exactly it, by a tag the toolkit owns, and nothing else.
+- **Fixtures.** `devtool fixture claim` names the one entity you just summoned; `list` says whether it is still there; `clear` removes exactly it, without a death, by a tag the toolkit owns, and nothing else; `release` takes the tag off and leaves it in the world.
 - **Scenario checkpoints.** `devtool scenario checkpoint` stores in the world save which bundle must run next, across a stop and restart, and refuses anything else until it has run or you abandon it.
 
 They live outside the world save, so they survive making a fresh test world. They are deliberately **not** a scripting language: no variables, no conditionals, no loops, and the placeholders are lookups rather than expressions.
@@ -82,7 +82,7 @@ A verdict from an assertion means only that an observation matched, or did not m
 /devtool inbox open
 ```
 
-Off by default, and opened only by you typing it, once each time you open a world. While it is open, an AI assistant can start one of its bundles, reload, save, take a screenshot, or run a read-only inspection by writing a small file into `config/devtool/inbox/`, and reads the answer from a result file next to it. Requests run as you, with your permissions. Nothing else is accepted, and no vanilla command in particular: anything that changes the world has to be in a bundle, where you can read it. It closes when you leave, when the server stops, or when you type `/devtool inbox close`.
+Off by default, and opened only by you typing it, once each time you open a world. While it is open, an AI assistant can start one of its bundles, reload, save, take a screenshot, ask for a client action, or run a read-only inspection by writing a small file into `config/devtool/inbox/`, and reads the answer from a result file next to it. Requests run as you, with your permissions. Nothing else is accepted, and no vanilla command in particular: anything that changes the world has to be in a bundle, where you can read it. It closes when you leave, when the server stops, or when you type `/devtool inbox close`. A reconnect the toolkit started itself only suspends it: requests wait, and run once you are back.
 
 Turn it on with `B:enabled=true` under `inbox` in the configuration, in a development or test instance only.
 
@@ -134,6 +134,16 @@ Inspection only observes. A position whose chunk is not loaded is refused rather
 
 NBT goes to the log, bounded by a configurable limit, and truncation is always reported along with the original length.
 
+### Client actions
+
+```
+/devtool client reconnect 3
+/devtool client respawn
+/devtool client close
+```
+
+Three steps you used to do by hand: leave the world and come back to the same place, press Respawn on the death screen, close the open screen. They always act on your own client, never another player's, and only when your client has the toolkit and allows it with `B:allowActions=true` under `client`. Off by default.
+
 ### Sessions and marks
 
 ```
@@ -157,7 +167,7 @@ Put a mark before each step you ask a human to perform. Then a missing record me
 
 ## Configuration
 
-`config/devtool/devtool.cfg`. Arena defaults and construction block, the NBT truncation limit, whether a bundle runs when an operator joins, whether spawn logging includes dropped items, whether the command inbox may be opened, and optional client defaults: brightness, music, master, weather, hostile, friendly and ambient volume, and keeping the game running when its window loses focus.
+`config/devtool/devtool.cfg`. Arena defaults and construction block, the NBT truncation limit, whether a bundle runs when an operator joins, whether spawn logging includes dropped items, whether the command inbox may be opened and how long it waits for you across a reconnect, whether your client allows client actions, and optional client defaults: brightness, music, master, weather, hostile, friendly and ambient volume, and keeping the game running when its window loses focus.
 
 Everything that could change your world or your settings without being asked is off until you turn it on.
 
@@ -210,7 +220,7 @@ The build is reproducible from a given commit. Building the same revision twice 
 
 ## Requirements
 
-Minecraft 1.12.2 with Forge. Everything the toolkit records happens on the server, so that is where it needs to be installed. In singleplayer that means installing it normally. The optional client defaults and screenshots are the only parts that act on a client, and they need it installed there too. A client without the toolkit can still join a server that has it.
+Minecraft 1.12.2 with Forge. Everything the toolkit records happens on the server, so that is where it needs to be installed. In singleplayer that means installing it normally. The optional client defaults, screenshots and client actions are the only parts that act on a client, and they need it installed there too. A client without the toolkit can still join a server that has it.
 
 Baubles is optional. When it is installed, the toolkit loads after it and adds bauble slots to inventory inspection; without it, nothing else changes.
 

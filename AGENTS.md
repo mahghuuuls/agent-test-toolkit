@@ -88,7 +88,7 @@ Rules that matter to you:
 - `delayTicks` means **wait, then run this command**. The wait starts when the previous command finishes, not at the bundle's start. Two commands with `delayTicks: 20` put the second 40 ticks in. 20 ticks per second. Put the delay on the command that must run after the wait: to let chunks load after a teleport, keep the teleport immediate and delay the command that follows it. Set `"trace": true` on a bundle to get a `BUNDLE_STEP` record per command showing when it was due and when it ran.
 - **`toleratedFailures` lets one command fail without stopping the bundle**, for the specific reasons you name. An idempotent reset like `effect @s clear` fails when there is nothing to clear; declare `["commands.effect.failure.notActive.all"]` on that command and it will be tolerated, while a typo in the same command still fails. Find the key in the `detail` field of the `ERROR` record. A tolerated failure is recorded as a success carrying a note that names the key, so it never reads as a command that simply worked. Each tolerated step also writes one `TOLERATED` record naming the key, and `BUNDLE_END` counts them in `tolerated`; `failed` still counts only real failures.
 - **Two vanilla keys you will often declare.** `commands.fill.failed` is what `fill` reports when every block in the region already is the block you asked for. `commands.setblock.noChange` is what `setblock` reports when the block is already there. Both are the second run of an idempotent setup, and neither is tolerated unless you declare it.
-- **The toolkit has failure keys of its own**, in the `devtool.` namespace, and you tolerate them the same way: `devtool.wait.timeout` when a wait ran out of time, `devtool.wait.cancelled` when it became impossible, such as the caller changing dimension mid-wait. `devtool.placeholder.unbound` when a placeholder has no value yet, `devtool.placeholder.unsafe` when its value could break the command. `devtool.assert.failed` when an assertion did not match, `devtool.assert.unloaded` when an absence could not be judged because the place is not loaded, `devtool.assert.ambiguous` when a modifier name matches several modifiers. `devtool.scenario.mismatch` when a scenario checkpoint expects a different bundle, or this bundle with different text. `devtool.inspect.notLoaded` when an inspection names a position whose chunk is not loaded. `devtool.save.failed` when `devtool save` could not save a world. `devtool.screenshot.noClient` when the target player's client does not have the toolkit. `devtool.client.noClient` when your own client does not have the toolkit for a `devtool client` step, `devtool.client.notAllowed` when it has not allowed client actions, `devtool.client.notDead` when a respawn is asked of a living player, `devtool.client.busy` when a reconnect is about to leave. `devtool.baubles.absent` when Baubles is not installed, `devtool.baubles.rejected` when a bauble slot refuses the item. That is the whole list; tolerate any of them on the one command that may fail that way.
+- **The toolkit has failure keys of its own**, in the `devtool.` namespace, and you tolerate them the same way: `devtool.wait.timeout` when a wait ran out of time, `devtool.wait.cancelled` when it became impossible, such as the caller changing dimension mid-wait. `devtool.placeholder.unbound` when a placeholder has no value yet, `devtool.placeholder.unsafe` when its value could break the command. `devtool.assert.failed` when an assertion did not match, `devtool.assert.unloaded` when an absence could not be judged because the place is not loaded, `devtool.assert.ambiguous` when a modifier name matches several modifiers. `devtool.scenario.mismatch` when a scenario checkpoint expects a different bundle, or this bundle with different text. `devtool.inspect.notLoaded` when an inspection names a position whose chunk is not loaded. `devtool.save.failed` when `devtool save` could not save a world. `devtool.screenshot.noClient` when the target player's client does not have the toolkit. `devtool.client.noClient` when your own client does not have the toolkit, 1.4.0 or later, for a `devtool client` step, `devtool.client.notAllowed` when it has not allowed client actions, `devtool.client.notDead` when a respawn is asked of a living player, `devtool.client.busy` while your client is on a reconnect, from the request until it is back and reported. `devtool.baubles.absent` when Baubles is not installed, `devtool.baubles.rejected` when a bauble slot refuses the item. That is the whole list; tolerate any of them on the one command that may fail that way.
 - **Some refusals carry no key.** A screenshot label with a forbidden character fails with an `ERROR` record and a message, not a key, so a bundle cannot tolerate it by key. Fix the label instead.
 - **Placeholders.** Bind the human once with `devtool session operator @s`, then write `${operator.name}`, `${operator.uuid}` or `${operator.selector}` in any command; a claimed fixture is `${fixture.<handle>.uuid}` once `devtool fixture claim` has named it. That is the whole list. An unknown placeholder fails the file at reload. A value is filled in when the command runs, and a command whose value is missing fails with `devtool.placeholder.unbound` instead of running with a blank.
 - **Result files.** Put `"result": true` on a bundle and each run writes `run/config/devtool/results/<bundle>-<startTick>.json`: the `BUNDLE_END` counters including `tolerated`, then assertions with outcomes, failures, markers, checkpoints, waits, and `toleratedSteps` with one entry per `TOLERATED` record, all copied from the log records. Read that when you want a run's verdicts without grepping; read the log when you want everything.
@@ -189,6 +189,8 @@ Arena commands place blocks without emptying containers first. A loot chest insi
 
 Start a session in every setup bundle. Without one you are searching a log; with one you are reading a slice of it.
 
+A session lives in memory. `session stop` forgets the session's fixture handles, but the tags stay on the entities, so a new session of the same name finds and adopts them again on its first `fixture list` or `fixture claim` (see the fixture rows below). A full restart of the game or the server ends the session; only a scenario checkpoint restores one.
+
 A session belongs to one save. Leaving to the title screen and reopening the same save keeps it. Opening a different save stops it first, with `SESSION_STOP reason=worldChanged`, which also ends its operator binding and forgets its fixtures. See [Worlds and sessions](#worlds-and-sessions).
 
 **Marks are how you tell "the action produced nothing" from "they never got that far."** When you ask a person for a sequence of actions, put a mark before each one. Then a missing record is informative instead of ambiguous.
@@ -197,7 +199,7 @@ A session belongs to one save. Leaving to the title screen and reopening the sam
 
 | Command | Effect |
 | --- | --- |
-| `devtool inspect player [selector]` | Position, health, hunger, experience, gamemode, held items, effects, and `openContainer`: `inventory`, or the class of another container the server has open for the player |
+| `devtool inspect player [selector]` | Position, health, hunger, experience, gamemode, held items, effects, and `openContainer`: `inventory`, or the class of another container the server has open for the player. The server cannot tell the player's own inventory screen from no screen: both are `inventory` |
 | `devtool inspect entity <selector>` | Registry id, position, motion, health, effects |
 | `devtool inspect block <x> <y> <z>` | Block id, metadata, blockstate, tile entity class |
 | `devtool inspect container <x> <y> <z>` | A container's occupied slots, one `INVENTORY_INSPECT` record each. A container whose loot table has not rolled yet is reported as `lootRolled=false lootTable=<id>` with no `occupiedSlots`, and its loot is **not** rolled |
@@ -235,20 +237,22 @@ NBT goes to the log, never to chat, and is truncated at `maxNbtOutputLength`. Tr
 | `devtool checkpoint cue <label> [chat|actionbar|title] [sound]` | Show the label prominently, action bar by default, with a sound if asked. Does not pause. Records the cue tick |
 | `devtool checkpoint ack` | Record that the operator is ready or has acted, with the latency since they were last asked. Records only; never performs any action |
 | `devtool assert entities count <n> within <r> [type <id>] [name <name>]` | Exact count of entities around the caller. Writes an `ASSERT` record with `expected`, `observed` and `outcome`; a mismatch fails the command with `devtool.assert.failed` |
-| `devtool assert entity <uuid> present\|absent [at <x> <y> <z>]` | Whether a loaded entity has that UUID. Absent is only a verdict when the place it should be is loaded: give `at`, or use a claimed fixture, otherwise the outcome is `unloaded` with `devtool.assert.unloaded` |
+| `devtool assert entity <uuid> present\|absent [at <x> <y> <z>]` | Whether a loaded entity has that UUID. A dying entity (health at zero, in its death animation) counts as absent, with `dead=true` on the record. Absent is only a verdict when the place it should be is loaded: give `at`, or use a claimed fixture, otherwise the outcome is `unloaded` with `devtool.assert.unloaded` |
 | `devtool assert entity <uuid> dimension <d>` and `within <r> of <x> <y> <z>` | Where a loaded entity is |
 | `devtool assert player <name> dimension <d>` and `gamemode <mode>` | Where a player is and how they play |
 | `devtool assert attribute <target> <attribute> value <n>` | An attribute's final value, compared at two decimals. `<target>` is a selector or UUID matching exactly one living entity; `<attribute>` is the registry name, such as `generic.armor` |
 | `devtool assert attribute <target> <attribute> modifier <uuid\|name> [amount <n>]` | Whether the attribute has that modifier, and with `amount` its amount. A name may hold spaces: every word up to `amount` is the name. A name that matches several modifiers fails with `devtool.assert.ambiguous` instead of choosing one; vanilla gives all four armour pieces the name `Armor modifier`, so assert those by UUID. A target that matches nothing, several entities, or a non-living entity fails before any comparison and writes no `ASSERT` |
-| `devtool fixture claim <handle> <selector\|uuid\|entityId>` | Mark exactly one non-player entity as this session's fixture under a handle, by adding the tag `devtool.fx.<session>.<handle>`. Refuses a duplicate handle. From then on `${fixture.<handle>.uuid}` names it |
-| `devtool fixture list` | Each fixture of the session as `loaded`, `unloaded`, or `absent`, judged at its last known place. A server never unloads its spawn chunks, so a fixture standing there is always `loaded` |
-| `devtool fixture clear <handle\|all>` | Remove fixtures whose entity still carries this session's tag, logging each UUID. An entity without the tag is refused, not removed |
+| `devtool fixture claim <handle> <selector\|uuid\|entityId>` | Mark exactly one non-player entity as this session's fixture under a handle, by adding the tag `devtool.fx.<session>.<handle>`. A handle is letters, digits, `_` and `-`, no dot; in the tag, every other character of the session name (a `.` or a space included) becomes `_`. Claiming, under a handle the session does not hold yet, an entity that already carries this session's tag for that handle adopts it (`adopted=true`), as after a `session stop`. Refused: a handle the session already holds, even for the same entity (so after a `fixture list` has refilled the handles, a `claim` of the same fixture fails), a handle another entity holds, an entity that is already this session's fixture under another handle, and a handle whose cached fixture is unloaded while a loaded entity carries the tag; the refusals name the other side and have no key. From then on `${fixture.<handle>.uuid}` names it |
+| `devtool fixture list` | Each fixture of the session as `loaded`, `unloaded`, `absent`, `removing` (dying or being removed), `untagged` (found, but its tag is gone) or `duplicate` (two living entities carry the tag, listed as `carriers`), judged at its last known place. A server never unloads its spawn chunks, so a fixture standing there is always `loaded` |
+| `devtool fixture clear <handle\|all>` | Remove fixtures whose entity still carries this session's tag, without a death: no loot, no experience, no death events, riders left in the world. The `FIXTURE outcome=removed` record is written once the removal is confirmed, a tick later, with `confirmedTick`. An entity without the tag is refused (`notOwned`), a duplicate is refused, an unloaded fixture is `notLoaded`, a dying one `alreadyRemoving`; a removal not yet confirmed when the server stops is `unconfirmed reason=serverStopped` |
+| `devtool fixture release <handle\|all>` | Take the tag off and forget the handle, leaving the entity in the world. Refused for an entity without the tag (`notOwned`) and for a duplicate; `notLoaded` for an unloaded fixture |
 | `devtool scenario checkpoint <id> next <bundle> [clean\|fatal]` | Store, inside the world save, that `<bundle>` must be the next bundle run: its name and hash, the session, its operator, and its fixtures with their last places. Until it runs, `devtool run` of any other bundle, or of that bundle with changed text, is refused with `devtool.scenario.mismatch` naming both sides. Bundles the allowed bundle runs inside itself are not checked again |
 | `devtool scenario status` | The standing checkpoint, or none, or corrupt |
 | `devtool scenario complete <id>` and `abandon <id>` | Clear it, with a record. The resume bundle must not start a session itself; the resume restores the stored one, its operator and its fixtures before the bundle runs |
 | `devtool reload` | Re-read bundles and configuration from disk. Writes `RELOAD trigger=command`. The same reload runs at every server start with `trigger=serverStart` |
 | `devtool save` | Save player data and every loaded world, on single player and dedicated servers alike. Leaves each world's saving flag as it found it, so a `save-off` typed earlier stays off. Writes `SAVE`. A failure writes an `ERROR` and fails with `devtool.save.failed`. Vanilla `save-all` exists on a dedicated server only and needs level 4; this needs level 2 |
 | `devtool screenshot <label> [delayTicks] [player]` | Ask a player's client to save a screenshot after the delay. The label is 1 to 48 letters, digits, `_` or `-`; the delay is 0 to 600 ticks, default 0. The target is the named player, else the sender, which in a bundle is its caller and through the inbox is the inbox operator. The client must have the toolkit installed, or the command fails with `devtool.screenshot.noClient` and nothing is sent |
+| `devtool client reconnect [awaySeconds]\|respawn\|close` | Ask your own client to leave and come back, press Respawn on the death screen, or close the open screen. See [Client actions](#client-actions) |
 | `devtool inbox open\|close\|status` | Open, close or report the command inbox. See [The command inbox](#the-command-inbox) |
 | `devtool bundle list` | Loaded bundles and their command counts |
 | `devtool bundle show <name>` | One bundle's commands in order, with delays |
@@ -261,6 +265,36 @@ NBT goes to the log, never to chat, and is truncated at `maxNbtOutputLength`. Tr
 `devtool run` refuses a call that does not come from the server thread. RCON runs its commands on its own thread, so start bundles from chat, the server console or the inbox instead.
 
 **Screenshots.** The server writes `SCREENSHOT action=requested` with the file name it asked for, `screenshots/<label>-<requestTick>.png`, where `requestTick` is the target's world tick when the request was made. The client writes `SCREENSHOT side=CLIENT action=saved` with the file once it is on disk, or `action=failed` with a `reason`. The capture is of the whole window, an open inventory or menu included, so pair it with a `checkpoint cue` that tells the person what to have on screen. At most 8 screenshots wait on a client at once; more fail with `reason=queueFull`, and waiting ones fail with `reason=disconnected` when the player leaves the world. In a dedicated-server setup the file is on the client's computer, not the server's.
+
+### Client actions
+
+Three steps a person used to do by hand, so a test can run them from a bundle or the inbox:
+
+| Command | What the client does |
+| --- | --- |
+| `devtool client reconnect [awaySeconds]` | Leaves the world, waits `awaySeconds` (0 to 60, default 0) at the menu, and comes back to the same place: the same server entry on a dedicated server, the same save in single player, saved in full before it stopped |
+| `devtool client respawn` | Presses Respawn on the death screen, once its buttons are enabled (20 ticks). Waits up to 100 ticks for a death screen still opening |
+| `devtool client close` | Closes the open screen the way Escape does, telling the server when it is a container. A tick later it records what is showing |
+
+**The target is always the sender**: the player typing it, the caller of a bundle, the inbox operator through the inbox. There is no player argument, so nobody can send another player's client away. The console, a command block and `/execute` are refused.
+
+**It is off unless the client allows it.** The client needs the toolkit, 1.4.0 or later, and `client.allowActions=true` in its own `devtool.cfg`. At every login a 1.4.0 server says hello to such a client, and the client answers whether it allows actions. So the server refuses at once, with a key a bundle can tolerate: `devtool.client.noClient` when the client has no toolkit or one older than 1.4.0, `devtool.client.notAllowed` when it has not allowed actions (or its answer has not arrived). Neither side is ever sent a message it cannot read: a client older than 1.4.0 gets no hello, and a server older than 1.4.0 sends none, so a 1.4.0 client there never answers.
+
+**The server refuses** with a key: a respawn asked of a living player (`devtool.client.notDead`), and any step while the sender's client is on a reconnect, about to leave or back but not yet reported (`devtool.client.busy`; it ends once the reconnect reports, 10 seconds after the player is back without a report, or after `inbox.rejoinWindowSeconds`). The refusal of a sender that is not a player (the console, a command block, `/execute`) has no key, so a bundle cannot tolerate it.
+
+**The client refuses** what only it can know, with a reason in its record and in its report to the server; the command itself has already succeeded. Any step: `notAllowed` when its own setting changed since it said hello, `busy` for a close or respawn while a reconnect is under way.
+
+- `close`: `noWorld`, `noScreen`, `deathScreenUseRespawn` (use `respawn`), `credits`, `bedScreen`, `loadingScreen`, `busy` (a close still pending); after closing, `failed reason=stillOpen` when another mod kept or reopened the same screen.
+- `respawn`: `noWorld`, `credits`, `hardcore` (the button means Spectate World there), and, after waiting, `notDeadYet`, `noDeathScreen` or `timeout`; `busy` for a second respawn.
+- `reconnect`: `noWorld`, `realms`, `openToLan` (stopping a world open to LAN would throw every other player out), `noServerData`; `busy` while a close or respawn is still pending.
+
+**Records.** The server writes `CLIENT_ACTION action=requested` with `player`, `step`, `requestTick` and for a reconnect `awaySeconds`, before sending. The client writes `CLIENT_ACTION side=CLIENT` with `step`, `result` (`done`, `refused`, `failed`, and `left` for a reconnect leaving), `reason`, `screen` (the screen's class) and `showing` (what is open a tick after a close), and sends the same as a report; the server writes it as `CLIENT_ACTION action=reported`. A report nobody asked for is dropped without a record.
+
+**Put `client reconnect` last in a bundle.** The client leaves about a second after the request, and the bundle's later steps are lost with it: on a dedicated server they end with `senderLost`, in single player the run is discarded when the integrated server stops. Do the work after the return in a second bundle or request.
+
+**A reconnect, step by step.** The client writes `result=left` and reports it, waits at least 5 ticks and one second, so the run that asked for it is answered first, stops reading the connection and lets what it already received be handled, then leaves. In single player it stops the integrated server and waits at the title screen; on a dedicated server it disconnects as the pause menu does. At any menu, after at least 20 ticks and the away time, it rejoins. Back in the same world, the server says hello again and the client writes and reports `result=done` with `awayMs`. If the connection fails, a different world is joined, the save is gone, or it is not back within 60 seconds after the away time (4 minutes more while a single-player world is still loading), the client writes `result=failed` with `connectFailed`, `joinedElsewhere`, `saveNotFound`, `loadAborted`, `notAtMenu` or `timeout`, and `folder` in single player; that one cannot reach the server.
+
+**What reconnect does not do.** It does not take you to another server or world, and it does nothing at the title screen: once the client is at the menu, no server can reach it.
 
 ### Baubles slots (only with Baubles installed)
 
@@ -275,12 +309,14 @@ Baubles is optional. The toolkit loads after it when it is present and never req
 
 ## The command inbox
 
-The inbox lets you start a bundle, reload, save, or run a read-only toolkit command yourself, by writing a file. It is closed unless both hold:
+The inbox lets you start a bundle, reload, save, run a read-only toolkit command, take a screenshot, or ask for a client action yourself, by writing a file. It is closed unless both hold:
 
 1. the owner set `inbox.enabled` to true in `run/config/devtool/devtool.cfg` (`B:enabled=true` under `inbox`; false by default), and
 2. a player typed `/devtool inbox open` in chat since the current server started.
 
-The opening is held in memory only, never written to disk. It closes when the player who opened it logs out (`reason=operatorLeft`), when the server stops (`serverStopped`), when a reload finds the key turned off (`disabled`), or when someone types `devtool inbox close` (`closed`). In single player leaving the world closes it, so the owner opens it again each time a world is opened. `devtool inbox status` reports whether it is open and for whom.
+The opening is held in memory only, never written to disk. It closes when the player who opened it logs out (`reason=operatorLeft`), when the server stops (`serverStopped`), when a reload finds the key turned off (`disabled`), or when someone types `devtool inbox close` (`closed`). In single player leaving the world closes it, so the owner opens it again each time a world is opened. `devtool inbox status` reports whether it is open, for whom, and whether it is suspended.
+
+**Across a reconnect the toolkit started**, the opening is suspended instead of closed. When the inbox operator's own `client reconnect` (from a request, a bundle, or typed) makes their client leave, the inbox writes `INBOX action=suspended reason=reconnect` with `resumeDeadlineMillis`, and stops reading requests; they wait in the folder. `status.json` stays, with `suspended: true`, `reason` and `resumeDeadlineMillis`. When the same client is back with the one-time token it was sent away with, the inbox writes `INBOX action=resumed` and reads the waiting requests, without anyone typing `inbox open`. Between the reconnect request and the leave, the inbox already holds further requests, for at most 15 seconds, so a batch's next line runs after the return. Every other path closes it, with a reason: the deadline, `inbox.rejoinWindowSeconds` (default 120) of wall-clock time, passing (`rejoinTimeout`, also while no server runs at all in single player); the operator logged in again but no token arrived within 10 seconds (`returnedOtherRoute`); a wrong token (`tokenMismatch`); a different world loading (`worldChanged`); the key turned off; `inbox close`; a dedicated server's stop. A leave by the pause menu is an ordinary leave and closes it (`operatorLeft`). A game quit while suspended leaves `status.json` behind, as a crash does, until the next server start deletes it; the new process starts closed.
 
 Opening is refused, with an `INBOX action=refused` record, when the key is false (`reason=disabled`; the chat message names the key), when it is already open for another player (`openForAnother`), and when the command comes from a bundle (`fromBundle`). A bundle, or join automation, can never open the inbox, and neither can the console, a command block, or `/execute`. A person typing it while a bundle waits on a delay or a checkpoint is not refused. **Never put `devtool inbox open` in a bundle.** Ask the owner to type it.
 
@@ -290,7 +326,7 @@ The player who opened it is the **inbox operator**. Every request runs with that
 
 The folder is `run/config/devtool/inbox/`, on a dedicated server under the server's directory. While the inbox is open the toolkit reads it every 10 ticks, on the server thread. While it is closed, no request is read and no request, claim or result file is changed. The one exception is at server start: a `status.json` left behind by a crash or a killed process is deleted, since the inbox is closed.
 
-1. Check that `status.json` exists. It is present exactly while the inbox is open, with `schemaVersion`, `open`, `operator`, `operatorUuid`, `world` (the save folder), `openedWorldTick` and `openedAtMillis`. No file means closed or not started.
+1. Check that `status.json` exists. It is present exactly while the inbox is open, with `schemaVersion`, `open`, `operator`, `operatorUuid`, `world` (the save folder), `openedWorldTick` and `openedAtMillis`, and while suspended also `suspended`, `reason` and `resumeDeadlineMillis`. No file means closed or not started. A request written while it is suspended waits and runs after the return.
 2. Write the request to `<id>.tmp`, then rename it to `<id>.req`. The rename is mandatory: the toolkit reads only `.req` files, and on some systems a file written straight to its `.req` name can be claimed half-written.
 3. Wait for `<id>.result.json`.
 
@@ -315,6 +351,7 @@ Rules:
 | `entities ...` | `devtool entities ...` |
 | `nbt ...` | `devtool nbt ...` |
 | `screenshot <label> [delayTicks]` | `devtool screenshot`, always to the inbox operator. No player argument |
+| `client reconnect [awaySeconds]`, `client respawn`, `client close` | `devtool client ...`, for the inbox operator's own client. `awaySeconds` 0 to 60. Lower case only: `client Reconnect` is `badArguments` |
 
 A leading `/` is accepted. Nothing else is: no vanilla command, no other toolkit command, no `devtool` or `att` prefix. Anything that changes the world goes in a bundle you wrote, which the owner can read, and the inbox starts it with `run`.
 
@@ -323,7 +360,7 @@ Refusals, on both the `INBOX` record and the result file:
 | `reason` | Meaning |
 | --- | --- |
 | `verbNotAllowed` | The first word is not in the table above, `devtool` included |
-| `badArguments` | The verb is allowed but its arguments are not, such as `run` with two words, `reload` with one, or a screenshot delay over 600 |
+| `badArguments` | The verb is allowed but its arguments are not, such as `run` with two words, `reload` with one, a screenshot delay over 600, or `client reconnect 99` |
 | `malformed` | Empty, more than one line, not printable ASCII, over 512 characters, or a file over 4096 bytes |
 | `placedBeforeOpen` | Already waiting when the inbox opened |
 | `operatorLeft` | The inbox operator is no longer online. The inbox closes too |
@@ -355,6 +392,8 @@ The table lists the keys this release added and the ones you need for the inbox,
 | Key | Default | Effect |
 | --- | --- | --- |
 | `inbox.enabled` | `false` | Allows `devtool inbox open`. For a development or test instance only |
+| `inbox.rejoinWindowSeconds` | `120` | How long, in wall-clock seconds, a suspended inbox waits for its operator to come back from a toolkit reconnect, 10 to 600. Keep it longer than the away time plus a world load |
+| `client.allowActions` | `false` | On a client: lets a server ask this client for `devtool client` steps. Read by the client, sent to the server at every login. Unlike the other `client.` keys it does not need `applyOnJoin`. In single player, reopening a world picks up a change; a client joining a dedicated server reads it at game start, so restart the client after changing it |
 | `diagnostics.spawnIncludeItems` | `false` | `entity_spawn` also records dropped items and experience orbs |
 | `join.enabled`, `join.bundle` | `false`, empty | Run a bundle when an operator joins. Its `BUNDLE_START` says `channel=join` |
 | `client.applyOnJoin` | `false` | Apply the client defaults below, once per launch at the first world join, and write the client `ENVIRONMENT` record. Every other `client.` key does nothing unless this is true. Ignored on a dedicated server |
@@ -367,7 +406,7 @@ The volume keys and `client.noPauseOnLostFocus` act only when `client.applyOnJoi
 
 Every client default is saved to `options.txt`, as the game's own sliders are, so it stays after you turn the key back off. For the pause, F3+P in game turns it back on. The client `ENVIRONMENT` record names `brightness` and `music` every time, and `<name>Was`/`<name>Now` for the other categories and `pauseOnLostFocus` only when they were set, so an absent field always means "left as it was".
 
-The toolkit records on the server. Install it on the client too only when you want screenshots or client defaults; a client without it still joins a server that has it.
+The toolkit records on the server. Install it on the client too only when you want screenshots, client defaults or client actions; a client without it still joins a server that has it.
 
 `-Pdev_runtime_baubles=true`, as in `./gradlew runClient -Pdev_runtime_baubles=true`, puts Baubles on the toolkit's own development runtime. It is for developing the toolkit. To test a mod with Baubles, install Baubles in that instance like any other mod.
 
@@ -410,19 +449,19 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 | `TOLERATED` | one bundle command whose failure was tolerated, by a declared key or the built-in no-op set: `bundle` `hash` `index` `command` (after placeholder substitution) `key`. Written as that command ends, so it sits between `BUNDLE_START` and the records of the commands after it |
 | `RELOAD` | `reload`, and every server start: `bundles` loaded, `problems` found, `trigger` (`command` or `serverStart`). The `ERROR` record of each problem comes before it |
 | `SAVE` | `save`: `worlds` saved, `dimensions` (their ids, comma separated; Forge unloads an empty Nether or End, so the count varies), `durationMs` |
-| `INBOX` | the command inbox: `action` (`opened`, `closed`, `claimed`, `refused`, `dispatched`, `failed`), `id` and `request` for a request, `operator`, and `reason` for closes, refusals and failures |
+| `INBOX` | the command inbox: `action` (`opened`, `closed`, `claimed`, `refused`, `dispatched`, `failed`, `suspended`, `resumed`), `id` and `request` for a request, `operator`, `reason` for closes, refusals, failures and suspensions, and `resumeDeadlineMillis` for a suspension |
 | `SCREENSHOT` | `screenshot`. On the server `action=requested` with `label` `delayTicks` `target` `requestTick` `file`. On the client, `side=CLIENT` with `label` `requestTick` and `action=saved` with `file`, or `action=failed` with `reason` (`queueFull`, `disconnected`, `noFile` with the expected `file`, or an exception name) |
-| `CLIENT_ACTION` | `client`. On the server `action=requested` with `player` `step` `awaySeconds` `requestTick`, then `action=reported` with the client's `result` and `reason`. On the client, `side=CLIENT` with `step` `result` (`done`, `refused`, `failed`) `reason` `screen` `showing` |
+| `CLIENT_ACTION` | `client`. On the server `action=requested` with `player` `step` `awaySeconds` (reconnect only) `requestTick`, then `action=reported` with `player` `step` `requestTick` and the client's `result` `reason` `screen` `showing`. On the client, `side=CLIENT` with `step` `result` (`done`, `refused`, `failed`, `left`) `reason` `screen` `showing` `requestTick`, and `awayMs` on a reconnect's `done`. See [Client actions](#client-actions) |
 | `BAUBLES` | `baubles set`: `action=set` `player` `slot` `slotType` `item` `count` `meta`, `replaced` when the slot held something, `outcome` (`set` or `rejected`). `baubles clear`: `action=clear` `player` `slots` (`all` or the index) `cleared` (how many held something) `outcome=cleared` |
 | `BUNDLE_STEP` | one command of a bundle with `trace` on, just before it runs, with `bundle` `hash` `index` `command` `dueTick` `elapsedTicks` |
 | `BUNDLE_SOURCE` | at load and reload: per file `source` `sha256` `bundles`; per bundle `bundle` `source` `hash`. The same `hash` is on that bundle's `BUNDLE_START` and `BUNDLE_END` |
 | `AWAIT` | a wait ended: `condition` `outcome` (`satisfied` `timedOut` `cancelled` `pending`) `reason` `waitedTicks` `timeoutTicks`, and for `chunks` also `dimension` `chunks` `chunkCount` `loadedChunks` `firstUnloadedChunk` |
 | `CHECKPOINT` | `action` of `arm`, `cue` or `ack` with `label`. Arm: `armedTick`, `timeoutTicks`, `operator`. Cue: `cueTick`, `form`, `sound`, `operator`. Ack: `askedTick`, `ackTick`, `latencyTicks`, and `answered` (`arm` or `cue`). An armed checkpoint that ends also writes an `AWAIT` with `condition=checkpoint`, `label`, `armedTick`, and when acknowledged `ackTick` and `latencyTicks` |
-| `ASSERT` | One declared comparison: `predicate`, the scope fields it used, `expected`, `observed`, `outcome` of `pass`, `fail` or `unloaded`, and `note` when the outcome needs one. A verdict says only whether the observation matched the declared value; it never says the mod is right or wrong |
-| `FIXTURE` | `action` of `claim`, `list` or `clear` with `handle` and `uuid`. Claim: `entity`, `tag`, `dimension`, `pos`. List: `state` (`loaded`, `unloaded`, `absent`, `unknown`), `fixtures`, last place. Clear: `outcome` (`removed`, `refused` with `reason=notOwned` and the entity's `tags`, or `notLoaded` with `state`) |
+| `ASSERT` | One declared comparison: `predicate`, the scope fields it used, `expected`, `observed`, `outcome` of `pass`, `fail` or `unloaded`, `dead=true` when an entity counted absent was dying, and `note` when the outcome needs one. A verdict says only whether the observation matched the declared value; it never says the mod is right or wrong |
+| `FIXTURE` | `action` of `claim`, `list`, `clear` or `release` with `handle` and `uuid`. Claim: `entity`, `tag`, `dimension`, `pos`, `adopted=true` when the entity already carried the tag. List: `state` (`loaded`, `unloaded`, `absent`, `removing`, `untagged`, `duplicate` with `carriers`, `unknown`), `fixtures`, last place. Clear: `outcome` (`removed` with `confirmedTick`, and `unloadPending=true` when its world has stopped updating entities; `failed reason=stillAlive`; `alreadyRemoving`; `refused` with `reason=notOwned` and the entity's `tags`, or `duplicate`; `notLoaded` with `state`; `unconfirmed reason=serverStopped`). The clear record is written a tick after the clear, once the removal is confirmed, so after a teardown that clears and stops in one tick it follows `SESSION_STOP` and `BUNDLE_END`. Release: `outcome` (`released`, `refused`, `notLoaded`) |
 | `SCENARIO` | `action` of `checkpoint`, `load` (with `state` of `present`, `absent` or `corrupt` and `enforced`), `resume` (with `restoredFixtures`), `refuse` (with `reason` of `wrongBundle` or `changedHash`), `completed` or `abandoned`; with `scenarioId`, `expectedBundle`, `expectedHash`, `offeredBundle`, `offeredHash`, `operator`, `expectedStop`, `fixtures` as they apply |
 | `ARENA_CREATE` / `ARENA_RESET` / `ARENA_CLEAR` | the matching `arena` action |
-| `PLAYER_INSPECT` | `inspect player` |
+| `PLAYER_INSPECT` | `inspect player`, with `openContainer`: `inventory`, or the class of another container the server has open for the player |
 | `ENTITY_INSPECT` | `inspect entity` |
 | `BLOCK_INSPECT` | `inspect block`, with `tileEntityClass` when there is one |
 | `INVENTORY_INSPECT` | `inspect inventory` and `inspect container`: `occupiedSlots`, `slot`, `item`, `count`, `meta`, `hasNbt` when the item has a tag. For a player also `section` (`main`, `armor`, `offhand`, `baubles`); a bauble slot adds `area=baubles` and `slotType`. A container with loot not yet rolled writes one record with `lootRolled=false` and `lootTable`, and no `occupiedSlots` |
@@ -444,7 +483,7 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 
 ### Three shapes that break naive parsers
 
-- **`ENTITY_DAMAGE` collapses three game events into one record.** One hit is one line. `amountPreMitigation` and `amountFinal` are omitted when the damage was cancelled before reaching those stages, and `stoppedAt` tells you where it stopped. Do not expect three lines.
+- **`ENTITY_DAMAGE` collapses three game events into one record.** One hit is one line. `amountPreMitigation` and `amountFinal` are omitted when the damage was cancelled before reaching those stages, and `stoppedAt` tells you where it stopped. Do not expect three lines. A target's `ENTITY_DAMAGE` comes before its `ENTITY_DEATH` and before a `LOG_CONFIG` that turns the category off; a hit on the same target that stopped before the damage stage in that tick is still written at the tick end, after the death. Records of different targets may appear out of attack order; each carries its `worldTick`. An instant effect from `/effect` hurts at the target's next update, a tick after the command.
 - **`INVENTORY_INSPECT` emits one record per occupied slot**, and still emits one carrying `occupiedSlots=0` for an empty inventory. Counting records is not counting items.
 - **`devtool mods` emits `CAPABILITIES`**, one per mod, rather than a type of its own.
 
@@ -503,9 +542,9 @@ So: read the log **before** anything restarts, and copy it to a scenario-named p
 
 ### Which process writes what
 
-Observation is server-side. In single player everything lands in the one log. With a dedicated server, event records are on the **server**; command replies a person sees in chat are on the **client**. Two records are written by the client and carry `side=CLIENT`: `SCREENSHOT action=saved` or `failed`, and the `ENVIRONMENT` record of the client defaults. With a dedicated server they are in the client's log.
+Observation is server-side. In single player everything lands in the one log. With a dedicated server, event records are on the **server**; command replies a person sees in chat are on the **client**. Three records are written by the client and carry `side=CLIENT`: `SCREENSHOT action=saved` or `failed`, the `ENVIRONMENT` record of the client defaults, and `CLIENT_ACTION side=CLIENT`. With a dedicated server they are in the client's log; the server writes its own `CLIENT_ACTION action=reported` from the client's report.
 
-A client without the toolkit can still join a server that has it. Everything server-side works as usual for that player; only what needs the client fails: a screenshot to that player fails with `devtool.screenshot.noClient`, and client defaults are not applied.
+A client without the toolkit can still join a server that has it. Everything server-side works as usual for that player; only what needs the client fails: a screenshot to that player fails with `devtool.screenshot.noClient`, a client action with `devtool.client.noClient`, and client defaults are not applied.
 
 ### Worlds and sessions
 
@@ -772,7 +811,9 @@ You summon something, and later you need that one entity, not whatever else shar
 - `FIXTURE action=list state=loaded`. After the person walks far away, `unloaded`; after the entity is gone from a loaded place, `absent`.
 - On teardown, `FIXTURE action=clear outcome=removed` with the UUID, one per fixture.
 
-**What would fool you:** a fixture standing in the world's spawn chunks. A server never unloads those, so `unloaded` never appears there and an absence assertion there is a real verdict at once. Also: ownership is the tag, not the name. If something removed the tag, `clear` writes `outcome=refused reason=notOwned` and leaves the entity alone, and a second pig named `target` is never touched because it was never claimed.
+**Handles are a cache; the tag is the truth.** Placeholders, tab completion and scenario checkpoints read the session's handle cache. After a `session stop` and a new `session start` of the same name, a fixture known only by its tag is unbound in `${fixture.<handle>.uuid}` and missing from a checkpoint until a fixture command (`list`, `claim`) refills the cache. Session names that map to the same tag part (`my test`, `my_test`, `my.test`) share fixtures. If a fixture's tag moves to another entity, the handle follows the tag, and `clear` removes the new carrier. A 1.3.0 tag with a dotted handle, or from a session whose name had a dot, belongs to no session in 1.4.0: remove it with vanilla `kill` or `scoreboard players tag <entity> remove <tag>`. A 1.3.0 scenario checkpoint of a dotted session resumes its fixtures as `untagged`.
+
+**What would fool you:** a fixture standing in the world's spawn chunks. A server never unloads those, so `unloaded` never appears there and an absence assertion there is a real verdict at once. Also: ownership is the tag, not the name. If something removed the tag, `clear` writes `outcome=refused reason=notOwned` and leaves the entity alone, and a second pig named `target` is never touched because it was never claimed. And `clear` removes without a death: expect no `ENTITY_DEATH`, no drops, and the `removed` record a tick after the clear.
 
 ### H. A scenario that survives a restart
 
@@ -899,9 +940,38 @@ w-003   screenshot after_strike
 
 **What would fool you:** reusing `w-001` for the second request. It is never run, and it gets only an `INBOX action=refused reason=duplicateId` record, no result file, so a loop waiting for that file waits forever: wait with a timeout, and look for that record when it runs out. A request written before the owner opened the inbox is refused with `placedBeforeOpen`. A bundle edited after the world opened, with no `reload` request, runs the old text; the `hash` in the result file and on `BUNDLE_START` tells you which text ran. A missing answer in single player may only mean the game is paused. If nobody created the arena, `arena reset` fails, the bundle stops there, and the result says `outcome=failed reason=bundleFailed` with `firstFailure` naming the missing arena. And `outcome=done` says the setup ran, not that the strike happened: only the `ENTITY_DAMAGE` after the mark says that.
 
+### J. A reconnect in the middle of a test
+
+Your feature saves something when a player leaves and loads it when they come back. You need the leave and the return without asking anyone to click.
+
+**Once, by the owner:** `client.allowActions=true` in the client's `devtool.cfg` (in single player that is the same file), set before the world is opened (the client reads it when a world opens; with a dedicated server, at game start), and the inbox open. In single player also `client.applyOnJoin=true` and `client.noPauseOnLostFocus=true` before the game is launched, as in example I: the world reopens during the test, and a paused game reads no requests.
+
+```json
+{
+  "feat_rejoin_check": {
+    "description": "Mark, leave and come back after three seconds",
+    "result": true,
+    "commands": [
+      "devtool mark BEFORE_LEAVE",
+      "devtool client reconnect 3"
+    ]
+  }
+}
+```
+
+**Your steps:** write `run feat_rejoin_check`, then, once its result is `done`, write `mark AFTER_RETURN` and `inspect player`. They wait while the client is away and run after it is back.
+
+**Then read back:**
+
+- `CLIENT_ACTION action=requested step=reconnect awaySeconds=3`, then `CLIENT_ACTION side=CLIENT result=left`.
+- `INBOX action=suspended reason=reconnect`, the server's own records of the leave (and in single player its stop and start, with `WORLD sameAsSession=true` when a session was active), then `CLIENT_ACTION side=CLIENT result=done awayMs=...` and `INBOX action=resumed`.
+- `MARK label=AFTER_RETURN` and the `PLAYER_INSPECT` after the resume.
+
+**What would fool you:** a `done` result file for the `run` says the bundle asked for the reconnect, not that the client came back; `INBOX action=resumed` says that. A reconnect refused by the client (`openToLan`, `realms`, `busy`) leaves the inbox listening and reports the reason. A client back after the deadline finds the inbox closed (`rejoinTimeout`). And `client.allowActions` lives on the client: on a dedicated server, set it in the client's configuration, not the server's.
+
 ## Limits
 
-**It does not play the game.** A person performs every gameplay action. The toolkit prepares, records, and reports. It never presses a button.
+**It does not play the game.** A person performs every gameplay action. The toolkit prepares, records, and reports. The only buttons it presses are three lifecycle steps a client has allowed: leaving and rejoining, Respawn on the death screen, and closing the open screen. It never moves, attacks, uses an item or chooses anything in a menu.
 
 **It does not know about your mod.** Every record is generic: blocks placed, entities damaged, items used. A modded tile entity's class is named; its contents are not interpreted, because interpreting them would require knowing how that mod works.
 

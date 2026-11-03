@@ -70,6 +70,10 @@ The toolkit's own failure keys are tolerated the same way, by declaring them:
 | `devtool.inspect.notLoaded` | An inspection names a position whose chunk is not loaded |
 | `devtool.save.failed` | `devtool save` could not save a world |
 | `devtool.screenshot.noClient` | The screenshot target's client does not have the toolkit |
+| `devtool.client.noClient` | Your own client does not have the toolkit, or has one older than 1.4.0, for a `devtool client` step |
+| `devtool.client.notAllowed` | Your client has not allowed client actions |
+| `devtool.client.notDead` | A respawn was asked of a living player |
+| `devtool.client.busy` | Your client is on a reconnect, from the request until it is back and reported |
 | `devtool.baubles.absent` | Baubles is not installed |
 | `devtool.baubles.rejected` | A bauble slot refused the item |
 
@@ -142,6 +146,7 @@ Rules that keep this a lookup and not a language:
 - Values are filled in when the command runs, never when the file loads. A placeholder whose value is missing at that moment fails the command with `devtool.placeholder.unbound`. Tolerate that key on the command if you mean it.
 - A value containing whitespace, a quote or a brace is never substituted; the command fails with `devtool.placeholder.unsafe`. Names, UUIDs and selectors never contain those, so this only ever catches something wrong.
 - `BUNDLE_STEP` and `ERROR` records show the substituted text, so the log says what actually ran.
+- `${fixture.<handle>.uuid}` reads the session's handles, not the tags. After a `session stop` and a new `session start` of the same name, a fixture known only by its tag is unbound until `devtool fixture list` or `devtool fixture claim` fills the handles again.
 
 ## Result files
 
@@ -197,6 +202,10 @@ gamemode creative
 ```
 
 **This changed in 1.0.1.** In 1.0.0 the sender was substituted for a wrapper in order to read failure messages, and the eight vanilla commands that check their sender's concrete type failed with `commands.generic.player.unspecified` whenever their player argument was left out: `clear`, `gamemode`, `kill`, `scoreboard`, `setworldspawn`, `spawnpoint`, `tp`, `xp`. An explicit selector was the workaround and still works.
+
+`devtool client reconnect`, `respawn` and `close` act on the caller's own client, and have no player argument. A bundle can run them, and the target is whoever ran the bundle. The console, a command block and `/execute` are refused, with no key, so that refusal cannot be tolerated. See [commands.md](commands.md#client-actions).
+
+**Put `client reconnect` last in a bundle.** The client leaves about a second after the request, and the bundle's later steps are lost with it: on a dedicated server they end with `senderLost`, and in single player the run is discarded when the integrated server stops. Do the work after the return in a second bundle or inbox request.
 
 ## Where a run came from
 

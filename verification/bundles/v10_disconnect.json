@@ -1,6 +1,6 @@
 {
   "v10_disconnect_child": {
-    "description": "Called by v10_disconnect_parent. Fifteen seconds of marks, five seconds apart, so there is time to disconnect while it is running.",
+    "description": "Called by v10_disconnect_parent. Forty-five seconds of marks, fifteen seconds apart (delayTicks 300), so there is time to disconnect while it is running.",
     "stopOnFailure": false,
     "commands": [
       "devtool mark v10_child_AT_00s",

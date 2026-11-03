@@ -15,13 +15,13 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 - An absent optional value is **omitted entirely**, never rendered as a placeholder or an empty value. You will not see `field=`.
 - Block coordinates are integers. Entity positions and damage amounts are given to two decimal places.
 
-`side` is always reported. Observation is server side only, so nearly every record says `SERVER`. Two records are written by the client and say `CLIENT`: `SCREENSHOT` with `action=saved` or `failed`, and the `ENVIRONMENT` record of the client defaults. With a dedicated server those two are in the client's log, not the server's.
+`side` is always reported. Observation is server side only, so nearly every record says `SERVER`. Three records are written by the client and say `CLIENT`: `SCREENSHOT` with `action=saved` or `failed`, the `ENVIRONMENT` record of the client defaults, and `CLIENT_ACTION side=CLIENT`. With a dedicated server those three are in the client's log, not the server's; the server writes its own `CLIENT_ACTION action=reported` from the client's report.
 
 `worldTick` comes from the dimension in which the event occurred. Dimensions keep independent tick counts, so records from different dimensions are not comparable on this field.
 
 ## Every record type
 
-44 in total. The name in brackets is the whole vocabulary: nothing else appears, and these names do not change.
+45 in total. The name in brackets is the whole vocabulary: nothing else appears, and these names do not change.
 
 **Written only when their category is enabled.** These are the observed game events, and they are the only ones you can turn off.
 
@@ -36,6 +36,8 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 | `ENTITY_INTERACT` | An entity is right clicked |
 | `ITEM_USE` | An item is used while targeting nothing |
 
+A target's `ENTITY_DAMAGE` comes before its `ENTITY_DEATH`, and before a `LOG_CONFIG` that turns the category off. A hit on the same target that stopped before the damage stage in that tick is still written at the tick end, after the death. Records of different targets may appear out of attack order; each carries its `worldTick`. An instant effect from `/effect` hurts at the target's next update, a tick after the command.
+
 **Written whenever the command runs.** No category gates these; if you ran the command, the record exists.
 
 | Record | Written when |
@@ -47,18 +49,19 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 | `TOLERATED` | One bundle command whose failure was tolerated, by a declared key or the built-in no-op set. Carries `bundle`, `hash`, `index`, `command` after placeholder substitution, and `key` |
 | `RELOAD` | `devtool reload`, and the same reload at every server start. Carries `bundles` loaded, `problems` found, and `trigger` (`command` or `serverStart`). Each problem's `ERROR` comes before it |
 | `SAVE` | `devtool save`. Carries `worlds` saved, `dimensions` (their ids, comma separated), and `durationMs` |
-| `INBOX` | The command inbox. `action` is `opened`, `closed`, `claimed`, `refused`, `dispatched` or `failed`, with `id` and `request` for a request, `operator`, and `reason` for closes, refusals and failures |
+| `INBOX` | The command inbox. `action` is `opened`, `closed`, `claimed`, `refused`, `dispatched`, `failed`, `suspended` or `resumed`, with `id` and `request` for a request, `operator`, `reason` for closes, refusals, failures and suspensions, and `resumeDeadlineMillis` for a suspension |
 | `SCREENSHOT` | `devtool screenshot`. On the server, `action=requested` with `label`, `delayTicks`, `target`, `requestTick` and `file`. On the client, `side=CLIENT` with `label`, `requestTick`, and `action=saved` with `file`, or `action=failed` with `reason`, plus the expected `file` when the reason is `noFile` |
+| `CLIENT_ACTION` | `devtool client`. On the server, `action=requested` with `player`, `step`, `awaySeconds` for a reconnect, and `requestTick`, then `action=reported` with `player`, `step`, `requestTick` and the client's `result`, `reason`, `screen` and `showing`. On the client, `side=CLIENT` with `step`, `result` (`done`, `refused`, `failed` or `left`), `reason`, `screen` (the screen's class), `showing` (what is open a tick after a close) and `requestTick`, plus `awayMs` on a reconnect's `done` and `folder` on a `failed` in single player. See [commands.md](commands.md#client-actions) |
 | `BAUBLES` | `devtool baubles`. A set carries `action=set`, `player`, `slot`, `slotType`, `item`, `count`, `meta`, `replaced` when the slot held something, and `outcome` (`set` or `rejected`). A clear carries `action=clear`, `player`, `slots`, `cleared` and `outcome=cleared` |
 | `BUNDLE_STEP` | One command of a bundle that set `trace`, written just before it runs. Carries `bundle`, `hash`, `index`, `command`, `dueTick`, and `elapsedTicks`, both counted from submission like `durationTicks`; the stamped `worldTick` is the absolute moment |
 | `BUNDLE_SOURCE` | Written at every load and reload. Per file: `source` and `sha256` of the bytes, and `bundles` loaded from it. Per bundle: `bundle`, `source`, and the normalized `hash`. `BUNDLE_START` and `BUNDLE_END` carry the same `hash` |
 | `AWAIT` | A wait ended, or a single check outside a bundle answered. `command`, `condition`, `outcome` of `satisfied`, `timedOut`, `cancelled` or `pending`, `reason` when cancelled, `waitedTicks`, `timeoutTicks`, plus the condition's own fields: for `chunks`, `dimension`, `chunks` bounds, `chunkCount`, `loadedChunks`, and `firstUnloadedChunk` when any. Inside a bundle also `bundle`, `hash`, `index` |
 | `CHECKPOINT` | `action` of `arm`, `cue` or `ack` with `label`. Arm: `armedTick`, `timeoutTicks`, `operator`. Cue: `cueTick`, `form`, `sound`, `operator`. Ack: `askedTick`, `ackTick`, `latencyTicks`, and `answered` (`arm` or `cue`). An armed checkpoint that ends also writes an `AWAIT` with `condition=checkpoint`, `label`, `armedTick`, and when acknowledged `ackTick` and `latencyTicks` |
-| `ASSERT` | One declared comparison: `predicate`, the scope fields it used, `expected`, `observed`, `outcome` of `pass`, `fail` or `unloaded`, and `note` when the outcome needs one. A verdict says only whether the observation matched the declared value; it never says the mod is right or wrong |
-| `FIXTURE` | `action` of `claim`, `list` or `clear` with `handle` and `uuid`. Claim: `entity`, `tag`, `dimension`, `pos`. List: `state` (`loaded`, `unloaded`, `absent`, `unknown`), `fixtures`, last place. Clear: `outcome` (`removed`, `refused` with `reason=notOwned` and the entity's `tags`, or `notLoaded` with `state`) |
+| `ASSERT` | One declared comparison: `predicate`, the scope fields it used, `expected`, `observed`, `outcome` of `pass`, `fail` or `unloaded`, `dead=true` when an entity counted absent was dying, and `note` when the outcome needs one. A verdict says only whether the observation matched the declared value; it never says the mod is right or wrong |
+| `FIXTURE` | `action` of `claim`, `list`, `clear` or `release` with `handle` and `uuid`. Claim: `entity`, `tag`, `dimension`, `pos`, and `adopted=true` when the entity already carried the tag. List: `state` (`loaded`, `unloaded`, `absent`, `removing`, `untagged`, `duplicate` with `carriers`, `unknown`), `fixtures`, last place. Clear: `outcome` of `removed` with `confirmedTick`, plus `unloadPending=true` when its world has stopped updating entities; `failed reason=stillAlive`; `alreadyRemoving`; `refused` with `reason=notOwned` and the entity's `tags`, or `reason=duplicate`; `notLoaded` with `state`; or `unconfirmed reason=serverStopped`. Release: `outcome` of `released`, `refused` or `notLoaded`. The clear record is written a tick after the clear, once the removal is confirmed, so after a teardown that clears and stops in one tick it follows `SESSION_STOP` and `BUNDLE_END` |
 | `SCENARIO` | `action` of `checkpoint`, `load` (with `state` of `present`, `absent` or `corrupt` and `enforced`), `resume` (with `restoredFixtures`), `refuse` (with `reason` of `wrongBundle` or `changedHash`), `completed` or `abandoned`; with `scenarioId`, `expectedBundle`, `expectedHash`, `offeredBundle`, `offeredHash`, `operator`, `expectedStop`, `fixtures` as they apply |
 | `ARENA_CREATE` / `ARENA_RESET` / `ARENA_CLEAR` | The corresponding `devtool arena` action |
-| `PLAYER_INSPECT` | `devtool inspect player` |
+| `PLAYER_INSPECT` | `devtool inspect player`. Carries `openContainer`: `inventory`, or the class of another container the server has open for the player. The server cannot tell the player's own inventory screen from no screen: both are `inventory` |
 | `ENTITY_INSPECT` | `devtool inspect entity` |
 | `BLOCK_INSPECT` | `devtool inspect block` |
 | `INVENTORY_INSPECT` | `devtool inspect inventory` and `devtool inspect container`. One record per occupied slot, plus `occupiedSlots` even when zero. A bauble slot carries `section=baubles`, `area=baubles` and `slotType`. A container whose loot has not rolled writes one record with `lootRolled=false` and `lootTable`, and no `occupiedSlots` |
@@ -148,7 +151,9 @@ devtool session start spell_damage
 devtool session stop
 ```
 
-While a session is active, every record carries `session` and `sessionTick`, the latter counted from the session's start. A session survives returning to the title screen and reopening the same save. Opening a different save ends it, as described below. Otherwise it ends when the game does.
+While a session is active, every record carries `session` and `sessionTick`, the latter counted from the session's start. A session lives in memory. It survives returning to the title screen and reopening the same save. Opening a different save ends it, as described below. A full restart of the game or the server ends it too; only a scenario checkpoint restores one.
+
+`session stop` forgets the session's fixture handles, but the tags stay on the entities, so a new session of the same name finds and adopts them again on its first `devtool fixture list` or `devtool fixture claim`. Nothing is adopted by itself.
 
 ## Worlds
 

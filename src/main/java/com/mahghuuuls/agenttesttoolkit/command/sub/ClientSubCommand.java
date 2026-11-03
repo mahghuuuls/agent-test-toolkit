@@ -38,7 +38,7 @@ import java.util.Locale;
  */
 public final class ClientSubCommand implements SubCommand {
 
-    /** Failure key for a sender whose client does not have the toolkit. */
+    /** Failure key for a sender whose client does not have the toolkit, 1.4.0 or later. */
     public static final String KEY_NO_CLIENT = "devtool.client.noClient";
     /** Failure key for a client that has not allowed actions, or has not said hello yet. */
     public static final String KEY_NOT_ALLOWED = "devtool.client.notAllowed";
@@ -109,8 +109,9 @@ public final class ClientSubCommand implements SubCommand {
             ToolkitLog.error("Client action refused: a reconnect is under way", player.getName());
             throw new CommandException(KEY_BUSY, player.getName());
         }
-        if (!ToolkitChannel.canReceive(player)) {
-            ToolkitLog.error("Client action target has no toolkit", player.getName());
+        if (!ToolkitChannel.clientSpeaksActions(player)) {
+            // No toolkit, or one older than 1.4.0: it never says hello and could not read a request.
+            ToolkitLog.error("Client action target has no toolkit 1.4.0 or later", player.getName());
             throw new CommandException(KEY_NO_CLIENT, player.getName());
         }
         Boolean allowed = ClientCapabilities.allowsActions(player);
