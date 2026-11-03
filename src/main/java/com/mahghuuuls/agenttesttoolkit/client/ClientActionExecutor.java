@@ -60,11 +60,17 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
      */
     static final long LEAVE_DELAY_MS = 1000L;
     /**
-     * The client stops reading the connection this many ticks before it leaves, so the packets
-     * already received are handled while the world still exists. Read after the leave they
-     * would each fail against the unloaded world and fill the log with errors.
+     * Before it leaves, the client stops reading the connection and lets every packet already
+     * received be handled while the world still exists. Handled after the leave, each would fail
+     * against the unloaded world and fill the log with errors. Counting ticks is not enough: a
+     * slow frame runs several ticks after one pass over the handler queue. So the client waits
+     * this long for a read the channel had already asked for, then queues a marker from the
+     * channel's own thread, which lands behind every handler queued before it, and leaves once
+     * the marker has run.
      */
-    static final int READ_DRAIN_TICKS = 2;
+    static final long READ_SETTLE_MS = 100L;
+    /** The marker is waited for at most this long; a closed channel never runs it. */
+    static final long DRAIN_TIMEOUT_MS = 2000L;
     /** At least this many ticks at the menu before rejoining, so the server has let the old connection go. */
     static final int REJOIN_SETTLE_TICKS = 20;
     /** How long past the away time a rejoin may take before it is given up, in milliseconds. */
@@ -115,9 +121,13 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
         boolean joined;
         /** JOINING, single player: ticks at a menu with no world starting. */
         int idleTicks;
-        /** LEAVING: the connection is no longer read; ticks since. */
+        /** LEAVING: the connection is no longer read, since then. */
         boolean readStopped;
-        int drainTicks;
+        long readStoppedAtMillis;
+        /** LEAVING: the marker is queued behind the handlers, since then; it has run. */
+        boolean markerQueued;
+        long markerQueuedAtMillis;
+        boolean drained;
 
         Reconnect(ClientActionRequest request, String folder, String worldName, ServerData server) {
             this.request = request;
@@ -376,7 +386,8 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
     }
 
     private void startReconnect(Minecraft mc, ClientActionRequest request) {
-        if (reconnect != null) {
+        if (reconnect != null || afterClose != null || respawn != null) {
+            // A close or respawn still pending would be answered, or lost, during the leave.
             finish(request, "refused", "busy", screenName(mc.currentScreen), null);
             return;
         }
@@ -430,14 +441,25 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
                 r.leftAtMillis = System.currentTimeMillis();
                 return;
             }
+            long now = System.currentTimeMillis();
             if (!r.readStopped) {
                 if (mc.getConnection() != null) {
                     mc.getConnection().getNetworkManager().disableAutoRead();
                 }
                 r.readStopped = true;
+                r.readStoppedAtMillis = now;
                 return;
             }
-            if (++r.drainTicks < READ_DRAIN_TICKS) {
+            if (!r.markerQueued) {
+                if (now - r.readStoppedAtMillis < READ_SETTLE_MS) {
+                    return;
+                }
+                queueDrainMarker(mc, r);
+                r.markerQueued = true;
+                r.markerQueuedAtMillis = now;
+                return;
+            }
+            if (!r.drained && now - r.markerQueuedAtMillis < DRAIN_TIMEOUT_MS) {
                 return;
             }
             if (r.folder == null) {
@@ -483,6 +505,32 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
         } else if (elapsed > deadline + (worldLoading ? WORLD_LOAD_EXTRA_MS : 0L)) {
             giveUp(r, "timeout");
         }
+    }
+
+    /**
+     * Queues the drain marker from the connection's own thread, the thread that queues packet
+     * handlers, so it runs after all of them. Queued from the client thread it would run at
+     * once. The marker only sets a flag: leaving inside it would hold the client's task queue
+     * while the integrated server stops.
+     */
+    private static void queueDrainMarker(final Minecraft mc, final Reconnect r) {
+        io.netty.channel.Channel channel = mc.getConnection() == null ? null
+                : mc.getConnection().getNetworkManager().channel();
+        if (channel == null || !channel.isOpen()) {
+            r.drained = true;
+            return;
+        }
+        channel.eventLoop().execute(new Runnable() {
+            @Override
+            public void run() {
+                mc.addScheduledTask(new Runnable() {
+                    @Override
+                    public void run() {
+                        r.drained = true;
+                    }
+                });
+            }
+        });
     }
 
     /**

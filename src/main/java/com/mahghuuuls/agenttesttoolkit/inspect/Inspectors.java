@@ -52,6 +52,9 @@ public final class Inspectors {
         // cumulative total is reported alongside it.
         record.add("experienceLevel", player.experienceLevel);
         record.add("experienceTotal", player.experienceTotal);
+        // What the server has open for this player: the own inventory, or another container.
+        record.add("openContainer", player.openContainer == null || player.openContainer == player.inventoryContainer
+                ? "inventory" : player.openContainer.getClass().getName());
 
         if (player instanceof EntityPlayerMP) {
             record.add("gameMode", ((EntityPlayerMP) player).interactionManager.getGameType().getName());

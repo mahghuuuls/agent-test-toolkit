@@ -197,7 +197,7 @@ A session belongs to one save. Leaving to the title screen and reopening the sam
 
 | Command | Effect |
 | --- | --- |
-| `devtool inspect player [selector]` | Position, health, hunger, experience, gamemode, held items, effects |
+| `devtool inspect player [selector]` | Position, health, hunger, experience, gamemode, held items, effects, and `openContainer`: `inventory`, or the class of another container the server has open for the player |
 | `devtool inspect entity <selector>` | Registry id, position, motion, health, effects |
 | `devtool inspect block <x> <y> <z>` | Block id, metadata, blockstate, tile entity class |
 | `devtool inspect container <x> <y> <z>` | A container's occupied slots, one `INVENTORY_INSPECT` record each. A container whose loot table has not rolled yet is reported as `lootRolled=false lootTable=<id>` with no `occupiedSlots`, and its loot is **not** rolled |

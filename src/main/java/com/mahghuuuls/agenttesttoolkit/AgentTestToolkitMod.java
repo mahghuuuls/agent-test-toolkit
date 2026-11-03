@@ -176,6 +176,37 @@ public class AgentTestToolkitMod {
         event.registerServerCommand(new DevToolCommand());
     }
 
+    /**
+     * Before the integrated server saves its worlds and stops: the single-player host gets no
+     * logout event when its own server stops, so the leave its reconnect announced is
+     * suspended here, before a long save could outlast the grace (ARC-023). An opening whose
+     * operator is not the host, a LAN guest, cannot outlive the host's world and closes.
+     */
+    @Mod.EventHandler
+    public void serverStopping(net.minecraftforge.fml.common.event.FMLServerStoppingEvent event) {
+        if (!net.minecraftforge.fml.common.FMLCommonHandler.instance().getSide().isClient()) {
+            return;
+        }
+        com.mahghuuuls.agenttesttoolkit.state.InboxOpening opening =
+                com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.current();
+        if (opening == null) {
+            return;
+        }
+        net.minecraft.server.MinecraftServer server =
+                net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance();
+        String host = server == null ? null : server.getServerOwner();
+        if (host == null || !host.equals(opening.getOperatorName())) {
+            com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.close("serverStopped",
+                    com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot.NONE);
+            return;
+        }
+        if (!opening.isSuspended()) {
+            com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.suspendIfLeaving(opening.getOperatorUuid(),
+                    System.currentTimeMillis(), ToolkitConfigLoader.get().getInboxRejoinWindowSeconds() * 1000L,
+                    com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot.NONE);
+        }
+    }
+
     @Mod.EventHandler
     public void serverStopped(FMLServerStoppedEvent event) {
         // Discard in-flight, server-bound transient state. Pending damage
@@ -204,20 +235,13 @@ public class AgentTestToolkitMod {
             // The inbox is the exception to keeping state: with no server there is nothing to
             // run requests on, and in single player the opener has already left. Closed with a
             // record, in a finally so a failure above cannot leave it open into the next world.
-            // A suspended opening survives the integrated server's stop: its operator's client
-            // left on the toolkit's request and reopens the world in this same process. The
-            // host of single player gets no logout event when its own server stops, so its
-            // announced leave is suspended here. A dedicated server's stop always closes it.
-            boolean physicalClient = net.minecraftforge.fml.common.FMLCommonHandler.instance().getSide().isClient();
+            // A suspended opening survives the integrated server's stop: its operator, the host,
+            // left on the toolkit's request and reopens the world in this same process
+            // (suspended in serverStopping). A dedicated server's stop always closes it.
             com.mahghuuuls.agenttesttoolkit.state.InboxOpening opening =
                     com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.current();
-            if (physicalClient && opening != null && !opening.isSuspended()) {
-                com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.suspendIfLeaving(opening.getOperatorUuid(),
-                        System.currentTimeMillis(), ToolkitConfigLoader.get().getInboxRejoinWindowSeconds() * 1000L,
-                        com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot.NONE);
-                opening = com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.current();
-            }
-            boolean keep = opening != null && opening.isSuspended() && physicalClient;
+            boolean keep = opening != null && opening.isSuspended()
+                    && net.minecraftforge.fml.common.FMLCommonHandler.instance().getSide().isClient();
             if (!keep) {
                 com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.close("serverStopped",
                         com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot.NONE);

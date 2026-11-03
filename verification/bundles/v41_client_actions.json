@@ -39,6 +39,29 @@
       { "command": "devtool client respawn", "delayTicks": 10 }
     ]
   },
+  "v41_chest_close": {
+    "description": "REQ-206. A chest two blocks east; the person opens it on the cue. Before the close the server has a ContainerChest open for them (PLAYER_INSPECT openContainer); the client closes it the way Escape does; after it openContainer=inventory. The chest is removed at the end.",
+    "result": true,
+    "commands": [
+      "setblock ~2 ~ ~ minecraft:chest",
+      "devtool mark V41_CHEST_BEGIN",
+      "devtool checkpoint cue OPEN_THE_CHEST title sound",
+      { "command": "devtool inspect player", "delayTicks": 120 },
+      "devtool client close",
+      { "command": "devtool inspect player", "delayTicks": 10 },
+      "setblock ~2 ~ ~ minecraft:air",
+      "devtool mark V41_CHEST_END"
+    ]
+  },
+  "v41_rejoin": {
+    "description": "REQ-204, REQ-207. A bundle that asks for a reconnect: its run is answered before the client leaves, the inbox is suspended, and it resumes when the client is back three seconds later.",
+    "result": true,
+    "commands": [
+      "devtool mark V41_REJOIN_BEGIN",
+      "devtool client reconnect 3",
+      "devtool mark V41_REJOIN_ASKED"
+    ]
+  },
   "v41_kill": {
     "description": "B14. Kills the caller with keepInventory on, so the next inbox request can be client respawn.",
     "result": true,
