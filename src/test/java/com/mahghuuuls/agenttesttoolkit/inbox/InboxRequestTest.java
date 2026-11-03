@@ -139,6 +139,8 @@ class InboxRequestTest {
     void client() {
         assertEquals("devtool client respawn", parse("client respawn").getCommandLine());
         assertEquals("devtool client close", parse("client close").getCommandLine());
+        assertEquals("devtool client quit", parse("client quit").getCommandLine());
+        assertRefused("client quit now", InboxRequest.REASON_BAD_ARGUMENTS);
         assertEquals("devtool client reconnect", parse("client reconnect").getCommandLine());
         assertEquals("devtool client reconnect 3", parse("client reconnect 3").getCommandLine());
         assertEquals("devtool client reconnect 60", parse("client reconnect 60").getCommandLine());

@@ -13,14 +13,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ClientActionMessagesTest {
 
     @Test
-    @DisplayName("only reconnect, respawn and close are steps")
+    @DisplayName("only reconnect, respawn, close and quit are steps")
     void steps() {
         assertTrue(ClientActionRequest.isValidStep("reconnect"));
         assertTrue(ClientActionRequest.isValidStep("respawn"));
         assertTrue(ClientActionRequest.isValidStep("close"));
-        for (String bad : new String[] {"", "Close", "open", "attack", "use", "move", null}) {
+        assertTrue(ClientActionRequest.isValidStep("quit"));
+        for (String bad : new String[] {"", "Close", "Quit", "open", "create", "connect", "attack", "use", "move", null}) {
             assertFalse(ClientActionRequest.isValidStep(bad), String.valueOf(bad));
         }
+    }
+
+    @Test
+    @DisplayName("quit is sent only to a client that said hello with 1.5.0 or later")
+    void quitNeedsNewClient() {
+        assertFalse(ToolkitChannel.atLeast("1.4.0", ToolkitChannel.VERSION_1_5_0));
+        assertTrue(ToolkitChannel.atLeast("1.5.0", ToolkitChannel.VERSION_1_5_0));
+        assertFalse(ClientCapabilities.saidHelloAtLeast(null, ToolkitChannel.VERSION_1_5_0), "no hello");
     }
 
     @Test

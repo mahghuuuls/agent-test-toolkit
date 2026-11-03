@@ -121,6 +121,8 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
         boolean joined;
         /** JOINING, single player: ticks at a menu with no world starting. */
         int idleTicks;
+        /** A quit: leave as a reconnect does, then close the game instead of rejoining. */
+        boolean quit;
         /** LEAVING: the connection is no longer read, since then. */
         boolean readStopped;
         long readStoppedAtMillis;
@@ -142,8 +144,52 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
         incoming.add(request);
     }
 
+    /**
+     * To a dedicated server at 1.5.0 or later, the local-join secret this client finds in its own
+     * game folder, which it shares with the server only on the same computer (ARC-029). Single
+     * player needs none: the server knows its host.
+     */
+    private void sendLocalJoinProof(Minecraft mc) {
+        String version = serverVersion;
+        if (mc.getIntegratedServer() != null || version == null
+                || !ToolkitChannel.atLeast(version, ToolkitChannel.VERSION_1_5_0)
+                || !isLoopback(mc.getConnection() == null ? null
+                        : mc.getConnection().getNetworkManager().getRemoteAddress())) {
+            // Never to a server on another computer: the secret is worth something only here.
+            return;
+        }
+        java.io.File config = ToolkitConfigLoader.getConfigDirectory();
+        java.io.File file = config == null ? null
+                : new java.io.File(config, ToolkitConfigLoader.LOCAL_JOIN_SECRET_FILE);
+        if (file == null || !file.isFile() || file.length() > 64) {
+            return;
+        }
+        try {
+            String proof = new String(java.nio.file.Files.readAllBytes(file.toPath()),
+                    java.nio.charset.StandardCharsets.UTF_8).trim();
+            ToolkitChannel.sendToServer(new com.mahghuuuls.agenttesttoolkit.net.LocalJoinProof(proof));
+        } catch (java.io.IOException | RuntimeException unreadable) {
+            // No proof, no automatic opening; the owner can still type devtool inbox open.
+        }
+    }
+
+    static boolean isLoopback(java.net.SocketAddress address) {
+        return address instanceof java.net.InetSocketAddress
+                && ((java.net.InetSocketAddress) address).getAddress() != null
+                && ((java.net.InetSocketAddress) address).getAddress().isLoopbackAddress();
+    }
+
+    /** True while a reconnect or quit is under way: the client request channel waits for it. */
+    public boolean isOnReconnect() {
+        return reconnect != null;
+    }
+
+    /** The version the server said hello with; read on the client thread when answering. */
+    private volatile String serverVersion;
+
     @Override
-    public void serverHello() {
+    public void serverHello(String version) {
+        serverVersion = version;
         serverHello = true;
     }
 
@@ -182,6 +228,7 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
     /** Tells the server whether this client allows actions (REQ-203); back from a reconnect, says so. */
     private void answerHello(Minecraft mc) {
         ToolkitChannel.sendToServer(ClientHello.ofThisBuild(ToolkitConfigLoader.get().isClientAllowActions()));
+        sendLocalJoinProof(mc);
         if (reconnect != null && reconnect.stage == Stage.JOINING) {
             if (!reconnect.joined && !isWhereItLeft(mc, reconnect)) {
                 giveUp(reconnect, "joinedElsewhere");
@@ -251,6 +298,8 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
                 close(mc, request);
             } else if (ClientActionRequest.RESPAWN.equals(request.getStep())) {
                 startRespawn(mc, request);
+            } else if (ClientActionRequest.QUIT.equals(request.getStep())) {
+                startQuit(mc, request);
             } else {
                 startReconnect(mc, request);
             }
@@ -410,6 +459,26 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
     }
 
     /**
+     * A quit leaves like a reconnect, so the report saying so and the answer to the run that
+     * asked go out first, and then closes the game instead of rejoining (ARC-027). The game's own
+     * exit path unloads the world, which in single player saves it.
+     */
+    private void startQuit(Minecraft mc, ClientActionRequest request) {
+        if (reconnect != null || afterClose != null || respawn != null) {
+            finish(request, "refused", "busy", screenName(mc.currentScreen), null);
+            return;
+        }
+        if (mc.world == null) {
+            finish(request, "refused", "noWorld", screenName(mc.currentScreen), null);
+            return;
+        }
+        Reconnect q = new Reconnect(request, null, null, null);
+        q.quit = true;
+        reconnect = q;
+        finish(request, "left", null, screenName(mc.currentScreen), null);
+    }
+
+    /**
      * Why a reconnect cannot start, or null. Pure, for tests. A world open to LAN would log every
      * other player out when it stops; Realms is not a server this can rejoin.
      */
@@ -432,6 +501,12 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
         r.ticks++;
         if (r.stage == Stage.LEAVING) {
             if (r.ticks < LEAVE_DELAY_TICKS || System.currentTimeMillis() - r.askedAtMillis < LEAVE_DELAY_MS) {
+                return;
+            }
+            if (mc.world == null && r.quit) {
+                // Left already, by some other route; the game still closes.
+                reconnect = null;
+                mc.shutdown();
                 return;
             }
             if (mc.world == null) {
@@ -460,6 +535,15 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
                 return;
             }
             if (!r.drained && now - r.markerQueuedAtMillis < DRAIN_TIMEOUT_MS) {
+                return;
+            }
+            if (r.quit) {
+                reconnect = null;
+                if (!mc.isIntegratedServerRunning()) {
+                    // A clean disconnect, as the pause menu's, before the game goes.
+                    mc.world.sendQuittingDisconnectingPacket();
+                }
+                mc.shutdown();
                 return;
             }
             if (r.folder == null) {
@@ -537,7 +621,7 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
      * Whether a screen shown with no world is a menu to rejoin from: anything but the screens of
      * connecting, loading and a lost connection. Takes the class, so it is tested without one.
      */
-    static boolean isMenuScreen(Class<?> screen) {
+    public static boolean isMenuScreen(Class<?> screen) {
         return !(GuiConnecting.class.isAssignableFrom(screen) || GuiScreenWorking.class.isAssignableFrom(screen)
                 || GuiDownloadTerrain.class.isAssignableFrom(screen) || GuiDisconnected.class.isAssignableFrom(screen));
     }

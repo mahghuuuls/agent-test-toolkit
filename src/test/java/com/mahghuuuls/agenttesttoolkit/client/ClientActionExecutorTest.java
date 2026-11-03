@@ -80,4 +80,14 @@ class ClientActionExecutorTest {
         assertEquals("openToLan", ClientActionExecutor.reconnectRefusal(true, false, true, true, false));
         assertEquals("noServerData", ClientActionExecutor.reconnectRefusal(true, false, false, false, false));
     }
+
+    @Test
+    @DisplayName("the local-join secret goes only to a server reached over loopback")
+    void loopbackOnly() throws Exception {
+        assertTrue(ClientActionExecutor.isLoopback(new java.net.InetSocketAddress(java.net.InetAddress.getByName("127.0.0.1"), 25570)));
+        assertTrue(ClientActionExecutor.isLoopback(new java.net.InetSocketAddress(java.net.InetAddress.getByName("::1"), 25570)));
+        assertFalse(ClientActionExecutor.isLoopback(new java.net.InetSocketAddress(java.net.InetAddress.getByName("192.168.1.5"), 25570)));
+        assertFalse(ClientActionExecutor.isLoopback(new java.net.InetSocketAddress(java.net.InetAddress.getByName("8.8.8.8"), 25565)));
+        assertFalse(ClientActionExecutor.isLoopback(null));
+    }
 }

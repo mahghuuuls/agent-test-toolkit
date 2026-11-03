@@ -125,6 +125,9 @@ public class AgentTestToolkitMod {
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.session.WorldChangeListener());
         // After the world listener, so the WORLD record and the current world key come first.
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.inbox.InboxRejoinListener());
+        // After the world and rejoin listeners: a local join opens the inbox only once the world
+        // key is current and a suspended opening has had its chance to resume (ARC-029).
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.inbox.LocalJoinListener());
         // Checkpoints belong to the session but live in wait, which session may not depend on.
         // Installed here so every stop forgets them: the command, a replacing start, and a
         // world change alike.
@@ -172,6 +175,10 @@ public class AgentTestToolkitMod {
         if (!com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.isOpen()) {
             com.mahghuuuls.agenttesttoolkit.inbox.InboxStatus.delete(
                     com.mahghuuuls.agenttesttoolkit.inbox.InboxPoller.directory());
+        }
+        if (event.getServer().isDedicatedServer()) {
+            // A fresh secret for a client on this same computer (ARC-029).
+            com.mahghuuuls.agenttesttoolkit.inbox.LocalJoinListener.writeSecret();
         }
         event.registerServerCommand(new DevToolCommand());
     }
@@ -223,6 +230,7 @@ public class AgentTestToolkitMod {
             damageObserver.discardPending();
         }
         com.mahghuuuls.agenttesttoolkit.fixture.FixtureRemovals.discardPending();
+        com.mahghuuuls.agenttesttoolkit.inbox.LocalJoinListener.removeSecret();
 
         // Same rule, same reason: an in-flight bundle holds a sender from the world that is
         // unloading, and the scheduler is registered permanently, so an execution left here

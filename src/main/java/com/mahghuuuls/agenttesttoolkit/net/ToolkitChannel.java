@@ -32,7 +32,7 @@ public final class ToolkitChannel {
         void receive(ClientActionRequest request);
 
         /** The server said it understands client actions; answer with a hello. Network thread. */
-        void serverHello();
+        void serverHello(String serverVersion);
     }
 
     private static volatile SimpleNetworkWrapper channel;
@@ -50,6 +50,7 @@ public final class ToolkitChannel {
         wrapper.registerMessage(new ClientHello.Handler(), ClientHello.class, 2, Side.SERVER);
         wrapper.registerMessage(new ClientActionReport.Handler(), ClientActionReport.class, 3, Side.SERVER);
         wrapper.registerMessage(new ServerHello.Handler(), ServerHello.class, 4, Side.CLIENT);
+        wrapper.registerMessage(new LocalJoinProof.Handler(), LocalJoinProof.class, 5, Side.SERVER);
         channel = wrapper;
     }
 
@@ -110,8 +111,11 @@ public final class ToolkitChannel {
         return version != null && atLeast(version, FIRST_ACTIONS_VERSION);
     }
 
+    /** 1.5.0: a client that takes `quit`, and a server that reads a local-join proof. */
+    public static final int[] VERSION_1_5_0 = {1, 5, 0};
+
     /** Numeric parts compared in order; anything unreadable counts as older. */
-    static boolean atLeast(String version, int[] minimum) {
+    public static boolean atLeast(String version, int[] minimum) {
         String[] parts = version.split("[.-]");
         for (int i = 0; i < minimum.length; i++) {
             int value;

@@ -127,6 +127,12 @@ public enum EventType {
      */
     CLIENT_ACTION,
 
+    /**
+     * The client request channel, {@code side=CLIENT}: a request {@code claimed}, {@code refused},
+     * {@code started}, {@code done} or {@code failed}, with the menu step and the save folder.
+     */
+    MENU_STEP,
+
     /** {@code devtool baubles}: a slot set (or refused) or slots cleared, with the player and slot. */
     BAUBLES,
 

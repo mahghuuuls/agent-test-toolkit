@@ -32,6 +32,8 @@ public final class ClientCapabilities {
     }
 
     private static final Map<UUID, Boolean> ALLOW = new ConcurrentHashMap<UUID, Boolean>();
+    /** The toolkit version each client said hello with. */
+    private static final Map<UUID, String> VERSION = new ConcurrentHashMap<UUID, String>();
     /** The one close or respawn each player's client may answer: its step and request tick. */
     private static final Map<UUID, String> OUTSTANDING = new ConcurrentHashMap<UUID, String>();
     /**
@@ -142,7 +144,17 @@ public final class ClientCapabilities {
         }
     }
 
+    /**
+     * Whether this player's client said hello with a toolkit at least this version. A step a
+     * client cannot read is never sent: it would drop it, and no report would come back.
+     */
+    public static boolean saidHelloAtLeast(EntityPlayerMP player, int[] minimum) {
+        String version = player == null ? null : VERSION.get(player.getUniqueID());
+        return version != null && ToolkitChannel.atLeast(version, minimum);
+    }
+
     static void hello(EntityPlayerMP player, String version, boolean allowActions) {
+        VERSION.put(player.getUniqueID(), version);
         ALLOW.put(player.getUniqueID(), Boolean.valueOf(allowActions));
     }
 
@@ -188,6 +200,7 @@ public final class ClientCapabilities {
         public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
             if (event.player != null) {
                 ALLOW.remove(event.player.getUniqueID());
+                VERSION.remove(event.player.getUniqueID());
                 loggedOut(event.player.getUniqueID());
             }
         }
@@ -196,6 +209,7 @@ public final class ClientCapabilities {
     /** For tests. */
     static void resetForTesting() {
         ALLOW.clear();
+        VERSION.clear();
         OUTSTANDING.clear();
         RECONNECTS.clear();
         RECONNECT_ASKED.clear();

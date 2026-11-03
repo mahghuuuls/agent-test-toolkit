@@ -53,7 +53,9 @@ public final class ToolkitConfig {
     private final float[] clientVolumes;
     private final boolean clientNoPauseOnLostFocus;
     private final boolean clientAllowActions;
+    private final boolean clientRequestChannel;
     private final boolean inboxEnabled;
+    private final boolean inboxOpenOnLocalJoin;
     private final int inboxRejoinWindowSeconds;
 
     /**
@@ -86,7 +88,9 @@ public final class ToolkitConfig {
         private final float[] volumes = leaveAll();
         private boolean noPauseOnLostFocus;
         private boolean allowActions;
+        private boolean requestChannel;
         private boolean inbox;
+        private boolean openOnLocalJoin;
         private int rejoinWindowSeconds = DEFAULT_REJOIN_WINDOW_SECONDS;
 
         public Builder arenaSize(int w, int h, int l) {
@@ -173,6 +177,16 @@ public final class ToolkitConfig {
             return this;
         }
 
+        public Builder clientRequestChannel(boolean value) {
+            this.requestChannel = value;
+            return this;
+        }
+
+        public Builder inboxOpenOnLocalJoin(boolean value) {
+            this.openOnLocalJoin = value;
+            return this;
+        }
+
         public Builder inboxRejoinWindowSeconds(int value) {
             this.rejoinWindowSeconds = value;
             return this;
@@ -188,7 +202,7 @@ public final class ToolkitConfig {
             return new ToolkitConfig(width, height, length, block, ceiling, maxDimension,
                     nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle,
                     clientDefaults, brightness, musicVolume, volumes, noPauseOnLostFocus, allowActions,
-                    inbox, rejoinWindowSeconds);
+                    inbox, rejoinWindowSeconds, requestChannel, openOnLocalJoin);
         }
     }
 
@@ -214,8 +228,12 @@ public final class ToolkitConfig {
                   boolean clientNoPauseOnLostFocus,
                   boolean clientAllowActions,
                   boolean inboxEnabled,
-                  int inboxRejoinWindowSeconds) {
+                  int inboxRejoinWindowSeconds,
+                  boolean clientRequestChannel,
+                  boolean inboxOpenOnLocalJoin) {
         this.inboxEnabled = inboxEnabled;
+        this.clientRequestChannel = clientRequestChannel;
+        this.inboxOpenOnLocalJoin = inboxOpenOnLocalJoin;
         this.clientAllowActions = clientAllowActions;
         // Clamped like the other numbers: a bad value must not stop the toolkit loading.
         this.inboxRejoinWindowSeconds = Math.max(MIN_REJOIN_WINDOW_SECONDS,
@@ -452,6 +470,22 @@ public final class ToolkitConfig {
      */
     public boolean isClientAllowActions() {
         return clientAllowActions;
+    }
+
+    /**
+     * Whether this client reads menu-step requests from its own folder while no world is open
+     * (D22, REQ-216). Off by default; with it on, the channel listens from game start.
+     */
+    public boolean isClientRequestChannel() {
+        return clientRequestChannel;
+    }
+
+    /**
+     * Whether the command inbox opens by itself at a local join (D24, REQ-222). Needs
+     * {@link #isInboxEnabled} too. Off by default.
+     */
+    public boolean isInboxOpenOnLocalJoin() {
+        return inboxOpenOnLocalJoin;
     }
 
     /**

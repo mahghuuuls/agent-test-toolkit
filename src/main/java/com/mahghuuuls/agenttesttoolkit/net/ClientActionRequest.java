@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 /**
  * Server to client: take one lifecycle step (ARC-022, REQ-202).
  *
- * <p>Only the four steps of D18 exist, and both sides check the message, so a server cannot
+ * <p>Only the steps of D18 and D23 exist, and both sides check the message, so a server cannot
  * name anything else. The token travels with a reconnect so the client can prove, on return,
  * that it is the client that was sent away (ARC-023).
  */
@@ -22,7 +22,9 @@ public final class ClientActionRequest implements IMessage {
     public static final String RECONNECT = "reconnect";
     public static final String RESPAWN = "respawn";
     public static final String CLOSE = "close";
-    public static final List<String> STEPS = Arrays.asList(RECONNECT, RESPAWN, CLOSE);
+    /** Since 1.5.0: closes the game (D23, ARC-027). */
+    public static final String QUIT = "quit";
+    public static final List<String> STEPS = Arrays.asList(RECONNECT, RESPAWN, CLOSE, QUIT);
     public static final int MAX_AWAY_SECONDS = 60;
     private static final Pattern TOKEN = Pattern.compile("[A-Za-z0-9]{0,64}");
 

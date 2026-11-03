@@ -56,12 +56,12 @@ public final class ClientSubCommand implements SubCommand {
 
     @Override
     public String getDescription() {
-        return "Ask your own client to reconnect, respawn, or close the open screen";
+        return "Ask your own client to reconnect, respawn, close the open screen, or quit the game";
     }
 
     @Override
     public String getUsage() {
-        return "client <reconnect [awaySeconds] | respawn | close>";
+        return "client <reconnect [awaySeconds] | respawn | close | quit>";
     }
 
     @Override
@@ -112,6 +112,12 @@ public final class ClientSubCommand implements SubCommand {
         if (!ToolkitChannel.clientSpeaksActions(player)) {
             // No toolkit, or one older than 1.4.0: it never says hello and could not read a request.
             ToolkitLog.error("Client action target has no toolkit 1.4.0 or later", player.getName());
+            throw new CommandException(KEY_NO_CLIENT, player.getName());
+        }
+        if (ClientActionRequest.QUIT.equals(step) && Boolean.TRUE.equals(ClientCapabilities.allowsActions(player))
+                && !ClientCapabilities.saidHelloAtLeast(player, ToolkitChannel.VERSION_1_5_0)) {
+            // A 1.4.0 client would drop a step it does not know, and never answer.
+            ToolkitLog.error("Client quit needs toolkit 1.5.0 or later on the client", player.getName());
             throw new CommandException(KEY_NO_CLIENT, player.getName());
         }
         Boolean allowed = ClientCapabilities.allowsActions(player);

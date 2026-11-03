@@ -422,7 +422,7 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 
 `side` leads every record, then `worldTick`, then `session` and `sessionTick` when a session is active. `worldTick` comes from the dimension where the event happened, and dimensions tick independently, so it is not comparable across dimensions.
 
-**There are 45 record types and no others.** The vocabulary is closed: no near-synonyms, no renames between versions.
+**There are 46 record types and no others.** The vocabulary is closed: no near-synonyms, no renames between versions.
 
 **Category-gated.** These eight exist only while their category is on:
 
@@ -449,9 +449,10 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 | `TOLERATED` | one bundle command whose failure was tolerated, by a declared key or the built-in no-op set: `bundle` `hash` `index` `command` (after placeholder substitution) `key`. Written as that command ends, so it sits between `BUNDLE_START` and the records of the commands after it |
 | `RELOAD` | `reload`, and every server start: `bundles` loaded, `problems` found, `trigger` (`command` or `serverStart`). The `ERROR` record of each problem comes before it |
 | `SAVE` | `save`: `worlds` saved, `dimensions` (their ids, comma separated; Forge unloads an empty Nether or End, so the count varies), `durationMs` |
-| `INBOX` | the command inbox: `action` (`opened`, `closed`, `claimed`, `refused`, `dispatched`, `failed`, `suspended`, `resumed`), `id` and `request` for a request, `operator`, `reason` for closes, refusals, failures and suspensions, and `resumeDeadlineMillis` for a suspension |
+| `INBOX` | the command inbox: `action` (`opened`, `closed`, `claimed`, `refused`, `dispatched`, `failed`, `suspended`, `resumed`), `id` and `request` for a request, `operator`, `reason` for closes, refusals, failures, suspensions and an opening at a local join (`localJoin`), and `resumeDeadlineMillis` for a suspension |
 | `SCREENSHOT` | `screenshot`. On the server `action=requested` with `label` `delayTicks` `target` `requestTick` `file`. On the client, `side=CLIENT` with `label` `requestTick` and `action=saved` with `file`, or `action=failed` with `reason` (`queueFull`, `disconnected`, `noFile` with the expected `file`, or an exception name) |
 | `CLIENT_ACTION` | `client`. On the server `action=requested` with `player` `step` `awaySeconds` (reconnect only) `requestTick`, then `action=reported` with `player` `step` `requestTick` and the client's `result` `reason` `screen` `showing`. On the client, `side=CLIENT` with `step` `result` (`done`, `refused`, `failed`, `left`) `reason` `screen` `showing` `requestTick`, and `awayMs` on a reconnect's `done`. See [Client actions](#client-actions) |
+| `MENU_STEP` | the client request channel, `side=CLIENT`: `action` (`claimed`, `refused`, `started`, `done`, `failed`) with `id`, `step`, `request`, `reason`, `detail`, and `folder` for `create` and `open`. See [The client request channel](#the-client-request-channel) |
 | `BAUBLES` | `baubles set`: `action=set` `player` `slot` `slotType` `item` `count` `meta`, `replaced` when the slot held something, `outcome` (`set` or `rejected`). `baubles clear`: `action=clear` `player` `slots` (`all` or the index) `cleared` (how many held something) `outcome=cleared` |
 | `BUNDLE_STEP` | one command of a bundle with `trace` on, just before it runs, with `bundle` `hash` `index` `command` `dueTick` `elapsedTicks` |
 | `BUNDLE_SOURCE` | at load and reload: per file `source` `sha256` `bundles`; per bundle `bundle` `source` `hash`. The same `hash` is on that bundle's `BUNDLE_START` and `BUNDLE_END` |

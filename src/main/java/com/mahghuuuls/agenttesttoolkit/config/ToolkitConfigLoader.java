@@ -20,6 +20,12 @@ import java.util.List;
  */
 public final class ToolkitConfigLoader {
 
+    /**
+     * The local-join secret's file name in the configuration folder (ARC-029): written by a
+     * dedicated server, read by a client that shares the folder.
+     */
+    public static final String LOCAL_JOIN_SECRET_FILE = "local-join.secret";
+
     /** Directory name under the game's config folder. Follows the command, not the mod id. */
     public static final String CONFIG_DIR_NAME = "devtool";
     private static final String CONFIG_FILE_NAME = "devtool.cfg";
@@ -209,9 +215,26 @@ public final class ToolkitConfigLoader {
                             + "named bundles and read-only toolkit commands by writing files into "
                             + "config/devtool/inbox, run as the player who opened it. Off by "
                             + "default. Even when true, it listens only after an operator types "
-                            + "'devtool inbox open' in the game, and closes when that player "
-                            + "leaves or the game restarts. Use it in a development or test "
-                            + "instance only.");
+                            + "'devtool inbox open' in the game, or, with openOnLocalJoin, after "
+                            + "you join from this computer, and closes when that player leaves "
+                            + "or the game restarts. Use it in a development or test instance "
+                            + "only.");
+
+            boolean requestChannel = cfg.getBoolean("requestChannel", CATEGORY_CLIENT,
+                    d.isClientRequestChannel(),
+                    "Whether this client reads menu-step requests from config/devtool/client-inbox "
+                            + "while no world is open: create or open a single-player world, connect "
+                            + "to a server on this computer or the local network, quit the game. Off "
+                            + "by default. When true, it listens from game start, with no click. Use "
+                            + "it in a development or test instance only.");
+
+            boolean openOnLocalJoin = cfg.getBoolean("openOnLocalJoin", CATEGORY_INBOX,
+                    d.isInboxOpenOnLocalJoin(),
+                    "Whether the command inbox opens by itself, without 'devtool inbox open', when "
+                            + "you join from this computer: the host of single player, with cheats "
+                            + "on, or an operator on a development server whose client shares this "
+                            + "server's folder and connects through localhost. Needs enabled=true too. A dedicated server reads it "
+                            + "at start: change it, then restart the server. Off by default.");
 
             int rejoinWindow = cfg.getInt("rejoinWindowSeconds", CATEGORY_INBOX,
                     d.getInboxRejoinWindowSeconds(), ToolkitConfig.MIN_REJOIN_WINDOW_SECONDS,
@@ -236,7 +259,9 @@ public final class ToolkitConfigLoader {
                     .clientNoPauseOnLostFocus(noPause)
                     .clientAllowActions(allowActions)
                     .inboxEnabled(inbox)
-                    .inboxRejoinWindowSeconds(rejoinWindow);
+                    .inboxRejoinWindowSeconds(rejoinWindow)
+                    .clientRequestChannel(requestChannel)
+                    .inboxOpenOnLocalJoin(openOnLocalJoin);
             for (ToolkitConfig.Volume volume : ToolkitConfig.Volume.values()) {
                 builder.clientVolume(volume, volumes[volume.ordinal()]);
             }

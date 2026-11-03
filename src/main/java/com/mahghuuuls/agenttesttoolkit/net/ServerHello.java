@@ -52,7 +52,7 @@ public final class ServerHello implements IMessage {
         public IMessage onMessage(ServerHello message, MessageContext ctx) {
             ToolkitChannel.ActionReceiver receiver = ToolkitChannel.actionReceiver();
             if (receiver != null && message.isValid()) {
-                receiver.serverHello();
+                receiver.serverHello(message.getVersion());
             }
             return null;
         }

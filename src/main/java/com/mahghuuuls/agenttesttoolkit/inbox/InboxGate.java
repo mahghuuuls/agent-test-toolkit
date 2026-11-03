@@ -166,6 +166,25 @@ public final class InboxGate {
     }
 
     /**
+     * Opens the inbox for a local join (ARC-029), as a typed {@code devtool inbox open} would:
+     * requests already waiting were placed before the opening and are refused, and the status
+     * file is written. The caller has decided with {@link LocalJoin}.
+     */
+    public static void openAtLocalJoin(UUID operator, String name, String worldFolder,
+                                       RecordContext.Snapshot context) {
+        if (ToolkitState.getInboxOpening() != null) {
+            return;
+        }
+        ToolkitState.setInboxOpening(new InboxOpening(operator, name, context.getWorldTick(),
+                System.currentTimeMillis(), ToolkitState.getCurrentWorldKey()));
+        write(context, "opened", name, "localJoin");
+        InboxFiles files = new InboxFiles(InboxPoller.directory());
+        files.ensureDirectory();
+        InboxPoller.refuseLeftovers(files, context);
+        InboxStatus.write(files.getDirectory(), ToolkitState.getInboxOpening(), worldFolder);
+    }
+
+    /**
      * Closes the inbox when open.
      *
      * @param reason {@code closed} when an operator closed it, {@code operatorLeft},

@@ -112,11 +112,12 @@ public final class InboxRequest {
             return accepted(id, line, verb, "devtool screenshot " + join(args));
         }
         if ("client".equals(verb)) {
-            // client reconnect [awaySeconds] | respawn | close, to the operator only.
+            // client reconnect [awaySeconds] | respawn | close | quit, to the operator only.
             boolean ok = args.length >= 1
                     && (("reconnect".equals(args[0]) && (args.length == 1
                             || (args.length == 2 && AWAY.matcher(args[1]).matches())))
-                    || (("respawn".equals(args[0]) || "close".equals(args[0])) && args.length == 1));
+                    || (("respawn".equals(args[0]) || "close".equals(args[0]) || "quit".equals(args[0]))
+                            && args.length == 1));
             if (!ok) {
                 return refused(id, line, verb, REASON_BAD_ARGUMENTS);
             }
