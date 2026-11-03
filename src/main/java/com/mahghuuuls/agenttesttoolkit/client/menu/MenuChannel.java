@@ -70,6 +70,8 @@ public final class MenuChannel {
     private Step step;
     /** A quit was answered: the game is closing. */
     private boolean quitting;
+    /** Reused ids already said once this launch. */
+    private final java.util.Set<String> reportedDuplicates = new java.util.HashSet<String>();
 
     private static final class Step {
         final MenuRequest request;
@@ -137,6 +139,7 @@ public final class MenuChannel {
         for (String id : files.pendingIds()) {
             InboxFiles.Claim claim = files.claim(id);
             if (claim == null) {
+                reportDuplicate(files, id);
                 continue;
             }
             MenuRequest request = MenuRequest.parse(claim.getId(), claim.getContent());
@@ -154,6 +157,7 @@ public final class MenuChannel {
             }
             InboxFiles.Claim claim = files.claim(id);
             if (claim == null) {
+                reportDuplicate(files, id);
                 continue;
             }
             MenuRequest request = MenuRequest.parse(claim.getId(), claim.getContent());
@@ -170,6 +174,20 @@ public final class MenuChannel {
             } else {
                 begin(mc, files, request);
             }
+        }
+    }
+
+    /**
+     * As the command inbox: a reused id never runs, and is said once per launch, with no result
+     * file, which would overwrite the earlier answer.
+     */
+    private void reportDuplicate(InboxFiles files, String id) {
+        if (files.isAlreadyClaimed(id) && reportedDuplicates.add(id)) {
+            ToolkitLog.write(LogRecord.of(EventType.MENU_STEP)
+                    .add("side", "CLIENT")
+                    .add("action", "refused")
+                    .add("id", id)
+                    .add("reason", "duplicateId"));
         }
     }
 

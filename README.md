@@ -16,7 +16,7 @@ You still play. The toolkit sets the world up, watches, and writes it down.
 | Parsing the log | [docs/logging.md](docs/logging.md) |
 | Deciding whether to install it | [MOD-PAGE.md](MOD-PAGE.md) |
 
-`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 45 record types, and ten worked examples of testing a freshly implemented feature, one of them run entirely through the command inbox and one with a reconnect in the middle. The `docs/` pages are the same material written for a person.
+`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 46 record types, and eleven worked examples of testing a freshly implemented feature, one of them run entirely through the command inbox, one with a reconnect in the middle, and one a whole launch from the title screen to the game closing, with nobody typing. The `docs/` pages are the same material written for a person.
 
 It also covers the traps that waste a test run: why an absent record is ambiguous, why `entity_spawn` floods, and why `latest.log` may not be the file you think it is.
 
@@ -82,7 +82,7 @@ A verdict from an assertion means only that an observation matched, or did not m
 /devtool inbox open
 ```
 
-Off by default, and opened only by you typing it, once each time you open a world. While it is open, an AI assistant can start one of its bundles, reload, save, take a screenshot, ask for a client action, or run a read-only inspection by writing a small file into `config/devtool/inbox/`, and reads the answer from a result file next to it. Requests run as you, with your permissions. Nothing else is accepted, and no vanilla command in particular: anything that changes the world has to be in a bundle, where you can read it. It closes when you leave, when the server stops, or when you type `/devtool inbox close`. A reconnect the toolkit started itself only suspends it: requests wait, and run once you are back.
+Off by default, and opened by you typing it, once each time you open a world, or, with `B:openOnLocalJoin=true` under `inbox`, by itself when you join from your own computer: as the single-player host with cheats on, or as an operator connecting through `localhost` to a development server that shares your client's folder. While it is open, an AI assistant can start one of its bundles, reload, save, take a screenshot, ask for a client action, or run a read-only inspection by writing a small file into `config/devtool/inbox/`, and reads the answer from a result file next to it. Requests run as you, with your permissions. Nothing else is accepted, and no vanilla command in particular: anything that changes the world has to be in a bundle, where you can read it. It closes when you leave, when the server stops, or when you type `/devtool inbox close`. A reconnect the toolkit started itself only suspends it: requests wait, and run once you are back.
 
 Turn it on with `B:enabled=true` under `inbox` in the configuration, in a development or test instance only.
 
@@ -140,9 +140,14 @@ NBT goes to the log, bounded by a configurable limit, and truncation is always r
 /devtool client reconnect 3
 /devtool client respawn
 /devtool client close
+/devtool client quit
 ```
 
-Three steps you used to do by hand: leave the world and come back to the same place, press Respawn on the death screen, close the open screen. They always act on your own client, never another player's, and only when your client has the toolkit and allows it with `B:allowActions=true` under `client`. Off by default.
+Four steps you used to do by hand: leave the world and come back to the same place, press Respawn on the death screen, close the open screen, close the game. They always act on your own client, never another player's, and only when your client has the toolkit and allows it with `B:allowActions=true` under `client`. Off by default.
+
+### Client request channel
+
+At the title screen no server runs, so nothing above can reach the game. With `B:requestChannel=true` under `client`, your client reads small request files from `config/devtool/client-inbox/` and takes one of four menu steps: create a single-player world with the settings the Create New World screen offers, open a save, connect to a server on your own computer or local network, or quit. A create never replaces an existing save, and a connect never goes anywhere outside your own network. Off by default; with it on, it listens from game start, with no click. Together with the inbox opening at your own join, an AI assistant can run a whole test from the title screen to closing the game while you only launch it.
 
 ### Sessions and marks
 
@@ -167,7 +172,7 @@ Put a mark before each step you ask a human to perform. Then a missing record me
 
 ## Configuration
 
-`config/devtool/devtool.cfg`. Arena defaults and construction block, the NBT truncation limit, whether a bundle runs when an operator joins, whether spawn logging includes dropped items, whether the command inbox may be opened and how long it waits for you across a reconnect, whether your client allows client actions, and optional client defaults: brightness, music, master, weather, hostile, friendly and ambient volume, and keeping the game running when its window loses focus.
+`config/devtool/devtool.cfg`. Arena defaults and construction block, the NBT truncation limit, whether a bundle runs when an operator joins, whether spawn logging includes dropped items, whether the command inbox may be opened, whether it opens by itself at your own join, and how long it waits for you across a reconnect, whether your client allows client actions, whether it reads menu-step requests, and optional client defaults: brightness, music, master, weather, hostile, friendly and ambient volume, and keeping the game running when its window loses focus.
 
 Everything that could change your world or your settings without being asked is off until you turn it on.
 
@@ -220,7 +225,7 @@ The build is reproducible from a given commit. Building the same revision twice 
 
 ## Requirements
 
-Minecraft 1.12.2 with Forge. Everything the toolkit records happens on the server, so that is where it needs to be installed. In singleplayer that means installing it normally. The optional client defaults, screenshots and client actions are the only parts that act on a client, and they need it installed there too. A client without the toolkit can still join a server that has it.
+Minecraft 1.12.2 with Forge. Everything the toolkit records happens on the server, so that is where it needs to be installed. In singleplayer that means installing it normally. The optional client defaults, screenshots, client actions, the client request channel and the inbox opening at a local join to a dedicated server are the only parts that need it on a client, and they need it installed there too. A client without the toolkit can still join a server that has it.
 
 Baubles is optional. When it is installed, the toolkit loads after it and adds bauble slots to inventory inspection; without it, nothing else changes.
 

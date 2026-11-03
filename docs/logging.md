@@ -15,13 +15,13 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 - An absent optional value is **omitted entirely**, never rendered as a placeholder or an empty value. You will not see `field=`.
 - Block coordinates are integers. Entity positions and damage amounts are given to two decimal places.
 
-`side` is always reported. Observation is server side only, so nearly every record says `SERVER`. Three records are written by the client and say `CLIENT`: `SCREENSHOT` with `action=saved` or `failed`, the `ENVIRONMENT` record of the client defaults, and `CLIENT_ACTION side=CLIENT`. With a dedicated server those three are in the client's log, not the server's; the server writes its own `CLIENT_ACTION action=reported` from the client's report.
+`side` is always reported. Observation is server side only, so nearly every record says `SERVER`. Four records are written by the client and say `CLIENT`: `SCREENSHOT` with `action=saved` or `failed`, the `ENVIRONMENT` record of the client defaults, `CLIENT_ACTION side=CLIENT`, and `MENU_STEP`. With a dedicated server those four are in the client's log, not the server's; the server writes its own `CLIENT_ACTION action=reported` from the client's report. `MENU_STEP` has no server copy.
 
 `worldTick` comes from the dimension in which the event occurred. Dimensions keep independent tick counts, so records from different dimensions are not comparable on this field.
 
 ## Every record type
 
-45 in total. The name in brackets is the whole vocabulary: nothing else appears, and these names do not change.
+46 in total. The name in brackets is the whole vocabulary: nothing else appears, and these names do not change.
 
 **Written only when their category is enabled.** These are the observed game events, and they are the only ones you can turn off.
 
@@ -49,9 +49,10 @@ A target's `ENTITY_DAMAGE` comes before its `ENTITY_DEATH`, and before a `LOG_CO
 | `TOLERATED` | One bundle command whose failure was tolerated, by a declared key or the built-in no-op set. Carries `bundle`, `hash`, `index`, `command` after placeholder substitution, and `key` |
 | `RELOAD` | `devtool reload`, and the same reload at every server start. Carries `bundles` loaded, `problems` found, and `trigger` (`command` or `serverStart`). Each problem's `ERROR` comes before it |
 | `SAVE` | `devtool save`. Carries `worlds` saved, `dimensions` (their ids, comma separated), and `durationMs` |
-| `INBOX` | The command inbox. `action` is `opened`, `closed`, `claimed`, `refused`, `dispatched`, `failed`, `suspended` or `resumed`, with `id` and `request` for a request, `operator`, `reason` for closes, refusals, failures and suspensions, and `resumeDeadlineMillis` for a suspension |
+| `INBOX` | The command inbox. `action` is `opened`, `closed`, `claimed`, `refused`, `dispatched`, `failed`, `suspended` or `resumed`, with `id` and `request` for a request, `operator`, `reason` for closes, refusals, failures, suspensions and an opening at a local join (`localJoin`), and `resumeDeadlineMillis` for a suspension. A local join that cannot open it is `refused` with `localJoinNotOperator` or `localJoinNotProven`. See [commands.md](commands.md#opening-at-a-local-join) |
 | `SCREENSHOT` | `devtool screenshot`. On the server, `action=requested` with `label`, `delayTicks`, `target`, `requestTick` and `file`. On the client, `side=CLIENT` with `label`, `requestTick`, and `action=saved` with `file`, or `action=failed` with `reason`, plus the expected `file` when the reason is `noFile` |
-| `CLIENT_ACTION` | `devtool client`. On the server, `action=requested` with `player`, `step`, `awaySeconds` for a reconnect, and `requestTick`, then `action=reported` with `player`, `step`, `requestTick` and the client's `result`, `reason`, `screen` and `showing`. On the client, `side=CLIENT` with `step`, `result` (`done`, `refused`, `failed` or `left`), `reason`, `screen` (the screen's class), `showing` (what is open a tick after a close) and `requestTick`, plus `awayMs` on a reconnect's `done` and `folder` on a `failed` in single player. See [commands.md](commands.md#client-actions) |
+| `CLIENT_ACTION` | `devtool client`. On the server, `action=requested` with `player`, `step`, `awaySeconds` for a reconnect, and `requestTick`, then `action=reported` with `player`, `step`, `requestTick` and the client's `result`, `reason`, `screen` and `showing`. On the client, `side=CLIENT` with `step`, `result` (`done`, `refused`, `failed`, or `left` for a reconnect or a quit leaving), `reason`, `screen` (the screen's class), `showing` (what is open a tick after a close) and `requestTick`, plus `awayMs` on a reconnect's `done` and `folder` on a `failed` in single player. A quit has no `done`: `left` is its last record. See [commands.md](commands.md#client-actions) |
+| `MENU_STEP` | The client request channel, always `side=CLIENT`. `action` is `claimed`, then `refused` with `reason` and `detail`, or `started`, then `done` or `failed` with `reason`; with `id`, `step` and `request`, and `folder` on `started`, `done` and `failed` of a `create` or an `open`. A `quit` writes `done` straight after `claimed`. A reused id writes only `refused` with `id` and `reason=duplicateId`, once per launch, with no `claimed` before it. See [commands.md](commands.md#the-client-request-channel) |
 | `BAUBLES` | `devtool baubles`. A set carries `action=set`, `player`, `slot`, `slotType`, `item`, `count`, `meta`, `replaced` when the slot held something, and `outcome` (`set` or `rejected`). A clear carries `action=clear`, `player`, `slots`, `cleared` and `outcome=cleared` |
 | `BUNDLE_STEP` | One command of a bundle that set `trace`, written just before it runs. Carries `bundle`, `hash`, `index`, `command`, `dueTick`, and `elapsedTicks`, both counted from submission like `durationTicks`; the stamped `worldTick` is the absolute moment |
 | `BUNDLE_SOURCE` | Written at every load and reload. Per file: `source` and `sha256` of the bytes, and `bundles` loaded from it. Per bundle: `bundle`, `source`, and the normalized `hash`. `BUNDLE_START` and `BUNDLE_END` carry the same `hash` |
@@ -157,7 +158,7 @@ While a session is active, every record carries `session` and `sessionTick`, the
 
 ## Worlds
 
-Every server start writes a `WORLD` record with the save's `folder` and `seed`, before any other toolkit record of that world. In single player a server starts each time a world opens.
+Every server start writes a `WORLD` record with the save's `folder` and `seed`, before any other toolkit record of that world. In single player a server starts each time a world opens, by hand or by a `create` or `open` of the client request channel alike.
 
 A session never spans two saves. Two saves are the same when their folder name and seed match.
 

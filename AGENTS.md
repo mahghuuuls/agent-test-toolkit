@@ -37,6 +37,7 @@ When the owner has enabled the command inbox, you can start bundles yourself:
 
 ```
 1. ASK      person, once per world opening:  /devtool inbox open
+            (or nothing, when inbox.openOnLocalJoin opens it at the owner's own join)
 2. WRITE    run/config/devtool/bundles/<yourfile>.json
 3. WRITE    run/config/devtool/inbox/<id>.tmp, then rename it to <id>.req
 4. WAIT     for run/config/devtool/inbox/<id>.result.json
@@ -46,6 +47,21 @@ When the owner has enabled the command inbox, you can start bundles yourself:
 
 The inbox runs only bundles and read-only toolkit commands, never a vanilla command. See [The command inbox](#the-command-inbox) and worked example I.
 
+### The loop from the title screen
+
+When the owner has also enabled the client request channel and the inbox's opening at a local join, the owner only launches the game:
+
+```
+1. ASK      person launches the game
+2. WAIT     for run/config/devtool/client-inbox/status.json with a startedAtMillis from this launch
+3. WRITE    run/config/devtool/client-inbox/<id>.req (through .tmp):  create <name> ...
+4. WAIT     for its result, then for run/config/devtool/inbox/status.json
+5. WRITE    inbox requests as above, the last one:  client quit
+6. READ     the result files, and run/logs/latest.log once the game has exited
+```
+
+The client request channel takes menu steps only: create, open, connect, quit. In a world, the command inbox is the channel. See [The client request channel](#the-client-request-channel) and worked example K.
+
 ### Paths
 
 | What | Where |
@@ -54,10 +70,12 @@ The inbox runs only bundles and read-only toolkit commands, never a vanilla comm
 | Configuration | `run/config/devtool/devtool.cfg` |
 | Result files | `run/config/devtool/results/<bundle>-<startTick>.json` |
 | Inbox requests and answers | `run/config/devtool/inbox/` |
+| Client request channel requests and answers | `run/config/devtool/client-inbox/` of the client |
+| Local-join secret (dedicated server only) | `run/config/devtool/local-join.secret` |
 | Screenshots on request | `run/screenshots/` of the client that took them |
 | The log you read | `run/logs/latest.log` |
 
-On a dedicated server these live under the **server's** directory, not the client's, except screenshots, which the client saves. A client-side copy of a bundle or a request has no effect on what the server runs.
+On a dedicated server these live under the **server's** directory, not the client's, except screenshots and the client request channel, which belong to the client. A client-side copy of a bundle or a request has no effect on what the server runs.
 
 ## Writing a bundle
 
@@ -88,7 +106,7 @@ Rules that matter to you:
 - `delayTicks` means **wait, then run this command**. The wait starts when the previous command finishes, not at the bundle's start. Two commands with `delayTicks: 20` put the second 40 ticks in. 20 ticks per second. Put the delay on the command that must run after the wait: to let chunks load after a teleport, keep the teleport immediate and delay the command that follows it. Set `"trace": true` on a bundle to get a `BUNDLE_STEP` record per command showing when it was due and when it ran.
 - **`toleratedFailures` lets one command fail without stopping the bundle**, for the specific reasons you name. An idempotent reset like `effect @s clear` fails when there is nothing to clear; declare `["commands.effect.failure.notActive.all"]` on that command and it will be tolerated, while a typo in the same command still fails. Find the key in the `detail` field of the `ERROR` record. A tolerated failure is recorded as a success carrying a note that names the key, so it never reads as a command that simply worked. Each tolerated step also writes one `TOLERATED` record naming the key, and `BUNDLE_END` counts them in `tolerated`; `failed` still counts only real failures.
 - **Two vanilla keys you will often declare.** `commands.fill.failed` is what `fill` reports when every block in the region already is the block you asked for. `commands.setblock.noChange` is what `setblock` reports when the block is already there. Both are the second run of an idempotent setup, and neither is tolerated unless you declare it.
-- **The toolkit has failure keys of its own**, in the `devtool.` namespace, and you tolerate them the same way: `devtool.wait.timeout` when a wait ran out of time, `devtool.wait.cancelled` when it became impossible, such as the caller changing dimension mid-wait. `devtool.placeholder.unbound` when a placeholder has no value yet, `devtool.placeholder.unsafe` when its value could break the command. `devtool.assert.failed` when an assertion did not match, `devtool.assert.unloaded` when an absence could not be judged because the place is not loaded, `devtool.assert.ambiguous` when a modifier name matches several modifiers. `devtool.scenario.mismatch` when a scenario checkpoint expects a different bundle, or this bundle with different text. `devtool.inspect.notLoaded` when an inspection names a position whose chunk is not loaded. `devtool.save.failed` when `devtool save` could not save a world. `devtool.screenshot.noClient` when the target player's client does not have the toolkit. `devtool.client.noClient` when your own client does not have the toolkit, 1.4.0 or later, for a `devtool client` step, `devtool.client.notAllowed` when it has not allowed client actions, `devtool.client.notDead` when a respawn is asked of a living player, `devtool.client.busy` while your client is on a reconnect, from the request until it is back and reported. `devtool.baubles.absent` when Baubles is not installed, `devtool.baubles.rejected` when a bauble slot refuses the item. That is the whole list; tolerate any of them on the one command that may fail that way.
+- **The toolkit has failure keys of its own**, in the `devtool.` namespace, and you tolerate them the same way: `devtool.wait.timeout` when a wait ran out of time, `devtool.wait.cancelled` when it became impossible, such as the caller changing dimension mid-wait. `devtool.placeholder.unbound` when a placeholder has no value yet, `devtool.placeholder.unsafe` when its value could break the command. `devtool.assert.failed` when an assertion did not match, `devtool.assert.unloaded` when an absence could not be judged because the place is not loaded, `devtool.assert.ambiguous` when a modifier name matches several modifiers. `devtool.scenario.mismatch` when a scenario checkpoint expects a different bundle, or this bundle with different text. `devtool.inspect.notLoaded` when an inspection names a position whose chunk is not loaded. `devtool.save.failed` when `devtool save` could not save a world. `devtool.screenshot.noClient` when the target player's client does not have the toolkit. `devtool.client.noClient` when your own client does not have the toolkit, 1.4.0 or later (for `quit`, a client that allows actions but said hello with a version older than 1.5.0), for a `devtool client` step, `devtool.client.notAllowed` when it has not allowed client actions, `devtool.client.notDead` when a respawn is asked of a living player, `devtool.client.busy` while your client is on a reconnect, from the request until it is back and reported. `devtool.baubles.absent` when Baubles is not installed, `devtool.baubles.rejected` when a bauble slot refuses the item. That is the whole list; tolerate any of them on the one command that may fail that way.
 - **Some refusals carry no key.** A screenshot label with a forbidden character fails with an `ERROR` record and a message, not a key, so a bundle cannot tolerate it by key. Fix the label instead.
 - **Placeholders.** Bind the human once with `devtool session operator @s`, then write `${operator.name}`, `${operator.uuid}` or `${operator.selector}` in any command; a claimed fixture is `${fixture.<handle>.uuid}` once `devtool fixture claim` has named it. That is the whole list. An unknown placeholder fails the file at reload. A value is filled in when the command runs, and a command whose value is missing fails with `devtool.placeholder.unbound` instead of running with a blank.
 - **Result files.** Put `"result": true` on a bundle and each run writes `run/config/devtool/results/<bundle>-<startTick>.json`: the `BUNDLE_END` counters including `tolerated`, then assertions with outcomes, failures, markers, checkpoints, waits, and `toleratedSteps` with one entry per `TOLERATED` record, all copied from the log records. Read that when you want a run's verdicts without grepping; read the log when you want everything.
@@ -252,7 +270,7 @@ NBT goes to the log, never to chat, and is truncated at `maxNbtOutputLength`. Tr
 | `devtool reload` | Re-read bundles and configuration from disk. Writes `RELOAD trigger=command`. The same reload runs at every server start with `trigger=serverStart` |
 | `devtool save` | Save player data and every loaded world, on single player and dedicated servers alike. Leaves each world's saving flag as it found it, so a `save-off` typed earlier stays off. Writes `SAVE`. A failure writes an `ERROR` and fails with `devtool.save.failed`. Vanilla `save-all` exists on a dedicated server only and needs level 4; this needs level 2 |
 | `devtool screenshot <label> [delayTicks] [player]` | Ask a player's client to save a screenshot after the delay. The label is 1 to 48 letters, digits, `_` or `-`; the delay is 0 to 600 ticks, default 0. The target is the named player, else the sender, which in a bundle is its caller and through the inbox is the inbox operator. The client must have the toolkit installed, or the command fails with `devtool.screenshot.noClient` and nothing is sent |
-| `devtool client reconnect [awaySeconds]\|respawn\|close` | Ask your own client to leave and come back, press Respawn on the death screen, or close the open screen. See [Client actions](#client-actions) |
+| `devtool client reconnect [awaySeconds]\|respawn\|close\|quit` | Ask your own client to leave and come back, press Respawn on the death screen, close the open screen, or close the game. See [Client actions](#client-actions) |
 | `devtool inbox open\|close\|status` | Open, close or report the command inbox. See [The command inbox](#the-command-inbox) |
 | `devtool bundle list` | Loaded bundles and their command counts |
 | `devtool bundle show <name>` | One bundle's commands in order, with delays |
@@ -268,17 +286,18 @@ NBT goes to the log, never to chat, and is truncated at `maxNbtOutputLength`. Tr
 
 ### Client actions
 
-Three steps a person used to do by hand, so a test can run them from a bundle or the inbox:
+Four steps a person used to do by hand, so a test can run them from a bundle or the inbox:
 
 | Command | What the client does |
 | --- | --- |
 | `devtool client reconnect [awaySeconds]` | Leaves the world, waits `awaySeconds` (0 to 60, default 0) at the menu, and comes back to the same place: the same server entry on a dedicated server, the same save in single player, saved in full before it stopped |
 | `devtool client respawn` | Presses Respawn on the death screen, once its buttons are enabled (20 ticks). Waits up to 100 ticks for a death screen still opening |
 | `devtool client close` | Closes the open screen the way Escape does, telling the server when it is a container. A tick later it records what is showing |
+| `devtool client quit` | Closes the game. Reports `left` first, then leaves as a reconnect does and closes the game instead of coming back. In single player the world is saved as the game stops; on a dedicated server the client disconnects cleanly first |
 
 **The target is always the sender**: the player typing it, the caller of a bundle, the inbox operator through the inbox. There is no player argument, so nobody can send another player's client away. The console, a command block and `/execute` are refused.
 
-**It is off unless the client allows it.** The client needs the toolkit, 1.4.0 or later, and `client.allowActions=true` in its own `devtool.cfg`. At every login a 1.4.0 server says hello to such a client, and the client answers whether it allows actions. So the server refuses at once, with a key a bundle can tolerate: `devtool.client.noClient` when the client has no toolkit or one older than 1.4.0, `devtool.client.notAllowed` when it has not allowed actions (or its answer has not arrived). Neither side is ever sent a message it cannot read: a client older than 1.4.0 gets no hello, and a server older than 1.4.0 sends none, so a 1.4.0 client there never answers.
+**It is off unless the client allows it.** The client needs the toolkit, 1.4.0 or later, and `client.allowActions=true` in its own `devtool.cfg`. At every login a 1.4.0 server says hello to such a client, and the client answers whether it allows actions. So the server refuses at once, with a key a bundle can tolerate: `devtool.client.noClient` when the client has no toolkit or one older than 1.4.0, `devtool.client.notAllowed` when it has not allowed actions (or its answer has not arrived). Neither side is ever sent a message it cannot read: a client older than 1.4.0 gets no hello, and a server older than 1.4.0 sends none, so a 1.4.0 client there never answers. `quit` needs a client that said hello with 1.5.0 or later: a 1.4.0 client that allows actions is refused `quit` with `devtool.client.noClient`, since it would drop a step it does not know and never answer. A 1.4.0 client that has not allowed actions gets `devtool.client.notAllowed` instead, because the version is checked only for a client that allows actions.
 
 **The server refuses** with a key: a respawn asked of a living player (`devtool.client.notDead`), and any step while the sender's client is on a reconnect, about to leave or back but not yet reported (`devtool.client.busy`; it ends once the reconnect reports, 10 seconds after the player is back without a report, or after `inbox.rejoinWindowSeconds`). The refusal of a sender that is not a player (the console, a command block, `/execute`) has no key, so a bundle cannot tolerate it.
 
@@ -287,14 +306,17 @@ Three steps a person used to do by hand, so a test can run them from a bundle or
 - `close`: `noWorld`, `noScreen`, `deathScreenUseRespawn` (use `respawn`), `credits`, `bedScreen`, `loadingScreen`, `busy` (a close still pending); after closing, `failed reason=stillOpen` when another mod kept or reopened the same screen.
 - `respawn`: `noWorld`, `credits`, `hardcore` (the button means Spectate World there), and, after waiting, `notDeadYet`, `noDeathScreen` or `timeout`; `busy` for a second respawn.
 - `reconnect`: `noWorld`, `realms`, `openToLan` (stopping a world open to LAN would throw every other player out), `noServerData`; `busy` while a close or respawn is still pending.
+- `quit`: `noWorld`; `busy` while a reconnect, a close or a respawn is still pending. A world open to LAN is not refused: the game closes, and every other player is thrown out with it.
 
-**Records.** The server writes `CLIENT_ACTION action=requested` with `player`, `step`, `requestTick` and for a reconnect `awaySeconds`, before sending. The client writes `CLIENT_ACTION side=CLIENT` with `step`, `result` (`done`, `refused`, `failed`, and `left` for a reconnect leaving), `reason`, `screen` (the screen's class) and `showing` (what is open a tick after a close), and sends the same as a report; the server writes it as `CLIENT_ACTION action=reported`. A report nobody asked for is dropped without a record.
+**Records.** The server writes `CLIENT_ACTION action=requested` with `player`, `step`, `requestTick` and for a reconnect `awaySeconds`, before sending. The client writes `CLIENT_ACTION side=CLIENT` with `step`, `result` (`done`, `refused`, `failed`, and `left` for a reconnect or a quit leaving), `reason`, `screen` (the screen's class) and `showing` (what is open a tick after a close), and sends the same as a report; the server writes it as `CLIENT_ACTION action=reported`. A report nobody asked for is dropped without a record.
 
-**Put `client reconnect` last in a bundle.** The client leaves about a second after the request, and the bundle's later steps are lost with it: on a dedicated server they end with `senderLost`, in single player the run is discarded when the integrated server stops. Do the work after the return in a second bundle or request.
+**Put `client reconnect` and `client quit` last in a bundle.** The client leaves about a second after the request, and the bundle's later steps are lost with it: on a dedicated server they end with `senderLost`, in single player the run is discarded when the integrated server stops. Do the work after the return in a second bundle or request.
 
 **A reconnect, step by step.** The client writes `result=left` and reports it, waits at least 5 ticks and one second, so the run that asked for it is answered first, stops reading the connection and lets what it already received be handled, then leaves. In single player it stops the integrated server and waits at the title screen; on a dedicated server it disconnects as the pause menu does. At any menu, after at least 20 ticks and the away time, it rejoins. Back in the same world, the server says hello again and the client writes and reports `result=done` with `awayMs`. If the connection fails, a different world is joined, the save is gone, or it is not back within 60 seconds after the away time (4 minutes more while a single-player world is still loading), the client writes `result=failed` with `connectFailed`, `joinedElsewhere`, `saveNotFound`, `loadAborted`, `notAtMenu` or `timeout`, and `folder` in single player; that one cannot reach the server.
 
-**What reconnect does not do.** It does not take you to another server or world, and it does nothing at the title screen: once the client is at the menu, no server can reach it.
+**What reconnect does not do.** It does not take you to another server or world, and it does nothing at the title screen: once the client is at the menu, no server can reach it. At the menu, the [client request channel](#the-client-request-channel) is the way in.
+
+**A quit, step by step.** The client writes `result=left` and reports it, waits as a reconnect does, so the run or request that asked is answered first, and stops reading the connection. On a dedicated server it then disconnects as the pause menu does; then it closes the game. In single player the integrated server stops with the game and saves the world. There is no `done`: `left` is the client's last record, and the game process ends. The inbox closes, with `operatorLeft` on a dedicated server, or `serverStopped` or `operatorLeft` in single player, and `status.json` is deleted. **A quit is not a reconnect**: the inbox is not suspended, and nothing starts the game again. Starting it again is the owner's.
 
 ### Baubles slots (only with Baubles installed)
 
@@ -312,15 +334,35 @@ Baubles is optional. The toolkit loads after it when it is present and never req
 The inbox lets you start a bundle, reload, save, run a read-only toolkit command, take a screenshot, or ask for a client action yourself, by writing a file. It is closed unless both hold:
 
 1. the owner set `inbox.enabled` to true in `run/config/devtool/devtool.cfg` (`B:enabled=true` under `inbox`; false by default), and
-2. a player typed `/devtool inbox open` in chat since the current server started.
+2. since the current server started, a player typed `/devtool inbox open` in chat, or, with `inbox.openOnLocalJoin` also true, the owner joined from this computer (see [Opening at a local join](#opening-at-a-local-join)).
 
-The opening is held in memory only, never written to disk. It closes when the player who opened it logs out (`reason=operatorLeft`), when the server stops (`serverStopped`), when a reload finds the key turned off (`disabled`), or when someone types `devtool inbox close` (`closed`). In single player leaving the world closes it, so the owner opens it again each time a world is opened. `devtool inbox status` reports whether it is open, for whom, and whether it is suspended.
+The opening is held in memory only, never written to disk. It closes when the player who opened it logs out (`reason=operatorLeft`), when the server stops (`serverStopped`), when a reload finds the key turned off (`disabled`), or when someone types `devtool inbox close` (`closed`). In single player leaving the world closes it, so the owner opens it again each time a world is opened, unless `inbox.openOnLocalJoin` opens it at each of their joins. `devtool inbox status` reports whether it is open, for whom, and whether it is suspended.
 
 **Across a reconnect the toolkit started**, the opening is suspended instead of closed. When the inbox operator's own `client reconnect` (from a request, a bundle, or typed) makes their client leave, the inbox writes `INBOX action=suspended reason=reconnect` with `resumeDeadlineMillis`, and stops reading requests; they wait in the folder. `status.json` stays, with `suspended: true`, `reason` and `resumeDeadlineMillis`. When the same client is back with the one-time token it was sent away with, the inbox writes `INBOX action=resumed` and reads the waiting requests, without anyone typing `inbox open`. Between the reconnect request and the leave, the inbox already holds further requests, for at most 15 seconds, so a batch's next line runs after the return. Every other path closes it, with a reason: the deadline, `inbox.rejoinWindowSeconds` (default 120) of wall-clock time, passing (`rejoinTimeout`, also while no server runs at all in single player); the operator logged in again but no token arrived within 10 seconds (`returnedOtherRoute`); a wrong token (`tokenMismatch`); a different world loading (`worldChanged`); the key turned off; `inbox close`; a dedicated server's stop. A leave by the pause menu is an ordinary leave and closes it (`operatorLeft`). A game quit while suspended leaves `status.json` behind, as a crash does, until the next server start deletes it; the new process starts closed.
 
-Opening is refused, with an `INBOX action=refused` record, when the key is false (`reason=disabled`; the chat message names the key), when it is already open for another player (`openForAnother`), and when the command comes from a bundle (`fromBundle`). A bundle, or join automation, can never open the inbox, and neither can the console, a command block, or `/execute`. A person typing it while a bundle waits on a delay or a checkpoint is not refused. **Never put `devtool inbox open` in a bundle.** Ask the owner to type it.
+Opening is refused, with an `INBOX action=refused` record, when the key is false (`reason=disabled`; the chat message names the key), when it is already open for another player (`openForAnother`), and when the command comes from a bundle (`fromBundle`). A bundle, or join automation (the bundle `join.bundle` runs when an operator joins), can never open the inbox, and neither can the console, a command block, or `/execute`. The opening at a local join below is separate from join automation: it is the toolkit's own check, made only under `inbox.openOnLocalJoin`. A person typing it while a bundle waits on a delay or a checkpoint is not refused. **Never put `devtool inbox open` in a bundle.** Ask the owner to type it, or to turn on `inbox.openOnLocalJoin`.
 
-The player who opened it is the **inbox operator**. Every request runs with that player as the sender and with that player's permissions, and a bundle it starts carries `caller=<operator> channel=inbox`.
+The player who opened it, by typing or by a local join, is the **inbox operator**. Every request runs with that player as the sender and with that player's permissions, and a bundle it starts carries `caller=<operator> channel=inbox`.
+
+### Opening at a local join
+
+With `inbox.openOnLocalJoin=true` (`B:openOnLocalJoin=true` under `inbox`; false by default) and `inbox.enabled=true`, the inbox opens without anyone typing `devtool inbox open` when the owner joins from this computer:
+
+- **Single player**: the host's join, over the game's in-process connection. A LAN guest never opens it. The host must be allowed toolkit commands, which in single player means cheats on. The keys are read at every world opening, with the rest of the configuration.
+- **Dedicated server**: an operator (level 2) whose client proves it shares the server's folder. When both keys are on as the server starts, it writes a fresh random secret into `config/devtool/local-join.secret`, and removes it at the stop. A client with the toolkit, 1.5.0 or later, reads that file from its own `config/devtool/`, so it finds it only when it runs from the same game folder as the server, as a development client and server sharing `run/` do. It sends the secret after the server's hello, only to a server at 1.5.0 or later that it reached over loopback, and the server accepts it only from a loopback connection. So join with `localhost` or `127.0.0.1`: a join by the computer's LAN address sends nothing, and nothing opens. The server reads the keys at start: turn them on, then restart it. `client.allowActions` is not needed for this.
+
+The opening writes `INBOX action=opened reason=localJoin` with the `operator`. From then on it is exactly a typed opening: requests already waiting are refused `placedBeforeOpen`, `status.json` is written, requests run as that player, it closes when that player leaves, and a toolkit reconnect suspends it. When the inbox is already open, for this player or another, or suspended across a reconnect, nothing changes and nothing is recorded.
+
+Refusals, as `INBOX action=refused` with the player as `operator`:
+
+| `reason` | Meaning |
+| --- | --- |
+| `localJoinNotOperator` | A local join by a player who may not run toolkit commands: single player with cheats off, or a non-operator on a dedicated server. Written at each such join |
+| `localJoinNotProven` | A client sent a secret that does not match, or not over loopback. Written once per player per server run |
+
+Nothing is recorded when a key is off or when no secret arrived at all.
+
+The dedicated-server case works only with a client and a server sharing one game folder, which means they also share `run/logs/`: the second process to start archives the first one's `latest.log`, and both then write into one file. Read [`latest.log` is not a stable identifier](#latestlog-is-not-a-stable-identifier) before you trust what that file holds.
 
 ### Writing a request
 
@@ -351,7 +393,7 @@ Rules:
 | `entities ...` | `devtool entities ...` |
 | `nbt ...` | `devtool nbt ...` |
 | `screenshot <label> [delayTicks]` | `devtool screenshot`, always to the inbox operator. No player argument |
-| `client reconnect [awaySeconds]`, `client respawn`, `client close` | `devtool client ...`, for the inbox operator's own client. `awaySeconds` 0 to 60. Lower case only: `client Reconnect` is `badArguments` |
+| `client reconnect [awaySeconds]`, `client respawn`, `client close`, `client quit` | `devtool client ...`, for the inbox operator's own client. `awaySeconds` 0 to 60. Lower case only: `client Reconnect` is `badArguments`. `client quit` is answered `done` in the tick it runs; then the game closes and the inbox with it |
 
 A leading `/` is accepted. Nothing else is: no vanilla command, no other toolkit command, no `devtool` or `att` prefix. Anything that changes the world goes in a bundle you wrote, which the owner can read, and the inbox starts it with `run`.
 
@@ -383,6 +425,128 @@ The log tells the same story: `INBOX action=claimed`, then `refused`, or the com
 
 **In single player a paused game reads nothing.** The game pauses when its window loses focus or a menu is open, and a paused single-player game runs no ticks, so requests wait until it resumes. `client.noPauseOnLostFocus` turns the focus pause off, but only together with `client.applyOnJoin=true`, and only from the next game launch if the first world join has already happened.
 
+## The client request channel
+
+At the title screen no server runs, so neither the command inbox nor a client action can reach the game. The client request channel covers that: the client itself reads request files from a folder of its own and takes one of four menu steps. Create a single-player world, open a save, connect to a server on this computer or the local network, or quit the game.
+
+It is off unless the client's own `devtool.cfg` says `client.requestChannel=true` (`B:requestChannel=true` under `client`; false by default). With the key on it listens from game start, with no click. The key is read from the configuration the client holds, which changes at game start and, in single player, at every world opening and `devtool reload`. After changing it at the title screen, restart the game.
+
+The steps call the functions the menus call; they do not press screens, and they are not gameplay. A world opened by a step behaves as one opened by hand: the server writes its `WORLD` and `RELOAD trigger=serverStart` records, the command inbox opens at a local join or when a person types it, client defaults apply at the first join of the launch, and a later `client reconnect` comes back to it.
+
+### Writing a request
+
+The folder is `run/config/devtool/client-inbox/`, under the **client's** game directory, beside the command inbox's folder. The file protocol is the command inbox's, so any program that writes command inbox requests can write these too, pointed at this folder:
+
+1. Wait for `status.json` with a `startedAtMillis` from this launch.
+2. Write the request to `<id>.tmp`, then rename it to `<id>.req`.
+3. Wait for `<id>.result.json`.
+
+Rules:
+
+- `<id>` is 1 to 64 letters, digits, `_`, `.` or `-`. Files named any other way are ignored.
+- **Ids must be unique.** The client claims a request by renaming it to `<id>.claimed`. A new `<id>.req` whose `<id>.claimed` is still there is never run: it gets one `MENU_STEP action=refused reason=duplicateId` record, said once per launch for that id, and no result file, since one would overwrite the earlier answer. The `.req` stays in the folder. This holds for a reused id already waiting when the game starts as well: it is not refused `placedBeforeStart`, gets no result file, and is reported `duplicateId` once, at that first read. Since files are never deleted, the old `<id>.result.json` is still there, so a loop waiting for that file returns at once with the earlier answer. Put a counter or a timestamp in every id, unique across launches, not only within one.
+- One request per file: one line of printable ASCII, at most 512 characters, in a file of at most 4096 bytes. A trailing line break is fine. The step word may be in any case; option names and values are written exactly as below.
+- The client reads the folder every 10 client ticks, on the client thread, from the title screen on.
+- **Requests already waiting at the first read of a launch were placed before it.** Each one with a new id is claimed and refused `placedBeforeStart`, with a result file; one with a reused id only gets its `duplicateId` record. The same happens when the key is turned back on during a launch.
+- **One step at a time.** Requests waiting in one read are taken in file-name order, and once one starts a step, the rest of that read are refused `busy`. Write the next request after the previous one's result.
+- The toolkit never deletes request, claim or result files.
+
+**`status.json`** holds `schemaVersion`, `listening` (true) and `startedAtMillis`, the launch's start of listening in wall-clock milliseconds. It is written at the first read of each launch, after the leftover requests are refused, and again when the key is turned back on. It is deleted when the key is turned off, and by a `quit` through this channel. It is **not** deleted by `devtool client quit`, a crash or a closed window, so a file from an earlier launch may still be there until this launch's first read deletes and rewrites it. Wait for a `startedAtMillis` later than the moment you asked for the launch, or different from the one you saw before it. A request written against the old file is refused `placedBeforeStart`.
+
+### When a step runs
+
+A step begins only at a menu: no world, no integrated server, no connection, and a menu screen. The "Disconnected" screen counts as a menu, since it stays until someone clicks. The connecting and loading screens do not, and neither does Forge's old-save confirmation. While the client ticks, every request is claimed and answered at once:
+
+- `inWorld` while a world is open. In a world, use the command inbox, `client reconnect` and `client quit` included.
+- `busy` while another step is under way, while a toolkit reconnect or quit is under way, or while the client is not at a menu: connecting, loading, or Forge's old-save confirmation waiting for a click.
+
+While one of Forge's startup questions or notices is on screen, the client does not tick at all, and nothing is read or answered until someone clicks. See [Forge's startup questions](#forges-startup-questions).
+
+### What a request may say
+
+| Line | Does |
+| --- | --- |
+| `create <name> [option=value ...]` | Creates a single-player world with the settings the Create New World screen offers, and opens it |
+| `open <folder>` | Opens an existing save in `saves/`, the way the world list does |
+| `connect <host[:port]>` | Joins a server on this computer or the local network |
+| `quit` | Writes its result and record, then closes the game |
+
+Nothing else: no other menu, button or screen, and no command text.
+
+**`create`.** The name is 1 to 32 letters, digits, `_` or `-`, and is also the save folder, except a name Windows reserves for a device, such as `CON`, which becomes `_CON_` as the screen makes it. The request is refused `exists` when any entry of that folder name is in `saves/`, readable or not: a create never replaces a save, and never picks another folder for you. Options, each at most once:
+
+| Option | Values | Default |
+| --- | --- | --- |
+| `seed` | Text up to 32 characters, no spaces. A whole number is the seed itself; other text is hashed as the screen does. `0` is random | random |
+| `type` | `default`, `flat`, `largeBiomes`, `amplified` | `default` |
+| `flat` | A flat-world layer string, only with `type=flat` | Classic Flat |
+| `structures` | `true` or `false` | `true` |
+| `cheats` | `true` or `false` | `true` |
+| `mode` | `survival`, `creative`, `adventure`, `spectator` | `creative` |
+| `bonusChest` | `true` or `false` | `false` |
+
+The game falls back silently on a bad value, so every value is checked before anything happens. The `flat` string has the 1.12.2 shape `3;<layers>;<biome>;<features>`:
+
+- layers, bottom first, comma separated, each `[count*]namespace:block[:meta]`, such as `2*minecraft:dirt`. Meta is 0 to 15, the total height at most 256, and every block must be known to the game.
+- the biome, a numeric id the game knows; 1 is plains.
+- features, comma separated, from the 1.12.2 set: `village`, `biome_1` (temples), `mineshaft`, `stronghold`, `oceanmonument`, `lake`, `lava_lake`, `dungeon`, `decoration`. Each takes at most one parameter, as `village(size=2)`, because the request line cannot hold the space vanilla puts between two. The features part may be empty.
+
+For example `flat=3;minecraft:bedrock,3*minecraft:stone,minecraft:grass;1;decoration`. `type=flat` without `flat` is Classic Flat: bedrock, two dirt, grass, plains, villages. With `structures=false`, a flat world loses its structure features (`village`, `biome_1`, `mineshaft`, `stronghold`, `oceanmonument`) while lakes, dungeons and decoration stay; any other type generates no structures, as the screen's button does.
+
+A bad option is refused `badArguments` before anything is created, with `detail` naming the problem: `notNameValue:<word>`, `unknownOption:<name>`, `repeatedOption:<name>`, `seedTooLong`, `unknownType:<value>`, `unknownMode:<value>`, `notBoolean:<name>`, `flatWithoutTypeFlat`, `flatShape`, `flatNoLayers`, `flatLayer:<layer>`, `flatTooHigh`, `flatBiome:<value>`, `flatFeature:<feature>`, `unknownBlock:<id>`, `unknownBiome:<id>`. A bad name is `badArguments` with no `detail`.
+
+**`open`.** The folder is the rest of the line: letters, digits, `_` and `-`, with single spaces between words, as in `open New World`, at most 64 characters. The name must match the folder's exactly, case included, even on Windows: `open new world` is `notFound` for a folder `New World`. Refused `notFound` when `saves/` holds no loadable save of that name, `newerVersion` when the save is from a newer Minecraft version.
+
+**`connect`.** `host`, `host:port` or `[v6]:port`; the port is 1 to 65535, default 25565. The host is resolved once, and every address it resolves to must be local: loopback, private IPv4 (`10/8`, `172.16/12`, `192.168/16`), link-local, or IPv6 unique-local (`fc00::/7`). Never `0.0.0.0`, `::`, `100.64.0.0/10` (carrier networks and Tailscale use it to reach other machines), Tailscale's `fd7a:115c:a1e0::/48`, multicast, or anything public: those are refused `notLocal`, and nothing connects. A name that does not resolve is `unknownHost`. The client then connects to the resolved number, so no later DNS or SRV lookup can change the target. The lookup runs on the client thread, so a slow name server holds the game while it runs; `localhost` or a number avoids that.
+
+**`quit`.** Writes `MENU_STEP action=done` and the result file, deletes `status.json`, and closes the game. Requests after it in the same read stay unread, and the next launch refuses them `placedBeforeStart`.
+
+### Reading the answer
+
+Every claimed request gets exactly one `<id>.result.json`, written under a temporary name and then moved. Fields:
+
+- `schemaVersion`, `id`, `request` (the line; absent when the file was unreadable or over 4096 bytes, cut to 80 characters for a `malformed` one), `step` (absent for `verbNotAllowed`, when the line named none of the four, and for `malformed`)
+- `outcome`: `done`, `failed` or `refused`
+- `reason` when not `done`, `detail` for a `create` refused over its options, `folder` for `create` and `open` on `done` and `failed`
+
+Refusals, answered at once:
+
+| `reason` | Meaning |
+| --- | --- |
+| `verbNotAllowed` | The first word is not one of the four steps |
+| `badArguments` | The step is allowed but its arguments are not, such as `quit now`, a bad name, option, folder or address |
+| `malformed` | Empty, more than one line, not printable ASCII, over 512 characters, or a file over 4096 bytes |
+| `placedBeforeStart` | Already waiting at the first read of this launch |
+| `inWorld` | A world is open |
+| `busy` | A step, a toolkit reconnect or a quit is under way, or the client is not at a menu |
+| `exists` | `create`: an entry of that folder name is in `saves/` |
+| `notFound`, `newerVersion` | `open`: no such save, or a save from a newer version |
+| `notLocal`, `unknownHost` | `connect`: an address that is not local, or a name that does not resolve |
+| `duplicateId` | The id was already claimed. Record only, once per launch per id, no result file |
+
+A step that started is answered `done` once the player is in the expected world: for `create` and `open`, the single-player world of that folder; for `connect`, the server it connected to. Otherwise `failed`:
+
+| `reason` | Meaning |
+| --- | --- |
+| `connectFailed`, `loadFailed` | The "Disconnected" screen appeared, for a connect or a world |
+| `connectAborted`, `loadAborted` | Back at a menu for 40 ticks with nothing starting: the connection was cancelled, the world never started, or a Forge startup question was answered with cancel |
+| `joinedElsewhere` | The player ended up in a different world |
+| `timeout` | Not in the world within 60 seconds, plus 4 minutes while a single-player server exists. Counted only while the client ticks: see [Forge's startup questions](#forges-startup-questions) |
+
+**After a `timeout`, a world or a connection still under way may yet finish.** Read the client's state before the next step: a `WORLD` record or a command inbox `status.json` means a world opened after all.
+
+**Records.** Every claim and answer writes a `MENU_STEP` record with `side=CLIENT`: `action=claimed`, then `refused` with `reason` and `detail`, or `started`, then `done` or `failed` with `reason`. `folder` is on `started`, `done` and `failed` of `create` and `open`. A `quit` writes `done` straight after `claimed`. A reused id writes only `refused reason=duplicateId` with its `id`, with no `claimed` before it. They are in the client's log, which in single player is the one log.
+
+### Forge's startup questions
+
+Starting a single-player world can make Forge stop and ask first, and two kinds of screen behave differently.
+
+**Startup questions and notices.** A yes/no question while the world starts, such as one about blocks or items that are missing or changed, or a notice such as "missing mods", holds the client thread inside the world's start until someone clicks. No client tick runs meanwhile: nothing in `client-inbox/` is claimed or answered, the step gets no `timeout` and later requests no `busy`, and no record is written. **Apply your own deadline**: a step with no answer long after its `started` record is most likely waiting on such a screen, and needs the owner. A `timeout` can appear only after the click, once ticks run again.
+
+Launch the game with the JVM argument `-Dfml.queryResult=cancel` to answer every yes/no question with cancel at once: the world does not open, and the step fails `loadAborted`. That property answers questions only. A "missing mods" notice still waits for a click, with the client thread held as above.
+
+**The old-save confirmation.** A save from an old Forge version whose data needs converting makes the world list show a confirmation screen before the world starts. That is an ordinary screen, the property does not answer it, and the client keeps ticking: new requests are answered `busy`, and since no single-player server exists yet, the step fails `timeout` after 60 seconds unless someone clicks first.
+
 ## Configuration
 
 `run/config/devtool/devtool.cfg` is a Forge configuration file. Keys are written here as `<category>.<key>`; in the file `inbox.enabled` is `B:enabled=true` inside `inbox { }`. Server-side keys take effect at the next reload or server start.
@@ -392,8 +556,10 @@ The table lists the keys this release added and the ones you need for the inbox,
 | Key | Default | Effect |
 | --- | --- | --- |
 | `inbox.enabled` | `false` | Allows `devtool inbox open`. For a development or test instance only |
+| `inbox.openOnLocalJoin` | `false` | On a server, together with `inbox.enabled`: opens the inbox without `devtool inbox open` at the owner's own join, the single-player host's or, on a dedicated server, an operator's whose client returns the local-join secret over loopback. A dedicated server reads it at start, so restart it after turning it on. See [Opening at a local join](#opening-at-a-local-join) |
 | `inbox.rejoinWindowSeconds` | `120` | How long, in wall-clock seconds, a suspended inbox waits for its operator to come back from a toolkit reconnect, 10 to 600. Keep it longer than the away time plus a world load |
 | `client.allowActions` | `false` | On a client: lets a server ask this client for `devtool client` steps. Read by the client, sent to the server at every login. Unlike the other `client.` keys it does not need `applyOnJoin`. In single player, reopening a world picks up a change; a client joining a dedicated server reads it at game start, so restart the client after changing it |
+| `client.requestChannel` | `false` | On a client: reads menu-step requests from `config/devtool/client-inbox/`, listening from game start with no click. It does not need `applyOnJoin`. The client's configuration changes at game start and, in single player, at a world opening or `devtool reload`, so restart the game after changing it at the title screen. See [The client request channel](#the-client-request-channel) |
 | `diagnostics.spawnIncludeItems` | `false` | `entity_spawn` also records dropped items and experience orbs |
 | `join.enabled`, `join.bundle` | `false`, empty | Run a bundle when an operator joins. Its `BUNDLE_START` says `channel=join` |
 | `client.applyOnJoin` | `false` | Apply the client defaults below, once per launch at the first world join, and write the client `ENVIRONMENT` record. Every other `client.` key does nothing unless this is true. Ignored on a dedicated server |
@@ -406,7 +572,7 @@ The volume keys and `client.noPauseOnLostFocus` act only when `client.applyOnJoi
 
 Every client default is saved to `options.txt`, as the game's own sliders are, so it stays after you turn the key back off. For the pause, F3+P in game turns it back on. The client `ENVIRONMENT` record names `brightness` and `music` every time, and `<name>Was`/`<name>Now` for the other categories and `pauseOnLostFocus` only when they were set, so an absent field always means "left as it was".
 
-The toolkit records on the server. Install it on the client too only when you want screenshots, client defaults or client actions; a client without it still joins a server that has it.
+The toolkit records on the server. Install it on the client too only when you want screenshots, client defaults, client actions, the client request channel, or the inbox opening at a local join to a dedicated server; a client without it still joins a server that has it.
 
 `-Pdev_runtime_baubles=true`, as in `./gradlew runClient -Pdev_runtime_baubles=true`, puts Baubles on the toolkit's own development runtime. It is for developing the toolkit. To test a mod with Baubles, install Baubles in that instance like any other mod.
 
@@ -452,7 +618,7 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 | `INBOX` | the command inbox: `action` (`opened`, `closed`, `claimed`, `refused`, `dispatched`, `failed`, `suspended`, `resumed`), `id` and `request` for a request, `operator`, `reason` for closes, refusals, failures, suspensions and an opening at a local join (`localJoin`), and `resumeDeadlineMillis` for a suspension |
 | `SCREENSHOT` | `screenshot`. On the server `action=requested` with `label` `delayTicks` `target` `requestTick` `file`. On the client, `side=CLIENT` with `label` `requestTick` and `action=saved` with `file`, or `action=failed` with `reason` (`queueFull`, `disconnected`, `noFile` with the expected `file`, or an exception name) |
 | `CLIENT_ACTION` | `client`. On the server `action=requested` with `player` `step` `awaySeconds` (reconnect only) `requestTick`, then `action=reported` with `player` `step` `requestTick` and the client's `result` `reason` `screen` `showing`. On the client, `side=CLIENT` with `step` `result` (`done`, `refused`, `failed`, `left`) `reason` `screen` `showing` `requestTick`, and `awayMs` on a reconnect's `done`. See [Client actions](#client-actions) |
-| `MENU_STEP` | the client request channel, `side=CLIENT`: `action` (`claimed`, `refused`, `started`, `done`, `failed`) with `id`, `step`, `request`, `reason`, `detail`, and `folder` for `create` and `open`. See [The client request channel](#the-client-request-channel) |
+| `MENU_STEP` | the client request channel, `side=CLIENT`: `action` (`claimed`, `refused`, `started`, `done`, `failed`) with `id`, `step`, `request`, `reason`, `detail`, and `folder` for `create` and `open`. A reused id writes only `refused` with `id` and `reason=duplicateId`, once per launch. See [The client request channel](#the-client-request-channel) |
 | `BAUBLES` | `baubles set`: `action=set` `player` `slot` `slotType` `item` `count` `meta`, `replaced` when the slot held something, `outcome` (`set` or `rejected`). `baubles clear`: `action=clear` `player` `slots` (`all` or the index) `cleared` (how many held something) `outcome=cleared` |
 | `BUNDLE_STEP` | one command of a bundle with `trace` on, just before it runs, with `bundle` `hash` `index` `command` `dueTick` `elapsedTicks` |
 | `BUNDLE_SOURCE` | at load and reload: per file `source` `sha256` `bundles`; per bundle `bundle` `source` `hash`. The same `hash` is on that bundle's `BUNDLE_START` and `BUNDLE_END` |
@@ -543,7 +709,7 @@ So: read the log **before** anything restarts, and copy it to a scenario-named p
 
 ### Which process writes what
 
-Observation is server-side. In single player everything lands in the one log. With a dedicated server, event records are on the **server**; command replies a person sees in chat are on the **client**. Three records are written by the client and carry `side=CLIENT`: `SCREENSHOT action=saved` or `failed`, the `ENVIRONMENT` record of the client defaults, and `CLIENT_ACTION side=CLIENT`. With a dedicated server they are in the client's log; the server writes its own `CLIENT_ACTION action=reported` from the client's report.
+Observation is server-side. In single player everything lands in the one log. With a dedicated server, event records are on the **server**; command replies a person sees in chat are on the **client**. Four records are written by the client and carry `side=CLIENT`: `SCREENSHOT action=saved` or `failed`, the `ENVIRONMENT` record of the client defaults, `CLIENT_ACTION side=CLIENT`, and `MENU_STEP`. With a dedicated server they are in the client's log; the server writes its own `CLIENT_ACTION action=reported` from the client's report. `MENU_STEP` has no server copy.
 
 A client without the toolkit can still join a server that has it. Everything server-side works as usual for that player; only what needs the client fails: a screenshot to that player fails with `devtool.screenshot.noClient`, a client action with `devtool.client.noClient`, and client defaults are not applied.
 
@@ -860,7 +1026,7 @@ Your feature does something at world load. You need a bundle before the stop, a 
 
 You want to prepare a test, have the person act once, and inspect the result, without asking anyone to type anything after the first command.
 
-**Once, by the owner:** `inbox.enabled` set to true, the world opened, `/devtool arena create` typed where the test should happen (once per world: the arena is stored in the save, and `arena reset` fails with "No arena in dimension N" without it), and `/devtool inbox open` typed in chat. In single player, if the owner will switch windows while you work, ask for `client.applyOnJoin=true` and `client.noPauseOnLostFocus=true` before the game is launched: the client defaults apply only at the first world join of a launch, and `applyOnJoin` also sets brightness and music to their configured values (1.0 and 0 by default).
+**Once, by the owner:** `inbox.enabled` set to true, the world opened, `/devtool arena create` typed where the test should happen (once per world: the arena is stored in the save, and `arena reset` fails with "No arena in dimension N" without it), and `/devtool inbox open` typed in chat, or `inbox.openOnLocalJoin=true` set before the world opened, so the inbox opens at the owner's join (example K). In single player, if the owner will switch windows while you work, ask for `client.applyOnJoin=true` and `client.noPauseOnLostFocus=true` before the game is launched: the client defaults apply only at the first world join of a launch, and `applyOnJoin` also sets brightness and music to their configured values (1.0 and 0 by default).
 
 **The bundle**, written before the world opened, or followed by a `reload` request if written after:
 
@@ -932,14 +1098,14 @@ w-003   screenshot after_strike
 
 **Then read back:**
 
-- `INBOX action=opened operator=...`, then `INBOX action=claimed id=w-001`.
+- `INBOX action=opened operator=...`, with `reason=localJoin` when it opened at the owner's join, then `INBOX action=claimed id=w-001`.
 - `BUNDLE_START bundle=feat_wand_inbox_setup caller=<operator> channel=inbox permissionLevel=2`. This is what proves the run came through the inbox and as whom.
 - `TOLERATED key=commands.generic.selector.notFound` for the `kill`, `MARK label=READY_STRIKE`, then `BUNDLE_END failed=0 tolerated=1` with the same counters as the result file.
 - `ENTITY_DAMAGE` after the mark, read as in example B.
 - `w-002.result.json` with `outcome=done`, and the `ENTITY_INSPECT` it caused.
 - `SCREENSHOT action=requested label=after_strike`, then `SCREENSHOT side=CLIENT action=saved file=screenshots/after_strike-<tick>.png`, and the image itself in the client's `screenshots` folder.
 
-**What would fool you:** reusing `w-001` for the second request. It is never run, and it gets only an `INBOX action=refused reason=duplicateId` record, no result file, so a loop waiting for that file waits forever: wait with a timeout, and look for that record when it runs out. A request written before the owner opened the inbox is refused with `placedBeforeOpen`. A bundle edited after the world opened, with no `reload` request, runs the old text; the `hash` in the result file and on `BUNDLE_START` tells you which text ran. A missing answer in single player may only mean the game is paused. If nobody created the arena, `arena reset` fails, the bundle stops there, and the result says `outcome=failed reason=bundleFailed` with `firstFailure` naming the missing arena. And `outcome=done` says the setup ran, not that the strike happened: only the `ENTITY_DAMAGE` after the mark says that.
+**What would fool you:** reusing `w-001` for the second request. It is never run, and it gets only an `INBOX action=refused reason=duplicateId` record, no result file, so a loop waiting for that file waits forever: wait with a timeout, and look for that record when it runs out. A request written before the inbox opened, by typing or at a local join, is refused with `placedBeforeOpen`. A bundle edited after the world opened, with no `reload` request, runs the old text; the `hash` in the result file and on `BUNDLE_START` tells you which text ran. A missing answer in single player may only mean the game is paused. If nobody created the arena, `arena reset` fails, the bundle stops there, and the result says `outcome=failed reason=bundleFailed` with `firstFailure` naming the missing arena. And `outcome=done` says the setup ran, not that the strike happened: only the `ENTITY_DAMAGE` after the mark says that.
 
 ### J. A reconnect in the middle of a test
 
@@ -970,9 +1136,81 @@ Your feature saves something when a player leaves and loads it when they come ba
 
 **What would fool you:** a `done` result file for the `run` says the bundle asked for the reconnect, not that the client came back; `INBOX action=resumed` says that. A reconnect refused by the client (`openToLan`, `realms`, `busy`) leaves the inbox listening and reports the reason. A client back after the deadline finds the inbox closed (`rejoinTimeout`). And `client.allowActions` lives on the client: on a dedicated server, set it in the client's configuration, not the server's.
 
+### K. A whole launch group, with the owner only launching the game
+
+You want a fresh world, a setup, a check, and the game closed again, with nobody typing or clicking anything.
+
+**Once, by the owner, before the launch**, in `run/config/devtool/devtool.cfg` (in single player the client and the server read the same file): `client.requestChannel=true`, `inbox.enabled=true`, `inbox.openOnLocalJoin=true`, `client.allowActions=true` for the quit, and `client.applyOnJoin=true` with `client.noPauseOnLostFocus=true`, so the game keeps running while the owner works in another window. If the instance has ever shown Forge startup questions, also `-Dfml.queryResult=cancel` among the game's JVM arguments. Then the owner launches the game and does nothing else.
+
+**The bundle**, written before the world opens, so the reload at the world's start reads it:
+
+```json
+{
+  "feat_launch_check": {
+    "description": "Fresh flat world: arena, one probe, two checks; started through the inbox",
+    "result": true,
+    "commands": [
+      "devtool session start launch_check",
+      "devtool session operator @s",
+      "devtool arena create 9 4 9",
+      "summon minecraft:pig ~3 ~ ~ {CustomName:\"probe\",NoAI:1b,PersistenceRequired:1b}",
+      "devtool assert entities count 1 within 8 name probe",
+      "devtool assert player ${operator.name} gamemode creative",
+      "devtool mark CHECKED"
+    ]
+  }
+}
+```
+
+**Your steps**, every request through `.tmp` and a rename. `<run>` is a timestamp you take once at the start, such as `1793700000000`, so every id is new on every run:
+
+```
+1. note    the moment you ask for the launch, and the startedAtMillis in
+           run/config/devtool/client-inbox/status.json if a file is there
+2. wait    client-inbox/status.json with a newer startedAtMillis
+3. write   client-inbox/k-<run>-1.req      create test1 type=flat structures=false
+4. wait    client-inbox/k-<run>-1.result.json    outcome done, folder test1
+5. wait    run/config/devtool/inbox/status.json  world test1, the owner as operator
+6. write   inbox/k-<run>-2.req             run feat_launch_check
+7. wait    inbox/k-<run>-2.result.json           outcome done, failed 0
+8. write   inbox/k-<run>-3.req             client quit
+9. wait    inbox/k-<run>-3.result.json
+10. wait   until the game process has exited, or latest.log holds
+           CLIENT_ACTION side=CLIENT step=quit result=left; then read run/logs/latest.log
+           before anyone launches again
+```
+
+**Why a timestamp in every id.** Neither folder is ever emptied by the toolkit. With a fixed id such as `k-001`, a second run's wait for `k-001.result.json` returns at once with the first run's answer, while the new request is never run and only refused `duplicateId`.
+
+**Why step 10.** The `client quit` result is written when the command is dispatched. The client leaves at least 5 ticks and one second later, after up to 2 seconds more letting the connection drain, so a log read straight after the result file may not hold the quit yet.
+
+The answer to step 3, once the player is in the new world:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "k-1793700000000-1",
+  "request": "create test1 type=flat structures=false",
+  "step": "create",
+  "outcome": "done",
+  "folder": "test1"
+}
+```
+
+**Then read back:**
+
+- `MENU_STEP side=CLIENT action=claimed id=k-<run>-1 step=create`, then `MENU_STEP action=started folder=test1`.
+- `WORLD folder=test1` and `RELOAD trigger=serverStart`, then `INBOX action=opened operator=<owner> reason=localJoin` and `MENU_STEP action=done folder=test1`. Those last two come from different threads, the server's and the client's, so either may come first. Nobody typed `inbox open`; `reason=localJoin` says how it opened.
+- `INBOX action=claimed id=k-<run>-2`, `BUNDLE_START bundle=feat_launch_check channel=inbox`, two `ASSERT outcome=pass`, the second proving `mode` defaulted to creative, then `BUNDLE_END failed=0`.
+- `INBOX action=claimed id=k-<run>-3`, `CLIENT_ACTION action=requested step=quit`, `CLIENT_ACTION side=CLIENT step=quit result=left`, the inbox closing, and the end of the log. The world was saved as the game stopped.
+
+**What would fool you:** a stale `status.json` in `client-inbox/`. The previous launch ended with `client quit`, which leaves the channel's file in place, so until this launch's first read the file is there with the old `startedAtMillis`, and a request written against it is refused `placedBeforeStart`. Compare the number, not the file's presence. A create refused `exists`: the second time you run this group, `test1` from the earlier run is still in `saves/`, nothing opens, and no inbox appears. Give each run a new name, or write `open test1` when reusing the world is what you mean. `cheats=false` on the create: the host may not run toolkit commands, so the inbox's opening is refused with `INBOX action=refused reason=localJoinNotOperator`, no inbox `status.json` appears, and nobody could type `inbox open` either. A paused game: without `noPauseOnLostFocus` applied at this launch, the game pauses when its window loses focus, so the create still answers (the channel runs at the menu, where nothing pauses) but the inbox requests wait unread until the game resumes. And a `quit` written to `client-inbox/` while the world is open is answered `inWorld`: in a world, quit through the inbox. A `done` for `k-<run>-3` says the client was asked; `result=left` says it began to leave. And a create that never answers, with no `MENU_STEP` after `started`: a Forge startup question or notice is holding the client, which then answers nothing, not even `timeout`. Give up on your own deadline and ask the owner to look at the screen.
+
 ## Limits
 
-**It does not play the game.** A person performs every gameplay action. The toolkit prepares, records, and reports. The only buttons it presses are three lifecycle steps a client has allowed: leaving and rejoining, Respawn on the death screen, and closing the open screen. It never moves, attacks, uses an item or chooses anything in a menu.
+**It does not play the game.** A person performs every gameplay action. The toolkit prepares, records, and reports. The only buttons it presses are four lifecycle steps a client has allowed: leaving and rejoining, Respawn on the death screen, closing the open screen, and closing the game. At a menu, with the client request channel on, it takes four menu steps: create a world, open a save, connect to a local server, quit. It never moves, attacks, uses an item, or chooses anything else in a menu.
+
+**It can close the game, but not start it.** `client quit` and the channel's `quit` end the game process. Starting the game again is the owner's, since no toolkit runs until it has started.
 
 **It does not know about your mod.** Every record is generic: blocks placed, entities damaged, items used. A modded tile entity's class is named; its contents are not interpreted, because interpreting them would require knowing how that mod works.
 
