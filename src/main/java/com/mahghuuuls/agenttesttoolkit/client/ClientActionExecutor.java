@@ -59,6 +59,12 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
      * server must have handled the report saying the client leaves before it sees the logout.
      */
     static final long LEAVE_DELAY_MS = 1000L;
+    /**
+     * The client stops reading the connection this many ticks before it leaves, so the packets
+     * already received are handled while the world still exists. Read after the leave they
+     * would each fail against the unloaded world and fill the log with errors.
+     */
+    static final int READ_DRAIN_TICKS = 2;
     /** At least this many ticks at the menu before rejoining, so the server has let the old connection go. */
     static final int REJOIN_SETTLE_TICKS = 20;
     /** How long past the away time a rejoin may take before it is given up, in milliseconds. */
@@ -109,6 +115,9 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
         boolean joined;
         /** JOINING, single player: ticks at a menu with no world starting. */
         int idleTicks;
+        /** LEAVING: the connection is no longer read; ticks since. */
+        boolean readStopped;
+        int drainTicks;
 
         Reconnect(ClientActionRequest request, String folder, String worldName, ServerData server) {
             this.request = request;
@@ -419,6 +428,16 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
                 r.stage = Stage.AWAY;
                 r.ticks = 0;
                 r.leftAtMillis = System.currentTimeMillis();
+                return;
+            }
+            if (!r.readStopped) {
+                if (mc.getConnection() != null) {
+                    mc.getConnection().getNetworkManager().disableAutoRead();
+                }
+                r.readStopped = true;
+                return;
+            }
+            if (++r.drainTicks < READ_DRAIN_TICKS) {
                 return;
             }
             if (r.folder == null) {
