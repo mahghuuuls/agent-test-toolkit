@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.4.0
+
+The theme is a test session that runs without anyone at the keyboard between its steps. Most items came from the developer's own test sessions with an AI assistant.
+
+### Added
+
+- **Client actions.** `devtool client reconnect [awaySeconds]`, `devtool client respawn` and `devtool client close` ask your own client to leave and come back to the same world or server, to press Respawn on the death screen, or to close the open screen. They always act on the client of whoever ran them, from chat, a bundle or the inbox, and never on another player's. Off unless the client allows it: `client.allowActions` in the client's own configuration, false by default. The server refuses at once, with a key a bundle can tolerate, what it already knows: `devtool.client.noClient` for a client without the toolkit 1.4.0, `devtool.client.notAllowed`, `devtool.client.notDead` and `devtool.client.busy`. The client refuses, with a reason, what only it can know, such as closing the death screen or reconnecting a world open to LAN. Every step writes `CLIENT_ACTION` records on both sides.
+
+- **The inbox waits for a reconnect.** When the inbox operator's own `client reconnect` takes their client away, the inbox is suspended instead of closed, and resumes when that same client is back, so requests written meanwhile run after the return without anyone typing `inbox open` again. Any other way back, or the deadline `inbox.rejoinWindowSeconds` (120 seconds by default), closes it. `status.json` says when it is suspended.
+
+- **`devtool fixture release <handle|all>`** takes a fixture's tag off and leaves the entity in the world.
+
+- **`inspect player` names the open container**, as `openContainer`.
+
+- **An icon** in the mod list.
+
+- **One new record type**, `CLIENT_ACTION`, for 45 in total.
+
+### Changed
+
+- **Fixture ownership is the tag.** A fixture belongs to the session whose tag it carries, so a new session of the same name adopts its fixtures again after a `session stop`, and `fixture list` reports a fixture as `removing`, `untagged` or `duplicate` when that is what it is. A handle can no longer contain a dot, and a dot in a session name becomes `_` in the tag. A 1.3.0 tag with a dot in its handle or session belongs to no session in 1.4.0.
+
+- **`fixture clear` removes without a death.** No loot, no experience, no death events. Its `FIXTURE outcome=removed` record is written a tick later, once the removal is confirmed, with `confirmedTick`.
+
+- **`assert entity ... absent` counts a dying entity as absent**, with `dead=true` on the record.
+
+- **Damage records come first.** A target's `ENTITY_DAMAGE` is now written before its `ENTITY_DEATH`, and before a `LOG_CONFIG` that changes the logging. In 1.3.0 a hit's record was written at the end of its tick, so the last hit of a kill appeared after the death, and a hit just before a logging change appeared after that change.
+
 ## 1.3.0
 
 Most items in this release came from AI assistants that used 1.2.0 to test other mods, and from the developer's own test sessions. The theme is letting an assistant run a test session itself, from start to finish, while the person at the keyboard only opens the door.
