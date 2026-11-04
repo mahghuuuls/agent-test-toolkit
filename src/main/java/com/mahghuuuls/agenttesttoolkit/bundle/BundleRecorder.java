@@ -34,6 +34,9 @@ public final class BundleRecorder implements BundleExecution.Listener {
             record.add("caller", origin.getCaller());
             record.add("channel", origin.getChannel());
             record.add("permissionLevel", origin.getPermissionLevel());
+            if (origin.getRequestId() != null) {
+                record.add("requestId", origin.getRequestId());
+            }
         }
         // Written during the caller's dispatch, when the tap belongs to whoever is running,
         // which for a nested bundle is the parent. Swapped for the span of this one write so
@@ -187,10 +190,11 @@ public final class BundleRecorder implements BundleExecution.Listener {
         } finally {
             ToolkitLog.setTap(previous);
         }
-        execution.notifyDiscarded();
+        // The sink first, as at a normal end, so a waiting inbox answer can name the result file.
         if (execution.getSink() != null) {
             execution.getSink().finished(execution);
         }
+        execution.notifyDiscarded();
     }
 
     /** Writes one record with the execution's sink as the tap, whatever the tap was before. */

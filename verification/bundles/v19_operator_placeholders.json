@@ -17,7 +17,7 @@
     "commands": [
       "devtool mark V19_PH_BEGIN",
       "gamemode creative ${operator.name}",
-      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"${operator.name}\",NoAI:1b}",
+      "summon minecraft:pig ~3 ~1 ~ {CustomName:\"${operator.name}\",NoAI:1b,Tags:[\"v19_pig\"]}",
       "devtool nbt entity ${operator.uuid}",
       "tp ${operator.selector} ~ ~ ~",
       "devtool mark V19_PH_END"
@@ -36,10 +36,10 @@
   },
 
   "v19_cleanup": {
-    "description": "Removes the pig named after the operator, by type and radius so no name is needed.",
+    "description": "Removes the pig named after the operator, by its tag so no name is needed and the player's position does not matter.",
     "stopOnFailure": false,
     "commands": [
-      "kill @e[type=minecraft:pig,r=8]",
+      "kill @e[type=minecraft:pig,tag=v19_pig]",
       "devtool mark V19_CLEANUP_END"
     ]
   }

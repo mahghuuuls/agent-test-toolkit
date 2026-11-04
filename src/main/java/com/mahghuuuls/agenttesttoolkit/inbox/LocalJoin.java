@@ -5,13 +5,14 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 
 /**
- * Whether a join opens the command inbox by itself (D24, REQ-222, ARC-029).
+ * Whether a join opens the command inbox by itself.
  *
- * <p>Pure, for tests (rule 18). A join is local when it is the single-player host's, over the
- * in-process channel nothing outside the game can open, or when the client returned the secret
- * the dedicated server wrote into its own folder: an address alone cannot tell, since a tunnel on
- * the same machine makes every player look like {@code 127.0.0.1} (FQ42). The player must also be
- * an operator, so the opening is as strong as typing {@code devtool inbox open}.
+ * <p>Pure, so every rule here is unit-tested without a game. A join is local when it is the
+ * single-player host's, over the in-process channel nothing outside the game can open, or when
+ * the client returned the secret the dedicated server wrote into its own folder: an address alone
+ * cannot tell, since a tunnel on the same machine makes every player look like {@code 127.0.0.1}.
+ * The player must also be an operator, so the opening is as strong as typing
+ * {@code devtool inbox open}.
  */
 public final class LocalJoin {
 
@@ -25,7 +26,12 @@ public final class LocalJoin {
         /** Neither the host's channel nor a matching secret. */
         NOT_LOCAL,
         /** Local, but not allowed to run toolkit commands: refused with a record. */
-        NOT_OPERATOR
+        NOT_OPERATOR,
+        /**
+         * Single player, over the in-process channel, but the name is not the owner's: refused with
+         * a record, so the inbox does not stay closed without a word.
+         */
+        NOT_HOST
     }
 
     static final int SECRET_LENGTH = 32;
@@ -34,16 +40,76 @@ public final class LocalJoin {
     private LocalJoin() {
     }
 
-    public static Decision decide(boolean openOnLocalJoin, boolean inboxEnabled, boolean inboxOpen,
-                                  boolean hostOverLocalChannel, boolean proofMatched, boolean operator) {
+    /** What a dedicated-server join does once the client has sent its proof. */
+    public static Decision decideDedicated(boolean openOnLocalJoin, boolean inboxEnabled, boolean inboxOpen,
+                                           boolean proofMatched, boolean operator) {
+        Decision gate = gate(openOnLocalJoin, inboxEnabled, inboxOpen);
+        if (gate != null) {
+            return gate;
+        }
+        if (!proofMatched) {
+            return Decision.NOT_LOCAL;
+        }
+        return operator ? Decision.OPEN : Decision.NOT_OPERATOR;
+    }
+
+    /** The checks both kinds of join start with: a key off, or the inbox already open. */
+    private static Decision gate(boolean openOnLocalJoin, boolean inboxEnabled, boolean inboxOpen) {
         if (!openOnLocalJoin || !inboxEnabled) {
             return Decision.KEYS_OFF;
         }
         if (inboxOpen) {
             return Decision.ALREADY_OPEN;
         }
-        if (!hostOverLocalChannel && !proofMatched) {
+        return null;
+    }
+
+    /**
+     * Whether an inbox opening is the single-player host's when the integrated server stops, so
+     * it is kept across a reconnect instead of closed as a LAN guest's would be. The same name rule
+     * as the join, so a host the join opened it for is never taken for a guest here.
+     */
+    public static boolean isHostAtStop(String ownerName, String operatorName) {
+        return isOwnerName(operatorName, ownerName);
+    }
+
+    /**
+     * Whether a single-player join is the host's: over the in-process channel, with the player's
+     * name equal to the integrated server's owner ignoring case. The owner is the launch name as
+     * typed, while the player's name is the profile name with the account's own case, so a
+     * development launch as {@code mahghuuuls} joins as {@code Mahghuuuls}. Vanilla compares the
+     * two the same way when it gives the host cheats, so the inbox and command rights agree on who
+     * the host is.
+     */
+    public static boolean isHost(boolean localChannel, String playerName, String ownerName) {
+        return localChannel && isOwnerName(playerName, ownerName);
+    }
+
+    /**
+     * Whether a player name is the integrated server's owner, ignoring case. Every place that asks
+     * whether a player is the single-player host uses this, so they cannot disagree.
+     */
+    public static boolean isOwnerName(String playerName, String ownerName) {
+        return playerName != null && playerName.equalsIgnoreCase(ownerName);
+    }
+
+    /**
+     * What a single-player join does. Only the host joins over the in-process channel, so a player
+     * there who is not taken for the host means the names did not match: that is refused with a
+     * record rather than left silent. A join over the network is never local here.
+     */
+    public static Decision decideSinglePlayer(boolean openOnLocalJoin, boolean inboxEnabled, boolean inboxOpen,
+                                              boolean localChannel, String playerName, String ownerName,
+                                              boolean operator) {
+        Decision gate = gate(openOnLocalJoin, inboxEnabled, inboxOpen);
+        if (gate != null) {
+            return gate;
+        }
+        if (!localChannel) {
             return Decision.NOT_LOCAL;
+        }
+        if (!isHost(true, playerName, ownerName)) {
+            return Decision.NOT_HOST;
         }
         return operator ? Decision.OPEN : Decision.NOT_OPERATOR;
     }

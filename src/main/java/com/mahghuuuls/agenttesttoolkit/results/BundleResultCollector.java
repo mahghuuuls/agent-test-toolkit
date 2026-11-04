@@ -14,13 +14,17 @@ import java.util.List;
  *
  * <p>Nothing is interpreted here. The collector is a list with a lifetime, and the lifetime
  * is what matters: attached before the start record, detached by the execution finishing.
- * Interpretation happens in the writer, from the records alone, which is what lets a result
- * file be checked against the log line by line.
+ * Interpretation happens in the writer, from the records, which is what lets a result file be
+ * checked against the log line by line. Besides the records, the collector holds what it was
+ * given when the run started, and when it has written the file it tells the execution the
+ * file's name.
  */
 public final class BundleResultCollector implements ExecutionSink {
 
     private final File directory;
     private final String operatorAtStart;
+    private final Long startedAtMillis;
+    private final String world;
     private final List<LogRecord> records = new ArrayList<LogRecord>();
     private boolean finished;
 
@@ -35,8 +39,18 @@ public final class BundleResultCollector implements ExecutionSink {
      *                        own, and would otherwise leave the field out
      */
     public BundleResultCollector(File directory, String operatorAtStart) {
+        this(directory, operatorAtStart, null, null);
+    }
+
+    /**
+     * @param startedAtMillis the wall-clock time the run was accepted, or null
+     * @param world           the save folder of the loaded world, or null
+     */
+    public BundleResultCollector(File directory, String operatorAtStart, Long startedAtMillis, String world) {
         this.directory = directory;
         this.operatorAtStart = operatorAtStart;
+        this.startedAtMillis = startedAtMillis;
+        this.world = world;
     }
 
     @Override
@@ -53,7 +67,10 @@ public final class BundleResultCollector implements ExecutionSink {
         }
         finished = true;
         if (directory != null) {
-            BundleResultWriter.write(directory, execution, records, operatorAtStart);
+            // Kept on the execution, which tells its sink before its completion listeners, so
+            // the inbox answer of the run can name a file that is already on disk.
+            execution.setResultFile(BundleResultWriter.write(directory, execution, records, operatorAtStart,
+                    startedAtMillis, world));
         }
     }
 

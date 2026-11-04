@@ -163,6 +163,110 @@ class BundleResultTest {
     }
 
     @Test
+    @DisplayName("the file names its run: channel, caller and request id from the start record, start time and world")
+    void fileNamesItsRun(@TempDir File dir) throws Exception {
+        BundleResultCollector sink = new BundleResultCollector(dir, null, 1793800000000L, "c7flat");
+        BundleExecution execution = new BundleExecution(bundle("r3", true, "mark A"), DISPATCHER, CONTEXT);
+        execution.setOrigin(new com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin("Developer",
+                com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin.INBOX, 2, "fcb-001"));
+        final List<Boolean> fileThereAtCompletion = new ArrayList<Boolean>();
+        execution.addCompletionListener(new BundleExecution.CompletionListener() {
+            @Override
+            public void completed(BundleExecution done, boolean discarded) {
+                fileThereAtCompletion.add(done.getResultFile() != null
+                        && new File(dir, done.getResultFile()).isFile());
+            }
+        });
+        runPrepared(execution, sink);
+
+        assertEquals("r3-900.json", execution.getResultFile());
+        assertEquals(java.util.Collections.singletonList(Boolean.TRUE), fileThereAtCompletion,
+                "the inbox answer may name the file: it is on disk before completion listeners run");
+        JsonObject doc = read(new File(dir, "r3-900.json"));
+        assertEquals("inbox", doc.get("channel").getAsString());
+        assertEquals("Developer", doc.get("caller").getAsString());
+        assertEquals("fcb-001", doc.get("requestId").getAsString());
+        assertEquals(1793800000000L, doc.get("startedAtMillis").getAsLong());
+        assertEquals("c7flat", doc.get("world").getAsString());
+        assertEquals(1, doc.get("schemaVersion").getAsInt(), "fields added, version kept");
+        assertEquals("900", doc.get("startTick").getAsString());
+    }
+
+    @Test
+    @DisplayName("a run started from chat has a channel and a caller but no request id")
+    void chatRunHasNoRequestId(@TempDir File dir) throws Exception {
+        BundleExecution execution = new BundleExecution(bundle("r4", true, "mark A"), DISPATCHER, CONTEXT);
+        execution.setOrigin(new com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin("Developer",
+                com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin.CHAT, 2));
+        runPrepared(execution, new BundleResultCollector(dir, null, 1L, null));
+
+        JsonObject doc = read(new File(dir, "r4-900.json"));
+        assertEquals("chat", doc.get("channel").getAsString());
+        assertEquals("Developer", doc.get("caller").getAsString());
+        assertFalse(doc.has("requestId"));
+        assertFalse(doc.has("world"), "no world given, no field");
+    }
+
+    @Test
+    @DisplayName("every 1.5.0 field keeps its name and value; the new arguments only add startedAtMillis and world")
+    void earlierFieldsUnchanged() {
+        List<LogRecord> records = new ArrayList<LogRecord>();
+        records.add(LogRecord.of(EventType.BUNDLE_START).add("worldTick", "900").add("session", "s1")
+                .add("caller", "Developer").add("channel", "chat"));
+        records.add(LogRecord.of(EventType.OPERATOR).add("action", "bound").add("name", "Developer"));
+        records.add(LogRecord.of(EventType.ASSERT).add("outcome", "pass"));
+        records.add(LogRecord.of(EventType.ERROR).add("message", "m"));
+        records.add(LogRecord.of(EventType.MARK).add("label", "L"));
+        records.add(LogRecord.of(EventType.CHECKPOINT).add("label", "C"));
+        records.add(LogRecord.of(EventType.AWAIT).add("outcome", "satisfied"));
+        records.add(LogRecord.of(EventType.BUNDLE_STEP).add("index", "0"));
+        records.add(LogRecord.of(EventType.TOLERATED).add("key", "k"));
+        records.add(LogRecord.of(EventType.BUNDLE_END).add("worldTick", "960").add("executed", "4")
+                .add("failed", "1").add("tolerated", "1").add("total", "5").add("stoppedEarly", "true")
+                .add("durationTicks", "60").add("senderLost", "true").add("discardedOnServerStop", "true"));
+        BundleExecution execution = new BundleExecution(bundle("r5", true, "mark A"), DISPATCHER, CONTEXT);
+
+        JsonObject without = BundleResultWriter.render(execution, records, null, null, null);
+        JsonObject with = BundleResultWriter.render(execution, records, null, 5L, "w1");
+
+        String[][] expected = {
+                {"schemaVersion", "1"}, {"bundle", "r5"}, {"startTick", "900"}, {"endTick", "960"},
+                {"executed", "4"}, {"failed", "1"}, {"tolerated", "1"}, {"total", "5"},
+                {"stoppedEarly", "true"}, {"durationTicks", "60"}, {"senderLost", "true"},
+                {"discardedOnServerStop", "true"}, {"session", "s1"}, {"operator", "Developer"}};
+        for (String[] field : expected) {
+            assertEquals(field[1], without.get(field[0]).getAsString(), field[0]);
+        }
+        for (String array : new String[] {"assertions", "failures", "markers", "checkpoints", "awaits",
+                "toleratedSteps", "steps"}) {
+            assertEquals(1, without.getAsJsonArray(array).size(), array);
+        }
+        with.remove("startedAtMillis");
+        with.remove("world");
+        assertEquals(without, with, "the new arguments change nothing else");
+    }
+
+    private static JsonObject read(File file) throws java.io.IOException {
+        return new JsonParser().parse(
+                new String(Files.readAllBytes(file.toPath()), Charset.forName("UTF-8"))).getAsJsonObject();
+    }
+
+    private static void runPrepared(BundleExecution execution, BundleResultCollector sink) {
+        execution.attachSink(sink);
+        BundleRecorder.recordStart(execution);
+        BundleRecorder recorder = new BundleRecorder();
+        while (!execution.isFinished()) {
+            execution.onTick();
+            ToolkitLog.setTap(execution.getSink());
+            try {
+                execution.advance(recorder);
+            } finally {
+                ToolkitLog.setTap(null);
+            }
+        }
+    }
+
+    @Test
     @DisplayName("an unflagged bundle writes nothing")
     void unflaggedWritesNothing(@TempDir File dir) {
         List<BundleCommand> list = new ArrayList<BundleCommand>();
@@ -235,8 +339,19 @@ class BundleResultTest {
         }
         assertFalse(execution.isFinished());
 
+        final List<Boolean> fileThereAtCompletion = new ArrayList<Boolean>();
+        execution.addCompletionListener(new BundleExecution.CompletionListener() {
+            @Override
+            public void completed(BundleExecution done, boolean discarded) {
+                fileThereAtCompletion.add(discarded && done.getResultFile() != null
+                        && new File(dir, done.getResultFile()).isFile());
+            }
+        });
+
         // No tap is set here, as on the real shutdown path.
         BundleRecorder.recordDiscarded(execution);
+        assertEquals(java.util.Collections.singletonList(Boolean.TRUE), fileThereAtCompletion,
+                "the file is on disk before the discarded run's answer is written");
 
         File[] files = dir.listFiles();
         assertEquals(1, files.length);

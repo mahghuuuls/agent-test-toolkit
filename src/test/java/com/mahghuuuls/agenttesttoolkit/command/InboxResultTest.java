@@ -108,6 +108,19 @@ class InboxResultTest {
         assertFalse(doc.has("reason"));
         assertEquals(0, doc.get("tolerated").getAsInt());
         assertFalse(doc.has("discardedOnServerStop"));
+        assertFalse(doc.has("resultFile"), "the bundle wrote no result file");
+    }
+
+    @Test
+    @DisplayName("a run whose bundle wrote a result file names it in the answer")
+    void runNamesItsResultFile(@TempDir File dir) throws Exception {
+        BundleExecution execution = execution("one");
+        BundleRecorder.recordStart(execution);
+        execution.advance(new BundleRecorder());
+        execution.setResultFile("inbox_target-900.json");
+        InboxDispatch.answerRun(InboxRequest.parse("r4", "run inbox_target"), execution, false, dir);
+
+        assertEquals("inbox_target-900.json", read(new File(dir, "r4.result.json")).get("resultFile").getAsString());
     }
 
     @Test

@@ -1,6 +1,6 @@
 # Verification bundles
 
-132 bundles used for the pre-release verification passes: the first release, then one file per reported item in each feedback cycle. They exercise the Minecraft-typed layer
+172 bundles used for the pre-release verification passes: the first release, then one file per reported item in each feedback cycle. They exercise the Minecraft-typed layer
 that the unit tests cannot reach: the command surface, the arena, the observers and the bundle
 scheduler in a running game.
 
@@ -60,6 +60,11 @@ and because they are development assets rather than something a user of the mod 
 | `v35_reload` | 1 | Reload at world start: edit the mark at the title screen, then open a world |
 | `v36_screenshot` | 2 | A screenshot on request with the inventory open, and a refused label |
 | `v37_baubles` | 3 | Baubles set, inspect, refusal and relog (`-Pdev_runtime_baubles=true`), and the absent key without it |
+| `v38_fixture_ownership` | 6 | Fixture ownership by tag: a stale tag adopted or refused, a dotted session scope, `fixture release`, a dotted handle refused |
+| `v39_fixture_clear` | 2 | `fixture clear` without a death, and a dying entity counted absent |
+| `v40_damage_order` | 2 | A one-hit kill's damage record before its death, and a hit before a logging change |
+| `v41_client_actions` | 7 | Client actions: close (inventory, nothing, death screen, chest), respawn, and a reconnect from a bundle |
+| `v42_world_prepare` | 1 | Prepares a test world: no spawning, a pass through peaceful, no drops, a healed caller |
 
 ## What they found
 

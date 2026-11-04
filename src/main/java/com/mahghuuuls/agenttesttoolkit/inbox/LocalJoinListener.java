@@ -98,12 +98,13 @@ public final class LocalJoinListener {
         if (server == null || server.isDedicatedServer() || player.connection == null) {
             return;
         }
-        boolean host = player.connection.getNetworkManager() != null
-                && player.connection.getNetworkManager().isLocalChannel()
-                && player.getName().equals(server.getServerOwner());
-        if (host) {
-            apply(server, player, true, false);
-        }
+        boolean localChannel = player.connection.getNetworkManager() != null
+                && player.connection.getNetworkManager().isLocalChannel();
+        LocalJoin.Decision decision = LocalJoin.decideSinglePlayer(
+                ToolkitConfigLoader.get().isInboxOpenOnLocalJoin(), ToolkitConfigLoader.get().isInboxEnabled(),
+                InboxGate.isOpen(), localChannel, player.getName(), server.getServerOwner(),
+                player.canUseCommand(2, "devtool"));
+        act(server, player, decision);
     }
 
     /** Players whose wrong proof was recorded once this run, so a client cannot fill the log. */
@@ -123,23 +124,29 @@ public final class LocalJoinListener {
                 && ((java.net.InetSocketAddress) remote).getAddress() != null
                 && ((java.net.InetSocketAddress) remote).getAddress().isLoopbackAddress();
         boolean matched = loopback && LocalJoin.matches(secret, proof);
-        LocalJoin.Decision decision = apply(server, player, false, matched);
+        LocalJoin.Decision decision = apply(server, player, matched);
         if (decision == LocalJoin.Decision.NOT_LOCAL && MISMATCHED.add(player.getUniqueID())) {
             InboxGate.recordRefusal(RecordContext.snapshot(player), player.getName(), "localJoinNotProven");
         }
     }
 
-    private static LocalJoin.Decision apply(MinecraftServer server, EntityPlayerMP player, boolean host,
-                                            boolean matched) {
-        LocalJoin.Decision decision = LocalJoin.decide(ToolkitConfigLoader.get().isInboxOpenOnLocalJoin(),
-                ToolkitConfigLoader.get().isInboxEnabled(), InboxGate.isOpen(), host, matched,
+    private static LocalJoin.Decision apply(MinecraftServer server, EntityPlayerMP player, boolean matched) {
+        LocalJoin.Decision decision = LocalJoin.decideDedicated(ToolkitConfigLoader.get().isInboxOpenOnLocalJoin(),
+                ToolkitConfigLoader.get().isInboxEnabled(), InboxGate.isOpen(), matched,
                 player.canUseCommand(2, "devtool"));
+        act(server, player, decision);
+        return decision;
+    }
+
+    /** Carries out a decision: an opening or a refusal record; the other decisions write nothing. */
+    private static void act(MinecraftServer server, EntityPlayerMP player, LocalJoin.Decision decision) {
         RecordContext.Snapshot context = RecordContext.snapshot(player);
         if (decision == LocalJoin.Decision.OPEN) {
             InboxGate.openAtLocalJoin(player.getUniqueID(), player.getName(), server.getFolderName(), context);
         } else if (decision == LocalJoin.Decision.NOT_OPERATOR) {
             InboxGate.recordRefusal(context, player.getName(), "localJoinNotOperator");
+        } else if (decision == LocalJoin.Decision.NOT_HOST) {
+            InboxGate.recordRefusal(context, player.getName(), "localJoinNotHost", "owner", server.getServerOwner());
         }
-        return decision;
     }
 }

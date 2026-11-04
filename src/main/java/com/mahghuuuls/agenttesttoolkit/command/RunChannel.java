@@ -22,6 +22,7 @@ import net.minecraft.tileentity.CommandBlockBaseLogic;
 public final class RunChannel {
 
     private static String override;
+    private static String requestIdOverride;
 
     private RunChannel() {
     }
@@ -70,6 +71,26 @@ public final class RunChannel {
     /** Work that may fail as a command fails. */
     public interface Action<T> {
         T run() throws net.minecraft.command.CommandException;
+    }
+
+    /** The id of the inbox request being dispatched, or null outside one. Server thread only. */
+    public static String requestId() {
+        return requestIdOverride;
+    }
+
+    /**
+     * Runs the action with the channel overridden and the dispatching request's id set, so a
+     * run it starts can name the request in its records and result file. Both are restored.
+     */
+    public static <T> T during(String channel, String requestId, Action<T> action)
+            throws net.minecraft.command.CommandException {
+        String previous = requestIdOverride;
+        requestIdOverride = requestId;
+        try {
+            return during(channel, action);
+        } finally {
+            requestIdOverride = previous;
+        }
     }
 
     /** Runs the action with the channel overridden, and always restores it. */

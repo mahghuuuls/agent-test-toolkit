@@ -202,7 +202,7 @@ public class AgentTestToolkitMod {
         net.minecraft.server.MinecraftServer server =
                 net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance();
         String host = server == null ? null : server.getServerOwner();
-        if (host == null || !host.equals(opening.getOperatorName())) {
+        if (!com.mahghuuuls.agenttesttoolkit.inbox.LocalJoin.isHostAtStop(host, opening.getOperatorName())) {
             com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.close("serverStopped",
                     com.mahghuuuls.agenttesttoolkit.logging.RecordContext.Snapshot.NONE);
             return;

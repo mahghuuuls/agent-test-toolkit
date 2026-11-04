@@ -31,8 +31,8 @@ public final class InboxRejoin {
     }
 
     /** Why a suspended opening must close now, or null to keep waiting. */
-    public static final String REJOIN_TIMEOUT = "rejoinTimeout";
-    public static final String RETURNED_OTHER_ROUTE = "returnedOtherRoute";
+    public static final String REASON_REJOIN_TIMEOUT = "rejoinTimeout";
+    public static final String REASON_RETURNED_OTHER_ROUTE = "returnedOtherRoute";
 
     private InboxRejoin() {
     }
@@ -84,10 +84,10 @@ public final class InboxRejoin {
             return null;
         }
         if (nowMillis > opening.getSuspendedUntilMillis()) {
-            return REJOIN_TIMEOUT;
+            return REASON_REJOIN_TIMEOUT;
         }
         if (opening.getReturnedAtMillis() > 0L && nowMillis - opening.getReturnedAtMillis() > TOKEN_GRACE_MILLIS) {
-            return RETURNED_OTHER_ROUTE;
+            return REASON_RETURNED_OTHER_ROUTE;
         }
         return null;
     }

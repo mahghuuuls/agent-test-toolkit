@@ -92,10 +92,10 @@ class InboxRejoinTest {
     void closes() {
         InboxOpening suspended = open().suspendedUntil(NOW + 60000L);
         assertNull(InboxRejoin.closeReason(suspended, NOW));
-        assertEquals(InboxRejoin.REJOIN_TIMEOUT, InboxRejoin.closeReason(suspended, NOW + 60001L));
+        assertEquals(InboxRejoin.REASON_REJOIN_TIMEOUT, InboxRejoin.closeReason(suspended, NOW + 60001L));
         InboxOpening back = suspended.returnedAt(NOW);
         assertNull(InboxRejoin.closeReason(back, NOW + InboxRejoin.TOKEN_GRACE_MILLIS));
-        assertEquals(InboxRejoin.RETURNED_OTHER_ROUTE,
+        assertEquals(InboxRejoin.REASON_RETURNED_OTHER_ROUTE,
                 InboxRejoin.closeReason(back, NOW + InboxRejoin.TOKEN_GRACE_MILLIS + 1L));
         assertNull(InboxRejoin.closeReason(open(), NOW + 999999L), "a listening opening never times out");
     }

@@ -1,0 +1,15 @@
+{
+  "v42_world_prepare": {
+    "description": "Prepares a test world before its first card: no mob spawning, a moment of peaceful to remove every loaded hostile mob (the slimes of a flat world included), the card's difficulty back, no dropped items or orbs, a healed caller. Expect every command to succeed (a kill that finds nothing is tolerated by default) and V42_WORLD_PREPARED.",
+    "stopOnFailure": true,
+    "commands": [
+      "gamerule doMobSpawning false",
+      "difficulty peaceful",
+      { "command": "difficulty normal", "delayTicks": 20 },
+      "kill @e[type=minecraft:item]",
+      "kill @e[type=minecraft:xp_orb]",
+      "effect @s minecraft:instant_health 1 4 true",
+      "devtool mark V42_WORLD_PREPARED"
+    ]
+  }
+}

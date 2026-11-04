@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -186,6 +187,49 @@ class RunOriginTest {
         assertTrue(start.contains("caller=Developer"), start);
         assertTrue(start.contains("channel=chat"), start);
         assertTrue(start.contains("permissionLevel=2"), start);
+    }
+
+    @Test
+    @DisplayName("during() with a request id makes it readable inside, and drops it after, even on failure")
+    void duringCarriesTheRequestId() throws Exception {
+        assertNull(RunChannel.requestId());
+        assertEquals("fca-001", RunChannel.during(RunOrigin.INBOX, "fca-001", RunChannel::requestId));
+        assertNull(RunChannel.requestId());
+        assertThrows(net.minecraft.command.CommandException.class, () ->
+                RunChannel.during(RunOrigin.INBOX, "fca-002", () -> {
+                    throw new net.minecraft.command.CommandException("boom");
+                }));
+        assertNull(RunChannel.requestId());
+        assertEquals(RunOrigin.OTHER, RunChannel.of(new StubSender()));
+    }
+
+    @Test
+    @DisplayName("a top-level run takes the dispatching request's id, a nested run its parent's")
+    void requestIdForTopLevelAndNested() {
+        RunOrigin parent = new RunOrigin("Developer", RunOrigin.INBOX, 2, "fca-001");
+        assertEquals("fca-002", RunOrigin.requestIdFor(false, null, "fca-002"));
+        assertNull(RunOrigin.requestIdFor(false, null, null), "a run from chat");
+        assertEquals("fca-001", RunOrigin.requestIdFor(true, parent, null),
+                "a child starts in a later tick, when no request is being dispatched");
+        assertEquals("fca-001", RunOrigin.requestIdFor(true, parent, "fcb-009"),
+                "the parent's id, never another request's");
+        assertNull(RunOrigin.requestIdFor(true, new RunOrigin("Developer", RunOrigin.CHAT, 2), "fcb-009"));
+        assertNull(RunOrigin.requestIdFor(true, null, "fcb-009"));
+    }
+
+    @Test
+    @DisplayName("BUNDLE_START names the inbox request only when the origin has one")
+    void startRecordCarriesRequestId() {
+        BundleExecution inbox = execution();
+        inbox.setOrigin(new RunOrigin("Developer", RunOrigin.INBOX, 2, "fca-001"));
+        BundleRecorder.recordStart(inbox);
+        BundleExecution chat = execution();
+        chat.setOrigin(new RunOrigin("Developer", RunOrigin.CHAT, 2));
+        BundleRecorder.recordStart(chat);
+
+        List<String> captured = ToolkitLog.capturedForTesting();
+        assertTrue(captured.get(0).contains("requestId=fca-001"), captured.get(0));
+        assertFalse(captured.get(1).contains("requestId="), captured.get(1));
     }
 
     @Test

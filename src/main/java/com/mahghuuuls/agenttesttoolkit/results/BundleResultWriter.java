@@ -19,9 +19,12 @@ import java.util.Map;
  * Renders one execution's records as a JSON document and writes it.
  *
  * <p>Every value in the file is copied from a record that already passed through the single
- * log writer. The document groups those records by what they were, so tooling can read
- * "which assertions failed" without scraping, but it invents nothing: an assertion in the file
- * is the {@code ASSERT} record's fields, a failure is the {@code ERROR} record's fields.
+ * log writer, except what the collector was given when the run started and no record carries:
+ * the operator bound at the start, used when the run binds none, and the wall-clock start and the
+ * save folder, which say which launch and world the file came from.
+ * The document groups the records by what they were, so tooling can read "which assertions
+ * failed" without scraping, but it invents nothing: an assertion in the file is the
+ * {@code ASSERT} record's fields, a failure is the {@code ERROR} record's fields.
  *
  * <p>A write that fails is an error record in the log and nothing more. The bundle's outcome
  * was decided before this ran, and a full disk must not turn a passed bundle into a failed
@@ -37,15 +40,17 @@ public final class BundleResultWriter {
     private BundleResultWriter() {
     }
 
-    /** Writes {@code <bundle>-<startWorldTick>.json} under the directory. */
-    public static void write(File directory, BundleExecution execution, List<LogRecord> records) {
-        write(directory, execution, records, null);
-    }
-
-    /** As above, with the operator bound when the run began, used unless the run changed it. */
-    public static void write(File directory, BundleExecution execution, List<LogRecord> records,
-                             String operatorAtStart) {
-        JsonObject document = render(execution, records, operatorAtStart);
+    /**
+     * Writes {@code <bundle>-<startWorldTick>.json} under the directory.
+     *
+     * @param operatorAtStart the operator bound when the run began, used unless the run changed it
+     * @param startedAtMillis the wall-clock time the run was accepted, or null
+     * @param world           the save folder of the loaded world, or null
+     * @return the written file's name, or null when the write failed
+     */
+    public static String write(File directory, BundleExecution execution, List<LogRecord> records,
+                               String operatorAtStart, Long startedAtMillis, String world) {
+        JsonObject document = render(execution, records, operatorAtStart, startedAtMillis, world);
         String name = execution.getBundleName() + "-" + startTick(records) + ".json";
         File file = new File(directory, name);
         try {
@@ -54,6 +59,7 @@ public final class BundleResultWriter {
             }
             String json = new GsonBuilder().setPrettyPrinting().create().toJson(document);
             Files.write(file.toPath(), json.getBytes(UTF8));
+            return file.getName();
         } catch (IOException e) {
             ToolkitLog.error("Bundle result could not be written",
                     file.getName() + ": " + e.getMessage());
@@ -61,19 +67,22 @@ public final class BundleResultWriter {
             ToolkitLog.error("Bundle result could not be written",
                     file.getName() + ": " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
+        return null;
     }
 
-    /** The document, built from records only. Package-visible so a test can check it without a disk. */
-    static JsonObject render(BundleExecution execution, List<LogRecord> records) {
-        return render(execution, records, null);
-    }
-
+    /** The document. Package-visible so a test can check it without a disk. */
     static JsonObject render(BundleExecution execution, List<LogRecord> records,
-                             String operatorAtStart) {
+                             String operatorAtStart, Long startedAtMillis, String world) {
         JsonObject root = new JsonObject();
         root.addProperty("schemaVersion", SCHEMA_VERSION);
         root.addProperty("bundle", execution.getBundleName());
         root.addProperty("hash", execution.getHash());
+        if (startedAtMillis != null) {
+            root.addProperty("startedAtMillis", startedAtMillis);
+        }
+        if (world != null) {
+            root.addProperty("world", world);
+        }
 
         JsonArray assertions = new JsonArray();
         JsonArray failures = new JsonArray();
@@ -93,6 +102,11 @@ public final class BundleResultWriter {
             switch (record.getEventType()) {
                 case BUNDLE_START:
                     root.addProperty("startTick", fields.get("worldTick"));
+                    // Who started the run, and from which inbox request, as the start record
+                    // says, so the file and the log cannot disagree.
+                    copy(root, fields, "channel");
+                    copy(root, fields, "caller");
+                    copy(root, fields, "requestId");
                     break;
                 case BUNDLE_END:
                     root.addProperty("endTick", fields.get("worldTick"));

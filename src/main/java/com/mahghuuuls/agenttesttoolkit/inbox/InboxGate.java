@@ -216,16 +216,30 @@ public final class InboxGate {
 
     /** Records a refused open decided by the caller, such as one attempted from a bundle. */
     public static void recordRefusal(RecordContext.Snapshot context, String name, String reason) {
-        write(context, "refused", name, reason);
+        write(context, "refused", name, reason, null, null);
+    }
+
+    /** A refusal with one more field, such as the owner name a host check compared against. */
+    public static void recordRefusal(RecordContext.Snapshot context, String name, String reason,
+                                     String extraKey, String extraValue) {
+        write(context, "refused", name, reason, extraKey, extraValue);
     }
 
     private static void write(RecordContext.Snapshot context, String action, String operator,
                               String reason) {
+        write(context, action, operator, reason, null, null);
+    }
+
+    private static void write(RecordContext.Snapshot context, String action, String operator,
+                              String reason, String extraKey, String extraValue) {
         LogRecord record = RecordContext.stamp(LogRecord.of(EventType.INBOX), context);
         SessionStamp.apply(record);
         record.add("action", action);
         record.add("operator", operator);
         record.add("reason", reason);
+        if (extraKey != null) {
+            record.add(extraKey, extraValue);
+        }
         ToolkitLog.write(record);
     }
 }

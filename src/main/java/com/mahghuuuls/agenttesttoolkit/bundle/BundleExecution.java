@@ -150,6 +150,7 @@ public final class BundleExecution {
 
     /** Receives this execution's records and its end, or null when no result was asked for. */
     private ExecutionSink sink;
+    private String resultFile;
     private boolean stoppedEarly;
     private boolean finished;
     private boolean senderLost;
@@ -547,6 +548,16 @@ public final class BundleExecution {
 
     public void setOrigin(RunOrigin origin) {
         this.origin = origin;
+    }
+
+    /** Set by the result sink once it has written the run's result file; the file name only. */
+    public void setResultFile(String resultFile) {
+        this.resultFile = resultFile;
+    }
+
+    /** @return the name of the result file this run wrote, or null when it wrote none. */
+    public String getResultFile() {
+        return resultFile;
     }
 
     /** @return who started this run and how, or null when the submitter did not say. */

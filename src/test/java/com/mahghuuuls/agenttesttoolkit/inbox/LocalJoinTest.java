@@ -7,6 +7,7 @@ import java.security.SecureRandom;
 
 import static com.mahghuuuls.agenttesttoolkit.inbox.LocalJoin.Decision.ALREADY_OPEN;
 import static com.mahghuuuls.agenttesttoolkit.inbox.LocalJoin.Decision.KEYS_OFF;
+import static com.mahghuuuls.agenttesttoolkit.inbox.LocalJoin.Decision.NOT_HOST;
 import static com.mahghuuuls.agenttesttoolkit.inbox.LocalJoin.Decision.NOT_LOCAL;
 import static com.mahghuuuls.agenttesttoolkit.inbox.LocalJoin.Decision.NOT_OPERATOR;
 import static com.mahghuuuls.agenttesttoolkit.inbox.LocalJoin.Decision.OPEN;
@@ -21,13 +22,63 @@ class LocalJoinTest {
     @Test
     @DisplayName("the host or a matching secret opens it for an operator, with both keys on and the inbox closed")
     void decisions() {
-        assertEquals(OPEN, LocalJoin.decide(true, true, false, true, false, true), "single-player host");
-        assertEquals(OPEN, LocalJoin.decide(true, true, false, false, true, true), "secret returned");
-        assertEquals(KEYS_OFF, LocalJoin.decide(false, true, false, true, true, true), "openOnLocalJoin off");
-        assertEquals(KEYS_OFF, LocalJoin.decide(true, false, false, true, true, true), "inbox disabled");
-        assertEquals(ALREADY_OPEN, LocalJoin.decide(true, true, true, true, true, true));
-        assertEquals(NOT_LOCAL, LocalJoin.decide(true, true, false, false, false, true), "a guest, or a tunnel");
-        assertEquals(NOT_OPERATOR, LocalJoin.decide(true, true, false, true, false, false));
+        assertEquals(OPEN, LocalJoin.decideDedicated(true, true, false, true, true), "secret returned");
+        assertEquals(KEYS_OFF, LocalJoin.decideDedicated(false, true, false, true, true), "openOnLocalJoin off");
+        assertEquals(KEYS_OFF, LocalJoin.decideDedicated(true, false, false, true, true), "inbox disabled");
+        assertEquals(ALREADY_OPEN, LocalJoin.decideDedicated(true, true, true, true, true));
+        assertEquals(NOT_LOCAL, LocalJoin.decideDedicated(true, true, false, false, true), "no proof, or a tunnel");
+        assertEquals(NOT_OPERATOR, LocalJoin.decideDedicated(true, true, false, true, false));
+    }
+
+    @Test
+    @DisplayName("the host is the in-process player whose name equals the owner ignoring case")
+    void host() {
+        assertTrue(LocalJoin.isHost(true, "Mahghuuuls", "mahghuuuls"),
+                "the launch name as typed against the profile name, the case reported from a real launch");
+        assertTrue(LocalJoin.isHost(true, "Developer", "Developer"));
+        assertFalse(LocalJoin.isHost(true, "Mahghuuuls", "mahghuuul"), "a different name");
+        assertFalse(LocalJoin.isHost(true, "Alex", "Developer"));
+        assertFalse(LocalJoin.isHost(false, "Developer", "Developer"), "a network join is never the host");
+        assertFalse(LocalJoin.isHost(true, null, "Developer"));
+        assertFalse(LocalJoin.isHost(true, "Developer", null));
+    }
+
+    @Test
+    @DisplayName("a single-player join opens for the host in any case, and an in-process player who is not the host is refused")
+    void singlePlayerJoin() {
+        assertEquals(OPEN, LocalJoin.decideSinglePlayer(true, true, false, true, "Mahghuuuls", "mahghuuuls", true),
+                "the case reported from a real launch");
+        assertEquals(NOT_HOST, LocalJoin.decideSinglePlayer(true, true, false, true, "Alex", "Developer", true));
+        assertEquals(NOT_HOST, LocalJoin.decideSinglePlayer(true, true, false, true, "Alex", "Developer", false),
+                "the name is checked before the permission");
+        assertEquals(NOT_OPERATOR, LocalJoin.decideSinglePlayer(true, true, false, true, "Developer", "Developer", false),
+                "cheats off");
+        assertEquals(NOT_LOCAL, LocalJoin.decideSinglePlayer(true, true, false, false, "Developer", "Developer", true),
+                "a LAN guest, even with the owner's name");
+        assertEquals(KEYS_OFF, LocalJoin.decideSinglePlayer(false, true, false, true, "Alex", "Developer", true),
+                "nothing written with a key off");
+        assertEquals(KEYS_OFF, LocalJoin.decideSinglePlayer(true, false, false, true, "Alex", "Developer", true));
+        assertEquals(ALREADY_OPEN, LocalJoin.decideSinglePlayer(true, true, true, true, "Alex", "Developer", true),
+                "nothing changes while it is open");
+    }
+
+    @Test
+    @DisplayName("the owner name matches ignoring case, the rule the stop and the join share")
+    void ownerName() {
+        assertTrue(LocalJoin.isOwnerName("Mahghuuuls", "mahghuuuls"));
+        assertTrue(LocalJoin.isOwnerName("DEVELOPER", "Developer"));
+        assertFalse(LocalJoin.isOwnerName("Developer2", "Developer"));
+        assertFalse(LocalJoin.isOwnerName(null, "Developer"));
+        assertFalse(LocalJoin.isOwnerName("Developer", null));
+    }
+
+    @Test
+    @DisplayName("at the single-player stop the host's opening is the host's in any case; another name is a guest's")
+    void hostAtStop() {
+        assertTrue(LocalJoin.isHostAtStop("mahghuuuls", "Mahghuuuls"), "kept across a reconnect");
+        assertTrue(LocalJoin.isHostAtStop("Developer", "Developer"));
+        assertFalse(LocalJoin.isHostAtStop("Developer", "Alex"), "a LAN guest's opening closes");
+        assertFalse(LocalJoin.isHostAtStop(null, "Developer"), "no owner: the opening closes");
     }
 
     @Test

@@ -126,10 +126,15 @@ public final class RunSubCommand implements SubCommand {
                 new ServerCommandDispatcher(server, sender),
                 new SenderContextSource(sender));
         execution.setCallStack(stack);
+        // A nested run answers to the same inbox request as its parent, so its result file can
+        // be matched to that request too.
+        String requestId = com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin.requestIdFor(parent != null,
+                parent == null ? null : parent.getOrigin(),
+                com.mahghuuuls.agenttesttoolkit.command.RunChannel.requestId());
         execution.setOrigin(new com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin(sender.getName(),
                 parent == null ? com.mahghuuuls.agenttesttoolkit.command.RunChannel.of(sender)
                         : com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin.NESTED,
-                com.mahghuuuls.agenttesttoolkit.command.DevToolCommand.PERMISSION_LEVEL));
+                com.mahghuuuls.agenttesttoolkit.command.DevToolCommand.PERMISSION_LEVEL, requestId));
 
         if (bundle.isResultRequested()) {
             // Attached before the start record, so the file covers the whole run. The
@@ -138,9 +143,13 @@ public final class RunSubCommand implements SubCommand {
             java.io.File configDir = com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader.getConfigDirectory();
             com.mahghuuuls.agenttesttoolkit.state.OperatorBinding operator =
                     com.mahghuuuls.agenttesttoolkit.state.ToolkitState.getOperator();
+            // The wall-clock start and the save folder say which launch and world the file came
+            // from; two runs of a bundle at the same tick still share its name, the later
+            // overwriting the earlier.
             execution.attachSink(new com.mahghuuuls.agenttesttoolkit.results.BundleResultCollector(
                     configDir == null ? null : new java.io.File(configDir, "results"),
-                    operator == null ? null : operator.getName()));
+                    operator == null ? null : operator.getName(),
+                    System.currentTimeMillis(), server == null ? null : server.getFolderName()));
         }
 
         // Written before the first command dispatches, so events caused by the bundle fall

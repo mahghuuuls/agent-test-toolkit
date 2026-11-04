@@ -70,7 +70,7 @@ public final class InboxDispatch implements InboxRequestHandler {
         CommandOutcome outcome;
         boolean started = false;
         try {
-            outcome = RunChannel.during(RunOrigin.INBOX, new RunChannel.Action<CommandOutcome>() {
+            outcome = RunChannel.during(RunOrigin.INBOX, request.getId(), new RunChannel.Action<CommandOutcome>() {
                 @Override
                 public CommandOutcome run() {
                     return runner.run(player, line);
@@ -133,6 +133,7 @@ public final class InboxDispatch implements InboxRequestHandler {
                 execution.getExecuted(), execution.getFailed(), execution.getTolerated(),
                 execution.getTotal(), execution.isStoppedEarly(), execution.getDurationTicks(),
                 execution.isSenderLost(), discarded, execution.getFirstFailure())
+                .with("resultFile", execution.getResultFile())
                 .writeTo(directory);
     }
 

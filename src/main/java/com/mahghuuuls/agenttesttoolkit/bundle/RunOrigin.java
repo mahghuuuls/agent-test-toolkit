@@ -28,14 +28,24 @@ public final class RunOrigin {
     private final String caller;
     private final String channel;
     private final int permissionLevel;
+    private final String requestId;
 
     public RunOrigin(String caller, String channel, int permissionLevel) {
+        this(caller, channel, permissionLevel, null);
+    }
+
+    /**
+     * @param requestId the id of the inbox request that started the run, or of the run it is
+     *                  nested in; null when no inbox request started it
+     */
+    public RunOrigin(String caller, String channel, int permissionLevel, String requestId) {
         if (channel == null || channel.isEmpty()) {
             throw new IllegalArgumentException("a run origin must name its channel");
         }
         this.caller = caller;
         this.channel = channel;
         this.permissionLevel = permissionLevel;
+        this.requestId = requestId;
     }
 
     public String getCaller() {
@@ -48,5 +58,22 @@ public final class RunOrigin {
 
     public int getPermissionLevel() {
         return permissionLevel;
+    }
+
+    /** The inbox request id this run answers to, or null. */
+    public String getRequestId() {
+        return requestId;
+    }
+
+    /**
+     * The request id for a new run. A top-level run takes the id of the inbox request being
+     * dispatched; a nested run takes its parent's, since it starts in a later tick, after that
+     * dispatch has ended.
+     */
+    public static String requestIdFor(boolean nested, RunOrigin parentOrigin, String dispatchingRequestId) {
+        if (!nested) {
+            return dispatchingRequestId;
+        }
+        return parentOrigin == null ? null : parentOrigin.getRequestId();
     }
 }
