@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.6.0
+
+Small fixes and polish after 1.5.0. The first item came from another project's test sessions with the toolkit; the rest from the developer's own review of the 1.5.0 release.
+
+### Fixed
+
+- **The inbox opens at your own join whatever the case of the launch name.** 1.5.0 compared the player's name with the world's owner with case, so a development launch as `mahghuuuls` joining with the account name `Mahghuuuls` never got the inbox, and nothing in the log said why. The host is now recognised ignoring case, as vanilla decides who has cheats, both at the join and when the world stops for a toolkit reconnect. A player on the in-process connection who still is not taken for the host gets `INBOX action=refused reason=localJoinNotHost` with `owner`, instead of silence.
+
+### Added
+
+- **A bundle result file says which run it is.** `channel` and `caller`, `requestId` for a run an inbox request started (or a bundle nested in one), `startedAtMillis` and `world`. `BUNDLE_START` carries `requestId` too, and the inbox answer of a `run` names the file as `resultFile`. Every earlier field is unchanged.
+
+- **Tips for test mobs in `AGENTS.md` and `docs/`**: keeping a summoned undead mob from burning (an unbreakable helmet, Fire Resistance, night), keeping the test player alive (Resistance), and clearing a fresh world, including the slimes a flat world spawns.
+
+### Changed
+
+- **The documentation coverage test also checks every refusal and failure reason** the source writes, so a new reason cannot ship undocumented. It found one older reason, `noHandler`, that the manual did not name; it is documented now.
+
 ## 1.5.0
 
 The theme is a test that starts at the title screen and ends with the game closed, while the person at the keyboard only launches the game. The items came from the developer's own test sessions with an AI assistant.

@@ -37,7 +37,7 @@ If you are reading yourself, start with `README.md`, then `docs/commands.md` for
 
 **Fixtures and restarts.** Name the one entity a bundle just summoned, find it again later by that name, and remove exactly it, without a death or a drop. A checkpoint stored in the world save remembers which bundle must run next across a stop and restart, and refuses anything else until it has run.
 
-**A command inbox for your assistant.** Type `/devtool inbox open` once after opening a world, and an AI assistant can start its own bundles, save, take a screenshot, or look something up, by writing a small file and reading the answer from another. It runs as you, with your permissions, and only bundles and read-only commands are accepted. Off by default. A person opens it, or, if you allow it, it opens by itself when you join your own single-player world or your own development server from your computer.
+**A command inbox for your assistant.** Type `/devtool inbox open` once after opening a world, and an AI assistant can start its own bundles, save, take a screenshot, or look something up, by writing a small file and reading the answer from another. It runs as you, with your permissions, and only bundles and read-only commands are accepted. Off by default. A person opens it, or, if you allow it, it opens by itself when you join your own single-player world or your own development server from your computer, whatever the case of your launch name.
 
 **Client actions.** A bundle or your assistant can ask your own game to leave the world and come back, press Respawn after a death, close the screen that is open, or close the game, so a test that needs a rejoin or a death no longer waits for you. The inbox stays open across a rejoin it asked for. Off unless you allow it in your client's configuration, and it only ever acts on the game of whoever asked.
 
@@ -89,7 +89,7 @@ One line, always the same shape, sitting in `latest.log` next to your own mod ou
 /devtool arena create 20 10 20
 ```
 
-Builds a sealed, lit, empty box twenty blocks across, centred where you stand, floor level with your feet. Lit well enough that nothing spawns inside. Your respawn point moves in with it, so dying mid-test does not send you back to your bed.
+Builds a sealed, lit, empty box twenty blocks across, centred where you stand, floor level with your feet. Lit well enough that nothing hostile spawns inside, apart from slimes, which ignore light. Your respawn point moves in with it, so dying mid-test does not send you back to your bed.
 
 One per dimension, remembered in the world save. Later:
 
