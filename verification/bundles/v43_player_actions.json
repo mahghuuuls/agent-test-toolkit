@@ -1,23 +1,25 @@
 {
   "v43_platform": {
-    "description": "Builds the scene every v43 bundle uses, in any overworld: a stone floor 5 by 6 at y 99 around x 0, z 0 to 4, with air above it up to y 107 so nothing is within reach overhead, and puts the caller on it at 0.5 100 0.5 facing south. Creative, so a placed block is not used up. Expect V43_PLATFORM_READY.",
+    "description": "Builds the scene every v43 bundle uses, in any overworld (a fill that changes nothing, because the scene is already there, is tolerated): a stone floor 5 by 6 at y 99 around x 0, z 0 to 4, with air above it up to y 107 so nothing is within reach overhead, and puts the caller on it at 0.5 100 0.5 facing south. The caller is moved there first and the build waits 20 ticks, so the chunks are loaded (fill refuses an unloaded area); the caller falls several blocks meanwhile, below the scene, and is put back on the floor. Creative, so a placed block is not used up. Expect V43_PLATFORM_READY.",
     "stopOnFailure": true,
     "commands": [
       "gamemode creative",
-      "kill @e[type=minecraft:pig,tag=v43_pig]",
-      "fill -2 100 -1 2 107 4 minecraft:air",
-      "fill -2 99 -1 2 99 4 minecraft:stone",
+      "tp @s 0.5 101 0.5 0 0",
+      { "command": "kill @e[type=minecraft:pig,tag=v43_pig]", "delayTicks": 20 },
+      { "command": "fill -2 100 -1 2 107 4 minecraft:air", "toleratedFailures": ["commands.fill.failed"] },
+      { "command": "fill -2 99 -1 2 99 4 minecraft:stone", "toleratedFailures": ["commands.fill.failed"] },
       "tp @s 0.5 100 0.5 0 0",
       "devtool mark V43_PLATFORM_READY"
     ]
   },
   "v43_select_use": {
-    "description": "Selects hotbar slot 0 (emptied), then slot 3 (16 stone), then looks 45 degrees down and right clicks once: the ray from the eye at y 101.62 meets the floor's top at z 2.12, so the game places stone at 0 100 2 on the up face of 0 99 2. Expect three CLIENT_ACTION pairs (requested, then side=CLIENT and reported with slot or target=block targetX=0 targetY=99 targetZ=2 face=up held=minecraft:stone), BLOCK_INSPECT minecraft:stone at 0 100 2, and the player's main hand stone in PLAYER_INSPECT. With the use key unbound, the use is refused reason=unbound and the block stays air. Run v43_platform first.",
+    "description": "Removes a v43 pig left in the ray and waits 30 ticks, past its 20-tick death animation, during which the client still shows it and a click would meet it. Then selects hotbar slot 0 (emptied), then slot 3 (16 stone), then looks 45 degrees down and right clicks once: the ray from the eye at y 101.62 meets the floor's top at z 2.12, so the game places stone at 0 100 2 on the up face of 0 99 2. Expect three CLIENT_ACTION pairs (requested, then side=CLIENT and reported with slot or target=block targetX=0 targetY=99 targetZ=2 face=up held=minecraft:stone), BLOCK_INSPECT minecraft:stone at 0 100 2, and the player's main hand stone in PLAYER_INSPECT. With the use key unbound, the use is refused reason=unbound and the block stays air. Run v43_platform first.",
     "result": true,
     "stopOnFailure": true,
     "commands": [
       "devtool mark V43_USE_BEGIN",
-      "replaceitem entity @s slot.hotbar.0 minecraft:air",
+      "kill @e[type=minecraft:pig,tag=v43_pig]",
+      { "command": "replaceitem entity @s slot.hotbar.0 minecraft:air", "delayTicks": 30 },
       "replaceitem entity @s slot.hotbar.3 minecraft:stone 16",
       "tp @s 0.5 100 0.5 0 45",
       { "command": "devtool client select 0", "delayTicks": 5 },
@@ -29,14 +31,14 @@
     ]
   },
   "v43_attack": {
-    "description": "Summons a pig without AI (health 10) at 0.5 100 2.5, looks 30 degrees down at it and left clicks once with the held item: the ray meets the pig's box at about y 100.7. Expect the pig at health 10 in the first ENTITY_INSPECT and below 10 in the second, and CLIENT_ACTION with target=entity entityType=minecraft:pig. Run v43_platform first; v43_cleanup removes the pig.",
+    "description": "Removes an earlier v43 pig and waits 30 ticks, past its death animation, so the click cannot meet the dying one. Then summons a pig without AI (health 10) at 0.5 100 2.5, looks 30 degrees down at it and left clicks once with the held item: the ray meets the pig's box at about y 100.7. Expect the pig at health 10 in the first ENTITY_INSPECT and below 10 in the second, and CLIENT_ACTION with target=entity entityType=minecraft:pig. Run v43_platform first; v43_cleanup removes the pig.",
     "result": true,
     "stopOnFailure": true,
     "commands": [
       "devtool mark V43_ATTACK_BEGIN",
-      "fill -2 100 -1 2 107 4 minecraft:air",
+      { "command": "fill -2 100 -1 2 107 4 minecraft:air", "toleratedFailures": ["commands.fill.failed"] },
       "kill @e[type=minecraft:pig,tag=v43_pig]",
-      "summon minecraft:pig 0.5 100 2.5 {NoAI:1b,Tags:[\"v43_pig\"]}",
+      { "command": "summon minecraft:pig 0.5 100 2.5 {NoAI:1b,Tags:[\"v43_pig\"]}", "delayTicks": 30 },
       "tp @s 0.5 100 0.5 0 30",
       { "command": "devtool inspect entity @e[type=minecraft:pig,tag=v43_pig]", "delayTicks": 5 },
       { "command": "devtool client attack", "delayTicks": 5 },
@@ -61,7 +63,8 @@
     "result": true,
     "commands": [
       "devtool mark V43_SCREEN_BEGIN",
-      "fill -2 100 -1 2 107 4 minecraft:air",
+      "kill @e[type=minecraft:pig,tag=v43_pig]",
+      { "command": "fill -2 100 -1 2 107 4 minecraft:air", "toleratedFailures": ["commands.fill.failed"], "delayTicks": 30 },
       "replaceitem entity @s slot.hotbar.3 minecraft:stone 16",
       "tp @s 0.5 100 0.5 0 45",
       { "command": "devtool client select 3", "delayTicks": 5 },
@@ -96,7 +99,7 @@
     "description": "Removes what the v43 bundles left: the pig, the placed stone, the stone in hotbar slot 3. Leaves the floor. Expect V43_CLEAN.",
     "commands": [
       "kill @e[type=minecraft:pig,tag=v43_pig]",
-      "fill -2 100 -1 2 107 4 minecraft:air",
+      { "command": "fill -2 100 -1 2 107 4 minecraft:air", "toleratedFailures": ["commands.fill.failed"] },
       "replaceitem entity @s slot.hotbar.3 minecraft:air",
       "devtool mark V43_CLEAN"
     ]
