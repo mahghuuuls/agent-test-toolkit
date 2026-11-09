@@ -44,6 +44,25 @@ class DocumentationCoverageTest {
     }
 
     @Test
+    @DisplayName("the record-type counts written in AGENTS.md, docs/logging.md and README.md match the vocabulary, and docs/logging.md names every type")
+    void recordTypeCountsAndHumanDocs() throws IOException {
+        int count = EventType.values().length;
+        String agents = read(new File("AGENTS.md"));
+        String logging = read(new File("docs/logging.md"));
+        String readme = read(new File("README.md"));
+        assertTrue(agents.contains("There are " + count + " record types"), "AGENTS.md count");
+        assertTrue(logging.contains(count + " in total."), "docs/logging.md count");
+        assertTrue(readme.contains("all " + count + " record types"), "README.md count");
+        List<String> missing = new ArrayList<String>();
+        for (EventType type : EventType.values()) {
+            if (!logging.contains("`" + type.name() + "`")) {
+                missing.add(type.name());
+            }
+        }
+        assertEquals(new ArrayList<String>(), missing, "docs/logging.md");
+    }
+
+    @Test
     @DisplayName("every record type is named in AGENTS.md")
     void everyRecordTypeDocumented() throws IOException {
         String agents = read(new File("AGENTS.md"));

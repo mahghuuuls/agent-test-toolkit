@@ -16,7 +16,7 @@ You still play. The toolkit sets the world up, watches, and writes it down.
 | Parsing the log | [docs/logging.md](docs/logging.md) |
 | Deciding whether to install it | [MOD-PAGE.md](MOD-PAGE.md) |
 
-`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 46 record types, and eleven worked examples of testing a freshly implemented feature, one of them run entirely through the command inbox, one with a reconnect in the middle, and one a whole launch from the title screen to the game closing, with nobody typing. The `docs/` pages are the same material written for a person.
+`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 48 record types, and twelve worked examples of testing a freshly implemented feature, one of them run entirely through the command inbox, one with a reconnect in the middle, and one a whole launch from the title screen to the game closing, with nobody typing. The `docs/` pages are the same material written for a person.
 
 It also covers the traps that waste a test run: why an absent record is ambiguous, why `entity_spawn` floods, and why `latest.log` may not be the file you think it is.
 
@@ -157,7 +157,7 @@ Four steps you used to do by hand: leave the world and come back to the same pla
 /devtool client tooltip 0 shift screenshot=tip
 ```
 
-From 1.7.0, small player actions on your own client, so a test whose action is a click needs no person: pick a hotbar slot, right click, left click, keep a mouse button down for a time, drop the held item, open the inventory, or show an item's tooltip (with Shift, Ctrl or Alt held for it if asked) and write its lines into the log. A click goes through the game's own key handling, so the game and other mods see it as a click; what it does is the game's decision. The toolkit never moves or turns you: a bundle aims with vanilla `tp`. Same rules as the client actions above.
+From 1.7.0, small player actions on your own client, so a test whose action is a click needs no person: pick a hotbar slot, right click, left click, keep a mouse button down for a time, drop the held item, open the inventory, or show an item's tooltip (with Shift, Ctrl or Alt held for it if asked) and write its lines into the log. A click goes through the game's own key handling, so the game and other mods see it as a click (except mods that read the raw mouse events); what it does is the game's decision. The toolkit never moves or turns you: a bundle aims with vanilla `tp`. Same rules as the client actions above.
 
 ### Client request channel
 

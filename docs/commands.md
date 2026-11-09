@@ -176,7 +176,7 @@ Four steps a person used to do by hand, so a test can run them from a bundle or 
 
 | Command | What the client does |
 | --- | --- |
-| `devtool client reconnect [awaySeconds]` | Leave the world, wait `awaySeconds` at the menu (0 to 60, default 0), and come back to the same place: the same server entry on a dedicated server, the same save in single player, saved in full before it stopped |
+| `devtool client reconnect [awaySeconds] [logout]` | Leave the world, wait `awaySeconds` at the menu (0 to 60, default 0), and come back to the same place: the same server entry on a dedicated server, the same save in single player, saved in full before it stopped. With `logout` (1.7.0), a single-player leave logs you out as Save and Quit does |
 | `devtool client respawn` | Press Respawn on the death screen, once its buttons are enabled (20 ticks). Waits up to 100 ticks for a death screen still opening |
 | `devtool client close` | Close the open screen the way Escape does, telling the server when it is a container. A tick later it records what is showing |
 | `devtool client quit` | Close the game. The client reports `left` first, leaves as a reconnect does, and then closes the game instead of coming back. In single player the world is saved as the game stops; on a dedicated server the client disconnects cleanly first |
@@ -200,6 +200,14 @@ The client refuses what only it can know. The command itself has already succeed
 The server writes `CLIENT_ACTION action=requested` before sending. The client writes `CLIENT_ACTION side=CLIENT` with `step`, `result` (`done`, `refused`, `failed`, or `left` for a reconnect or a quit leaving), `reason`, `screen` and `showing`, and sends the same as a report, which the server writes as `CLIENT_ACTION action=reported`, together with `player`, `step` and `requestTick`. A report nobody asked for is dropped without a record. See [logging.md](logging.md).
 
 **Put `client reconnect` and `client quit` last in a bundle.** The client leaves about a second after the request, and the bundle's later steps are lost with it: on a dedicated server they end with `senderLost`, and in single player the run is discarded when the integrated server stops. Do the work after the return in a second bundle or request.
+
+### Reconnect and logout
+
+In single player a reconnect does not log you out unless asked: its leave stops the world without the quitting packet the pause menu sends, so the server never writes `left the game` and `PlayerLoggedOutEvent` does not fire. A test of what a mod does at logout then passes for the wrong reason. Add `logout` (`client reconnect 3 logout`, toolkit 1.7.0 on client and server) to leave as Save and Quit does. On a dedicated server every reconnect logs you out. The records say `logout=true` or `false`, and when the client is back the server writes one `CLIENT_ACTION action=returned` with the player, the UUID, the inbox request's id, the time away, the logout and the connection, before the inbox resumes.
+
+**The join name's case.** The game keeps the single-player host's data in `level.dat` only for a join whose name equals the world owner's exactly, with case, and in `playerdata/<uuid>.dat` otherwise. With a real account the first join of a launch can carry the account's spelling and later joins the launch name, so a reconnect reads the other copy. The toolkit writes `WARNING reason=hostNameCase` at such a join. Launch with the account's exact case.
+
+**`save`** names, from 1.7.0, the player file it wrote for whoever ran it: `playerFile`, its size and time, and `hostDataInLevel=true` for the single-player host whose name equals the owner's exactly, with case.
 
 ### A reconnect, step by step
 
@@ -239,7 +247,9 @@ From 1.7.0, small player actions on your own client. Same rules as the client ac
 - A click goes through the game's key handling. The game's and Forge's events of the click fire as for a person; the raw mouse events do not. `result=done` means the toolkit made the input; read what the game did from its own records or an inspection.
 - The toolkit does not move or turn you. Aim in the bundle with `tp @s ~ ~ ~ <yaw> <pitch>`.
 - The server refuses a client older than 1.7.0 (`devtool.client.noClient`), one that does not allow actions, a click, hold, drop or tooltip asked of a dead player (`devtool.client.dead`), and anything during a reconnect. The client refuses `noWorld`, `screenOpen`, `unbound`, `emptySlot` and `modifierUnavailable`.
-- Every record says whether the game window had focus (`focus`). See `AGENTS.md`, Player actions, for every field.
+- A `hold` writes `result=started` when the input goes down and `result=done` when it is released, with `heldTicks` and `released`: `done`, `left`, `died`, `screenOpen`, `focusLost` (the window had focus at the start and lost it) or `nextAction`. No input stays down after a release.
+- A `tooltip` writes one record when the view closes: `slot`, `item`, `count`, `lines` (the count), `line1` and on (up to 200 in the client's own record, the first 20 in the server's), `keys` and `keysSeen` with modifier keys, and `closed` (`done`, `person`, `replaced`, `died`, `left`).
+- Every client record says whether the game window had focus (`focus`). See `AGENTS.md`, Player actions, for every field.
 
 ## Command inbox
 
@@ -268,6 +278,8 @@ With `B:openOnLocalJoin=true` under `inbox`, as well as `B:enabled=true`, the in
 The opening writes `INBOX action=opened reason=localJoin`. From then on it is exactly as if you had typed it: requests already waiting are refused `placedBeforeOpen`, `status.json` is written, requests run as you, it closes when you leave, and a toolkit reconnect suspends it. When the inbox is already open, for you or someone else, nothing changes.
 
 It is refused, with `INBOX action=refused`, when you may not run toolkit commands (`localJoinNotOperator`: single player with cheats off, or a non-operator on a dedicated server; written at each such join), when a client sent a secret that does not match, or not over loopback (`localJoinNotProven`, written once per player each time the server runs), and, from 1.6.0, when a single-player join over the in-process connection is not the owner's name (`localJoinNotHost`, with `owner`; check the launch name, since such a player usually has no cheats either). Nothing is written when a key is off or no secret arrived.
+
+**Operator rights at a proven local join (1.7.0).** On a development dedicated server, with `B:localJoinOperator=true` under `inbox` as well (off by default), a player whose join passes the proof above and who is not in `ops.json` gets operator rights for that session, so the inbox opens with nothing typed. The server writes `OP action=granted`; the rights are taken back with `OP action=revoked` at the player's leave, at an orderly stop, or at the next start after a crash. A player already in `ops.json` is left as is (`OP action=kept`). Nothing is given on an online-mode server (`localJoinOnlineMode`) or to a game from another folder. Use it on a development server only: anyone who can run a game from that folder becomes an operator. See `AGENTS.md` for every case.
 
 The dedicated-server case needs the client and the server in one game folder, so they also share `run/logs/`: the second to start archives the first one's `latest.log`, and both then write into one file, which on Windows can be left with NUL bytes that make search tools skip it. Read it with a binary-tolerant tool, keep both the current log and the dated archive, and tell the two apart by `[Server thread]` and `[Client thread]`. `AGENTS.md` covers this under "`latest.log` is not a stable identifier".
 
@@ -308,9 +320,9 @@ Accepted lines, and nothing else:
 | `mark <label>` | `devtool mark <label>` |
 | `inspect ...`, `entities ...`, `nbt ...` | The toolkit command of that name, with the same arguments |
 | `screenshot <label> [delayTicks]` | `devtool screenshot`, to the inbox operator only |
-| `client reconnect [awaySeconds]`, `client respawn`, `client close`, `client quit` | `devtool client ...`, for the inbox operator's own client. `awaySeconds` is 0 to 60. Lower case only: `client Reconnect` is `badArguments`. `client quit` is answered in the tick it runs; then the game closes, and the inbox with it |
+| `client reconnect [awaySeconds] [logout]`, `client respawn`, `client close`, `client quit`, and the player actions (`client select <0-8>`, `use`, `attack`, `hold use\|attack <ticks>`, `drop [all]`, `inventory`, `tooltip <0-40> [advanced] [shift] [ctrl] [alt]`, with `delay=`, `screenshot=`, `screenshotDelay=`, `showTicks=` last) | `devtool client ...`, for the inbox operator's own client. `awaySeconds` is 0 to 60. Lower case only: `client Reconnect` is `badArguments`. `client quit` is answered in the tick it runs; then the game closes, and the inbox with it |
 
-A leading `/` is accepted. A vanilla command, any other toolkit command, or a line starting with `devtool` is refused with `verbNotAllowed`. Other refusal reasons: `badArguments` (an allowed verb with arguments it does not take, such as `client reconnect 99`), `malformed` (empty, several lines, non-ASCII, too long, or a file over 4096 bytes), `placedBeforeOpen`, `operatorLeft` (the operator is no longer online; the inbox closes too), `duplicateId`, and `noHandler` (the toolkit's request handler is not installed yet, which cannot happen once the mod has started). An accepted request fails with `rootShadowed` when another mod has taken both `devtool` and `att`, so the request is never handed to that mod's command.
+A leading `/` is accepted. A vanilla command, any other toolkit command, or a line starting with `devtool` is refused with `verbNotAllowed`; from 1.7.0 a line starting with `devtool` carries a `detail` with the same line without the root (`use:client respawn`). Other refusal reasons: `badArguments` (an allowed verb with arguments it does not take, such as `client reconnect 99`), `malformed` (empty, several lines, non-ASCII, too long, or a file over 4096 bytes), `placedBeforeOpen`, `operatorLeft` (the operator is no longer online; the inbox closes too), `duplicateId`, and `noHandler` (the toolkit's request handler is not installed yet, which cannot happen once the mod has started). An accepted request fails with `rootShadowed` when another mod has taken both `devtool` and `att`, so the request is never handed to that mod's command.
 
 ### Results and status
 

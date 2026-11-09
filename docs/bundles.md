@@ -70,7 +70,7 @@ The toolkit's own failure keys are tolerated the same way, by declaring them:
 | `devtool.inspect.notLoaded` | An inspection names a position whose chunk is not loaded |
 | `devtool.save.failed` | `devtool save` could not save a world |
 | `devtool.screenshot.noClient` | The screenshot target's client does not have the toolkit |
-| `devtool.client.noClient` | Your own client does not have the toolkit, or has one older than 1.4.0, for a `devtool client` step. For `quit`, also a client that allows actions but has a toolkit older than 1.5.0; one that has not allowed actions gets `devtool.client.notAllowed` |
+| `devtool.client.noClient` | Your own client does not have the toolkit, or has one older than 1.4.0, for a `devtool client` step. For `quit`, also a client that allows actions but is older than 1.5.0; for a player action or a reconnect's `logout`, a client older than 1.7.0, whatever it allows |
 | `devtool.client.notAllowed` | Your client has not allowed client actions |
 | `devtool.client.notDead` | A respawn was asked of a living player |
 | `devtool.client.dead` | A click, hold, drop or tooltip was asked of a dead player (1.7.0) |

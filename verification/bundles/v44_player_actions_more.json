@@ -57,7 +57,7 @@
     ]
   },
   "v44_drop": {
-    "description": "Survival, 10 dirt in hotbar slot 2, selected; drops one, then the rest. Expect CLIENT_ACTION step=drop all=false held=minecraft:dirt heldCount=10, then all=true heldCount=9, item entities near the caller (the first one item, then the stack of nine), and slot 2 empty in INVENTORY_INSPECT. Run v43_platform first.",
+    "description": "Survival, 10 dirt in hotbar slot 2, selected; drops one, then the rest. Expect CLIENT_ACTION step=drop all=false held=minecraft:dirt heldCount=10, then all=true heldCount=9, item entities near the caller (one item, then the rest; the two may merge into one stack of ten), and slot 2 empty in INVENTORY_INSPECT. Run v43_platform first.",
     "result": true,
     "stopOnFailure": true,
     "commands": [
@@ -77,7 +77,7 @@
     ]
   },
   "v44_delay_shot": {
-    "description": "Creative, 16 stone in slot 3, looking 45 degrees down: an attack on air delayed 40 ticks (the server's reported worldTick minus requestTick is about 40), then a use that places stone at 0 100 2 with a screenshot labelled v44_after_use. Expect the attack record with delay=40, the use record with screenshot=v44_after_use, and SCREENSHOT side=CLIENT action=saved file=screenshots/v44_after_use-<requestTick>.png. Run v43_platform first.",
+    "description": "Creative, 16 stone in slot 3: looking straight up, an attack on air delayed 40 ticks (the server's reported worldTick minus requestTick is about 40), then, looking 45 degrees down, a use that places stone at 0 100 2 with a screenshot labelled v44_after_use. Expect the attack record with delay=40, the use record with screenshot=v44_after_use, and SCREENSHOT side=CLIENT action=saved file=screenshots/v44_after_use-<requestTick>.png. Run v43_platform first.",
     "result": true,
     "stopOnFailure": true,
     "commands": [
@@ -121,7 +121,7 @@
     ]
   },
   "v44_tooltip": {
-    "description": "Tooltip views, one after another: slot 0 with a screenshot (line1 Tooltip Sword, the lore lines), slot 0 advanced (adds the item id line), slot 4 (lines=26 or more; the client's record has every lore line, the server's action=reported line1 to line20), slot 0 with shift (keys=shift; keysSeen=shift where the keyboard allows it), slot 7 (refused emptySlot), and slot 0 with showTicks=40 (closed=done about 40 ticks later). Run v44_tooltip_items first.",
+    "description": "Tooltip views, one after another: slot 0 with a screenshot (line1 Tooltip Sword, the lore lines), slot 0 advanced (adds the item id line), slot 4 (lines=26 or more; the client's record has every lore line, the server's action=reported line1 to line20), slot 0 with shift and ctrl (keys=shift,ctrl; keysSeen=shift,ctrl where the keyboard allows it), slot 7 (refused emptySlot), and slot 0 with showTicks=40 (closed=done about 40 ticks later). Run v44_tooltip_items first.",
     "result": true,
     "commands": [
       "devtool mark V44_TOOLTIP_BEGIN",
