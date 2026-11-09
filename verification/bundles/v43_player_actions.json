@@ -1,6 +1,6 @@
 {
   "v43_platform": {
-    "description": "Builds the scene every v43 bundle uses, in any overworld (a fill that changes nothing, because the scene is already there, is tolerated): a stone floor 5 by 6 at y 99 around x 0, z 0 to 4, with air above it up to y 107 so nothing is within reach overhead, and puts the caller on it at 0.5 100 0.5 facing south. The caller is moved there first and the build waits 20 ticks, so the chunks are loaded (fill refuses an unloaded area); the caller falls several blocks meanwhile, below the scene, and is put back on the floor. Creative, so a placed block is not used up. Expect V43_PLATFORM_READY.",
+    "description": "Builds the scene every v43 bundle uses, in any overworld (a fill that changes nothing, because the scene is already there, is tolerated): a stone floor 5 by 6 at y 99 around x 0, z 0 to 4, with air above it up to y 107 so nothing is within reach overhead, and puts the caller on it at 0.5 100 0.5 facing south. The caller is moved there first and the build waits 20 ticks, so the chunks are loaded (fill refuses an unloaded area); the caller falls several blocks meanwhile, below the scene, and is put back on the floor. Creative, so a placed block is not used up. Expect BLOCK_INSPECT minecraft:stone at 0 99 2 (the floor is there) and V43_PLATFORM_READY.",
     "stopOnFailure": true,
     "commands": [
       "gamemode creative",
@@ -9,17 +9,20 @@
       { "command": "fill -2 100 -1 2 107 4 minecraft:air", "toleratedFailures": ["commands.fill.failed"] },
       { "command": "fill -2 99 -1 2 99 4 minecraft:stone", "toleratedFailures": ["commands.fill.failed"] },
       "tp @s 0.5 100 0.5 0 0",
+      "devtool inspect block 0 99 2",
       "devtool mark V43_PLATFORM_READY"
     ]
   },
   "v43_select_use": {
-    "description": "Removes a v43 pig left in the ray and waits 30 ticks, past its 20-tick death animation, during which the client still shows it and a click would meet it. Then selects hotbar slot 0 (emptied), then slot 3 (16 stone), then looks 45 degrees down and right clicks once: the ray from the eye at y 101.62 meets the floor's top at z 2.12, so the game places stone at 0 100 2 on the up face of 0 99 2. Expect three CLIENT_ACTION pairs (requested, then side=CLIENT and reported with slot or target=block targetX=0 targetY=99 targetZ=2 face=up held=minecraft:stone), BLOCK_INSPECT minecraft:stone at 0 100 2, and the player's main hand stone in PLAYER_INSPECT. With the use key unbound, the use is refused reason=unbound and the block stays air. Run v43_platform first.",
+    "description": "Removes a v43 pig left in the ray and waits 30 ticks, past its 20-tick death animation, during which the client still shows it and a click would meet it. Then clears the space above the floor, so a block from an earlier run cannot stand in the ray, and inspects 0 100 2 (air before the click). Then selects hotbar slot 0 (emptied), then slot 3 (16 stone), then looks 45 degrees down and right clicks once: the ray from the eye at y 101.62 meets the floor's top at z 2.12, so the game places stone at 0 100 2 on the up face of 0 99 2. Expect BLOCK_INSPECT air at 0 100 2 first, three CLIENT_ACTION pairs (requested, then side=CLIENT and reported with slot or target=block targetX=0 targetY=99 targetZ=2 face=up held=minecraft:stone), BLOCK_INSPECT minecraft:stone at 0 100 2 after, and the player's main hand stone in PLAYER_INSPECT. With the use key unbound, the use is refused reason=unbound and the block stays air. Run v43_platform first.",
     "result": true,
     "stopOnFailure": true,
     "commands": [
       "devtool mark V43_USE_BEGIN",
       "kill @e[type=minecraft:pig,tag=v43_pig]",
-      { "command": "replaceitem entity @s slot.hotbar.0 minecraft:air", "delayTicks": 30 },
+      { "command": "fill -2 100 -1 2 107 4 minecraft:air", "toleratedFailures": ["commands.fill.failed"], "delayTicks": 30 },
+      "devtool inspect block 0 100 2",
+      "replaceitem entity @s slot.hotbar.0 minecraft:air",
       "replaceitem entity @s slot.hotbar.3 minecraft:stone 16",
       "tp @s 0.5 100 0.5 0 45",
       { "command": "devtool client select 0", "delayTicks": 5 },
