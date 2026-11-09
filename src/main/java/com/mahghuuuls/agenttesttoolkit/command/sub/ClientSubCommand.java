@@ -68,7 +68,10 @@ public final class ClientSubCommand implements SubCommand {
 
     @Override
     public String getUsage() {
-        return "client <reconnect [awaySeconds] [logout] | respawn | close | quit | select <0-8> | use | attack>";
+        return "client <reconnect [awaySeconds] [logout] | respawn | close | quit | select <0-8> | use | attack"
+                + " | hold <use|attack> <ticks> | drop [all] | inventory | tooltip <0-40> [advanced] [shift] [ctrl] [alt] [showTicks=<ticks>]>"
+                + " [delay=<ticks>] [screenshot=<label>]"
+                + " [screenshotDelay=<ticks>]";
     }
 
     @Override
@@ -163,6 +166,28 @@ public final class ClientSubCommand implements SubCommand {
         LogRecord record = requested(sender, player, step);
         if (action.getSlot() != PlayerActionOptions.NO_SLOT) {
             record.add("slot", action.getSlot());
+        }
+        if (PlayerActionOptions.HOLD.equals(step)) {
+            record.add("input", action.getArgument());
+            record.add("ticks", action.getTicks());
+        }
+        if (PlayerActionOptions.DROP.equals(step)) {
+            record.add("all", PlayerActionOptions.ALL.equals(action.getArgument()));
+        }
+        if (PlayerActionOptions.TOOLTIP.equals(step)) {
+            record.add("advanced", PlayerActionOptions.advancedOf(action.getArgument()));
+            String keys = PlayerActionOptions.modifierKeysOf(action.getArgument());
+            if (!keys.isEmpty()) {
+                record.add("keys", keys);
+            }
+            record.add("showTicks", action.getTicks());
+        }
+        if (action.getDelay() > 0) {
+            record.add("delay", action.getDelay());
+        }
+        if (!action.getScreenshot().isEmpty()) {
+            record.add("screenshot", action.getScreenshot());
+            record.add("screenshotDelay", action.getScreenshotDelay());
         }
         record.add("requestTick", requestTick);
         ToolkitLog.write(record);

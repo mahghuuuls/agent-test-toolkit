@@ -68,8 +68,37 @@ public final class SaveSubCommand implements SubCommand {
         // Which worlds, since Forge unloads an empty Nether or End and the count varies.
         record.add("dimensions", dimensions.toString());
         record.add("durationMs", durationMs);
+        if (sender instanceof net.minecraft.entity.player.EntityPlayerMP) {
+            addPlayerFile(server, (net.minecraft.entity.player.EntityPlayerMP) sender, record);
+        }
         ToolkitLog.write(record);
         sender.sendMessage(new TextComponentString(
                 "[DevToolkit] Saved " + worlds + " world" + (worlds == 1 ? "" : "s") + "."));
+    }
+
+    /**
+     * Names the file the save wrote for the player who asked: {@code playerdata/<uuid>.dat} under
+     * the world folder, with its size and time, so a test can read or copy it at once. In single
+     * player the host's data is also in {@code level.dat}, but only when the host's name equals
+     * the owner's exactly, with case: the rule the game itself reads by. A missing file adds
+     * nothing.
+     */
+    private static void addPlayerFile(MinecraftServer server, net.minecraft.entity.player.EntityPlayerMP player,
+                                      LogRecord record) {
+        net.minecraft.world.WorldServer overworld = server.getWorld(0);
+        if (overworld == null) {
+            return;
+        }
+        java.io.File folder = overworld.getSaveHandler().getWorldDirectory();
+        java.io.File file = new java.io.File(new java.io.File(folder, "playerdata"), player.getUniqueID() + ".dat");
+        if (!file.isFile()) {
+            return;
+        }
+        record.add("playerFile", "playerdata/" + file.getName());
+        record.add("playerFileSize", file.length());
+        record.add("playerFileModifiedMillis", file.lastModified());
+        if (!server.isDedicatedServer() && player.getName().equals(server.getServerOwner())) {
+            record.add("hostDataInLevel", true);
+        }
     }
 }

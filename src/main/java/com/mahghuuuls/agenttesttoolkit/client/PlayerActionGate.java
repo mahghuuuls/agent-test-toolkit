@@ -15,6 +15,10 @@ final class PlayerActionGate {
     static final String REASON_SCREEN_OPEN = "screenOpen";
     /** The key the action presses is unbound in the client's controls. */
     static final String REASON_UNBOUND = "unbound";
+    /** The inventory slot whose tooltip was asked for holds nothing. */
+    static final String REASON_EMPTY_SLOT = "emptySlot";
+    /** Modifier keys were asked for, and this client's keyboard cannot be made to hold them. */
+    static final String REASON_MODIFIER_UNAVAILABLE = "modifierUnavailable";
 
     private PlayerActionGate() {
     }
@@ -24,8 +28,11 @@ final class PlayerActionGate {
      * @param screenOpen a screen is open
      * @param usesKey    the action presses a key binding
      * @param keyCode    that binding's code; 0 is unbound
+     * @param emptySlot  a tooltip was asked of a slot that holds nothing
+     * @param modifierUnavailable modifier keys were asked and cannot be held on this client
      */
-    static String refusal(boolean worldOpen, boolean screenOpen, boolean usesKey, int keyCode) {
+    static String refusal(boolean worldOpen, boolean screenOpen, boolean usesKey, int keyCode, boolean emptySlot,
+                          boolean modifierUnavailable) {
         if (!worldOpen) {
             return REASON_NO_WORLD;
         }
@@ -34,6 +41,12 @@ final class PlayerActionGate {
         }
         if (usesKey && keyCode == 0) {
             return REASON_UNBOUND;
+        }
+        if (emptySlot) {
+            return REASON_EMPTY_SLOT;
+        }
+        if (modifierUnavailable) {
+            return REASON_MODIFIER_UNAVAILABLE;
         }
         return null;
     }

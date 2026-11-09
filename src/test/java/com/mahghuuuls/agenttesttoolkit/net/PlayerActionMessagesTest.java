@@ -21,7 +21,7 @@ class PlayerActionMessagesTest {
     @DisplayName("a player action survives the wire, and an invalid one is not acted on")
     void requestRoundTrip() {
         ByteBuf buf = Unpooled.buffer();
-        new PlayerActionRequest("select", 4, "c0ffee", 99L).toBytes(buf);
+        new PlayerActionRequest("select", 4, "", 0, "c0ffee", 99L).toBytes(buf);
         PlayerActionRequest read = new PlayerActionRequest();
         read.fromBytes(buf);
         assertEquals("select", read.getStep());
@@ -31,11 +31,156 @@ class PlayerActionMessagesTest {
         assertTrue(read.isValid());
         assertTrue(read.isSelect());
         assertFalse(read.isUse());
-        assertFalse(new PlayerActionRequest("select", 9, "a", 1L).isValid());
-        assertFalse(new PlayerActionRequest("use", 2, "a", 1L).isValid());
-        assertFalse(new PlayerActionRequest("reconnect", -1, "a", 1L).isValid());
-        assertFalse(new PlayerActionRequest("use", -1, "a-b", 1L).isValid(), "a token is letters and digits");
-        assertFalse(new PlayerActionRequest("use", -1, null, 1L).isValid());
+        assertFalse(new PlayerActionRequest("select", 9, "", 0, "a", 1L).isValid());
+        assertFalse(new PlayerActionRequest("use", 2, "", 0, "a", 1L).isValid());
+        assertFalse(new PlayerActionRequest("reconnect", -1, "", 0, "a", 1L).isValid());
+        assertFalse(new PlayerActionRequest("use", -1, "", 0, "a-b", 1L).isValid(), "a token is letters and digits");
+        assertFalse(new PlayerActionRequest("use", -1, "", 0, null, 1L).isValid());
+    }
+
+    @Test
+    @DisplayName("an action's screenshot label follows the screenshot command's rule exactly, in both parsers")
+    void screenshotLabelRuleShared() {
+        String[] labels = {"a", "after_use", "A-1", "x-y_z9", "", "a b", "a/b", "a.b", "été",
+                "123456789012345678901234567890123456789012345678", "1234567890123456789012345678901234567890123456789"};
+        for (String label : labels) {
+            boolean screenshotRule = ScreenshotRequest.isValidLabel(label);
+            assertEquals(screenshotRule, com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions.parse(
+                    ("use screenshot=" + label).split(" ")) != null, "action parser: " + label);
+            assertEquals(screenshotRule, com.mahghuuuls.agenttesttoolkit.inbox.InboxRequest.parse("x",
+                    "screenshot " + label).isAccepted(), "inbox screenshot verb: " + label);
+        }
+    }
+
+    @Test
+    @DisplayName("a hold and a drop survive the wire with their argument and ticks")
+    void holdAndDropRoundTrip() {
+        ByteBuf buf = Unpooled.buffer();
+        new PlayerActionRequest("hold", -1, "use", 20, "beef", 7L).toBytes(buf);
+        PlayerActionRequest read = new PlayerActionRequest();
+        read.fromBytes(buf);
+        assertTrue(read.isValid());
+        assertTrue(read.isHold());
+        assertTrue(read.holdsUse());
+        assertEquals(20, read.getTicks());
+        ByteBuf drop = Unpooled.buffer();
+        new PlayerActionRequest("drop", -1, "all", 0, "beef", 7L).toBytes(drop);
+        PlayerActionRequest readDrop = new PlayerActionRequest();
+        readDrop.fromBytes(drop);
+        assertTrue(readDrop.isValid());
+        assertTrue(readDrop.dropsAll());
+        assertFalse(new PlayerActionRequest("hold", -1, "use", 1201, "beef", 7L).isValid());
+        assertTrue(new PlayerActionRequest("inventory", -1, "", 0, "beef", 7L).isInventory());
+    }
+
+    @Test
+    @DisplayName("an action's delay and screenshot survive the wire, and out-of-bounds options are not acted on")
+    void optionsRoundTrip() {
+        ByteBuf buf = Unpooled.buffer();
+        new PlayerActionRequest("use", -1, "", 0, "beef", 7L).withOptions(40, "after_use", 5).toBytes(buf);
+        PlayerActionRequest read = new PlayerActionRequest();
+        read.fromBytes(buf);
+        assertTrue(read.isValid());
+        assertEquals(40, read.getDelay());
+        assertEquals("after_use", read.getScreenshot());
+        assertEquals(5, read.getScreenshotDelay());
+        assertFalse(new PlayerActionRequest("use", -1, "", 0, "beef", 7L).withOptions(1201, "", 0).isValid());
+        assertFalse(new PlayerActionRequest("use", -1, "", 0, "beef", 7L).withOptions(0, "../x", 0).isValid());
+        assertFalse(new PlayerActionRequest("use", -1, "", 0, "beef", 7L).withOptions(0, "", 3).isValid());
+        Map<String, String> fields = new LinkedHashMap<String, String>();
+        fields.put("target", "miss");
+        fields.put("screenshot", "after_use");
+        fields.put("delay", "40");
+        fields.put("focus", "false");
+        assertTrue(new ClientActionReport("use", "done", "", "", "", "beef", 7L).withFields(fields).isValid());
+    }
+
+    @Test
+    @DisplayName("the fields of a hold, a drop and every action's focus are reportable, and survive the wire")
+    void holdAndDropFields() {
+        Map<String, String> start = new LinkedHashMap<String, String>();
+        start.put("input", "use");
+        start.put("ticks", "20");
+        start.put("target", "miss");
+        start.put("held", "minecraft:bow");
+        start.put("heldCount", "1");
+        start.put("focus", "false");
+        Map<String, String> end = new LinkedHashMap<String, String>();
+        end.put("input", "use");
+        end.put("heldTicks", "20");
+        end.put("released", "done");
+        end.put("focus", "false");
+        Map<String, String> drop = new LinkedHashMap<String, String>();
+        drop.put("all", "true");
+        drop.put("held", "minecraft:dirt");
+        drop.put("heldCount", "64");
+        drop.put("focus", "true");
+        String[][] cases = {{"hold", "started"}, {"hold", "done"}, {"drop", "done"}};
+        java.util.List<Map<String, String>> maps = java.util.Arrays.asList(start, end, drop);
+        for (int i = 0; i < cases.length; i++) {
+            ByteBuf buf = Unpooled.buffer();
+            new ClientActionReport(cases[i][0], cases[i][1], "", "none", "", "aaaa", 3L).withFields(maps.get(i)).toBytes(buf);
+            ClientActionReport read = new ClientActionReport();
+            read.fromBytes(buf);
+            assertTrue(read.isValid(), cases[i][0] + " " + cases[i][1]);
+            assertEquals(maps.get(i), read.getFields());
+        }
+        ClientActionReport inventory = new ClientActionReport("inventory", "done", "", "none",
+                "net.minecraft.client.gui.inventory.GuiInventory", "aaaa", 3L);
+        assertTrue(inventory.isValid());
+    }
+
+    @Test
+    @DisplayName("a tooltip's record fields, twenty lines included, are reportable, and stay within 32 fields")
+    void tooltipFields() {
+        Map<String, String> fields = new LinkedHashMap<String, String>();
+        fields.put("slot", "0");
+        fields.put("advanced", "false");
+        fields.put("keys", "shift,ctrl");
+        fields.put("keysSeen", "shift,ctrl");
+        fields.put("showTicks", "20");
+        fields.put("item", "minecraft:diamond_sword");
+        fields.put("count", "1");
+        fields.put("lines", "31");
+        for (int i = 1; i <= 20; i++) {
+            fields.put("line" + i, "Line " + i);
+        }
+        fields.put("screenshot", "tip");
+        fields.put("closed", "done");
+        fields.put("focus", "false");
+        fields.put("delay", "5");
+        assertTrue(fields.size() <= ClientActionReport.MAX_FIELDS, "every field a tooltip can carry: " + fields.size());
+        assertTrue(new ClientActionReport("tooltip", "done", "", "none", "", "aaaa", 3L).withFields(fields).isValid());
+        Map<String, String> tooMany = new LinkedHashMap<String, String>();
+        tooMany.put("line21", "x");
+        assertFalse(new ClientActionReport("tooltip", "done", "", "", "", "aaaa", 3L).withFields(tooMany).isValid());
+        assertTrue(new PlayerActionRequest("tooltip", 40, "advanced", 20, "beef", 7L).isValid());
+        assertTrue(new PlayerActionRequest("tooltip", 3, "", 20, "beef", 7L).isTooltip());
+        PlayerActionRequest keys = new PlayerActionRequest("tooltip", 3, "advanced,shift,alt", 20, "beef", 7L);
+        assertTrue(keys.isValid());
+        assertTrue(keys.isAdvanced());
+        assertEquals("shift,alt", keys.modifierKeys());
+        assertEquals("", new PlayerActionRequest("use", -1, "", 0, "beef", 7L).modifierKeys());
+        assertFalse(new PlayerActionRequest("tooltip", 3, "", 20, "beef", 7L).withOptions(0, "a", 19).isValid(),
+                "a screenshot after the view closes");
+    }
+
+    @Test
+    @DisplayName("a hold's started report keeps its request open for the release report")
+    void holdAnswersTwice() {
+        ClientCapabilities.resetForTesting();
+        UUID player = UUID.fromString("44444444-4444-4444-4444-444444444444");
+        ClientCapabilities.expectAction(player, "hold", 30L, "h1");
+        assertTrue(ClientCapabilities.accept(player, new ClientActionReport("hold", "started", "", "", "", "h1", 30L)));
+        assertTrue(ClientCapabilities.accept(player, new ClientActionReport("hold", "done", "", "", "", "h1", 30L)));
+        assertFalse(ClientCapabilities.accept(player, new ClientActionReport("hold", "done", "", "", "", "h1", 30L)),
+                "settled by the release");
+        assertFalse(ClientCapabilities.accept(player, new ClientActionReport("hold", "started", "", "", "", "h1", 30L)));
+        ClientCapabilities.expectAction(player, "use", 31L, "u1");
+        assertFalse(ClientCapabilities.accept(player, new ClientActionReport("use", "started", "", "", "", "u1", 31L)),
+                "only a hold answers twice");
+        assertTrue(ClientCapabilities.accept(player, new ClientActionReport("use", "done", "", "", "", "u1", 31L)));
+        ClientCapabilities.resetForTesting();
     }
 
     @Test

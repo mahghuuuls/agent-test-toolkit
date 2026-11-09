@@ -19,8 +19,11 @@ public final class ClientActionReport implements IMessage {
 
     private static final int MAX_TEXT = 128;
 
-    /** A step's final results, and {@code left} for the half of a reconnect sent before leaving. */
-    static final java.util.List<String> RESULTS = java.util.Arrays.asList("done", "refused", "failed", "left");
+    /**
+     * A step's final results, {@code left} for the half of a reconnect sent before leaving, and
+     * {@code started} for the half of a hold sent when the input goes down.
+     */
+    static final java.util.List<String> RESULTS = java.util.Arrays.asList("done", "refused", "failed", "left", "started");
 
     private String step;
     private String result;
@@ -46,10 +49,20 @@ public final class ClientActionReport implements IMessage {
      * The extra fields a client may report. Fixed, so a client can neither overwrite a field the
      * server writes itself nor fill the record with names of its own.
      */
-    static final java.util.Set<String> FIELD_NAMES = java.util.Collections.unmodifiableSet(
-            new java.util.HashSet<String>(java.util.Arrays.asList(
+    static final java.util.Set<String> FIELD_NAMES = java.util.Collections.unmodifiableSet(fieldNames());
+
+    private static java.util.Set<String> fieldNames() {
+        java.util.Set<String> names = new java.util.HashSet<String>(java.util.Arrays.asList(
                     "slot", "target", "targetX", "targetY", "targetZ", "face", "targetBlock",
-                    "entityId", "entityType", "entityUuid", "held", "heldCount", "logout", "awayMs")));
+                    "entityId", "entityType", "entityUuid", "held", "heldCount", "logout", "awayMs",
+                    "focus", "input", "ticks", "heldTicks", "released", "all", "delay", "screenshot",
+                    "item", "count", "advanced", "keys", "keysSeen", "lines", "closed", "showTicks"));
+        // A tooltip's lines, as many as the client reports; its own record has more.
+        for (int i = 1; i <= 20; i++) {
+            names.add("line" + i);
+        }
+        return names;
+    }
 
     /** For Forge, which builds the message before reading it. */
     public ClientActionReport() {

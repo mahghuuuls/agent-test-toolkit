@@ -104,6 +104,12 @@ public enum EventType {
     SAVE,
 
     /**
+     * Something a test should know that is not an error of the toolkit, with {@code reason}: such
+     * as a single-player join whose name differs from the world owner's only in case.
+     */
+    WARNING,
+
+    /**
      * The overworld of a server loaded: {@code folder}, {@code seed}, and {@code sameAsSession} when
      * a session was active. Written before any other toolkit record of that world.
      */

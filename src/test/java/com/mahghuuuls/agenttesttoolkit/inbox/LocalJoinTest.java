@@ -97,4 +97,15 @@ class LocalJoinTest {
         assertFalse(LocalJoin.matches(null, secret), "no secret written: nothing matches");
         assertFalse(LocalJoin.matches("short", "short"));
     }
+
+    @Test
+    @DisplayName("a warning for the same name in another case only: the reported pair, not equal names, not other names")
+    void nameCase() {
+        assertTrue(LocalJoin.nameCaseDiffers("Mahghuuuls", "mahghuuuls"));
+        assertTrue(LocalJoin.nameCaseDiffers("mahghuuuls", "Mahghuuuls"));
+        assertFalse(LocalJoin.nameCaseDiffers("Developer", "Developer"));
+        assertFalse(LocalJoin.nameCaseDiffers("Steve", "Developer"));
+        assertFalse(LocalJoin.nameCaseDiffers(null, "Developer"));
+        assertFalse(LocalJoin.nameCaseDiffers("Developer", null));
+    }
 }

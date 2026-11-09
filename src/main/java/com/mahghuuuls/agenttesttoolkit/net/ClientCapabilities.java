@@ -182,8 +182,16 @@ public final class ClientCapabilities {
     static boolean accept(UUID player, ClientActionReport report) {
         if (com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions.isStep(report.getStep())) {
             java.util.LinkedHashSet<String> waiting = ACTIONS.get(player);
-            return waiting != null && !report.getToken().isEmpty()
-                    && waiting.remove(key(report.getStep(), report.getRequestTick()) + "#" + report.getToken());
+            if (waiting == null || report.getToken().isEmpty()) {
+                return false;
+            }
+            String expected = key(report.getStep(), report.getRequestTick()) + "#" + report.getToken();
+            // A hold answers twice: when the input goes down, and when it is released.
+            boolean started = "started".equals(report.getResult());
+            if (started && !com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions.HOLD.equals(report.getStep())) {
+                return false;
+            }
+            return started ? waiting.contains(expected) : waiting.remove(expected);
         }
         boolean reconnect = ClientActionRequest.RECONNECT.equals(report.getStep());
         Map<UUID, String> slot = reconnect ? RECONNECTS : OUTSTANDING;

@@ -138,7 +138,8 @@ public final class InboxPoller {
             record(context, "claimed", request, null);
             if (!request.isAccepted()) {
                 record(context, "refused", request, request.getRefusal());
-                InboxResult.refused(request, request.getRefusal()).writeTo(files.getDirectory());
+                InboxResult.refused(request, request.getRefusal()).with("detail", request.getDetail())
+                        .writeTo(files.getDirectory());
                 continue;
             }
             if (handler == null) {
@@ -200,6 +201,9 @@ public final class InboxPoller {
         InboxOpening opening = InboxGate.current();
         record.add("operator", opening == null ? null : opening.getOperatorName());
         record.add("reason", reason);
+        if (reason != null) {
+            record.add("detail", request.getDetail());
+        }
         ToolkitLog.write(record);
     }
 

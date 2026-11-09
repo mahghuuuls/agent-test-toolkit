@@ -221,6 +221,26 @@ A reconnect does not take you to another server or world, and it does nothing at
 
 There is no `done`: `left` is the client's last record. The inbox closes, with `operatorLeft` on a dedicated server, or `serverStopped` or `operatorLeft` in single player. A quit is not a reconnect: the inbox is not suspended, and nothing starts the game again. That stays with you.
 
+## Player actions
+
+From 1.7.0, small player actions on your own client. Same rules as the client actions: always your own client, the toolkit on it, and `B:allowActions=true`.
+
+| Command | What the client does |
+| --- | --- |
+| `devtool client select <0-8>` | Make that hotbar slot the held one |
+| `devtool client use` | One right click on what the crosshair is on |
+| `devtool client attack` | One left click on what the crosshair is on |
+| `devtool client hold use\|attack <ticks>` | Keep the input down for 1 to 1200 ticks, then let go |
+| `devtool client drop [all]` | Drop one of the held item, or the whole stack |
+| `devtool client inventory` | Open the inventory, as its key does |
+| `devtool client tooltip <0-40> [advanced] [shift] [ctrl] [alt]` | Show the inventory with that slot's tooltip and write its lines into the log; close after `showTicks=<ticks>` (default 20) |
+
+- Any action takes `delay=<ticks>` (0 to 1200) before it acts, and `screenshot=<label>` with `screenshotDelay=<ticks>` (0 to 200) for a picture after it.
+- A click goes through the game's key handling. The game's and Forge's events of the click fire as for a person; the raw mouse events do not. `result=done` means the toolkit made the input; read what the game did from its own records or an inspection.
+- The toolkit does not move or turn you. Aim in the bundle with `tp @s ~ ~ ~ <yaw> <pitch>`.
+- The server refuses a client older than 1.7.0 (`devtool.client.noClient`), one that does not allow actions, a click, hold, drop or tooltip asked of a dead player (`devtool.client.dead`), and anything during a reconnect. The client refuses `noWorld`, `screenOpen`, `unbound`, `emptySlot` and `modifierUnavailable`.
+- Every record says whether the game window had focus (`focus`). See `AGENTS.md`, Player actions, for every field.
+
 ## Command inbox
 
 | Command | Effect |

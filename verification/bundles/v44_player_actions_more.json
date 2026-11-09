@@ -1,0 +1,149 @@
+{
+  "v44_bow": {
+    "description": "Survival, a bow in hotbar slot 1 and 16 arrows in slot 9, looking level south over the v43 platform; selects 1 and holds use for 20 ticks. Expect CLIENT_ACTION step=hold result=started input=use, then result=done heldTicks=20 released=done, and 15 arrows left in INVENTORY_INSPECT (one shot: survival uses an arrow per shot). Run v43_platform first.",
+    "result": true,
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V44_BOW_BEGIN",
+      "gamemode survival",
+      "kill @e[type=minecraft:arrow]",
+      "replaceitem entity @s slot.hotbar.1 minecraft:bow",
+      "replaceitem entity @s slot.inventory.0 minecraft:arrow 16",
+      "tp @s 0.5 100 0.5 0 0",
+      { "command": "devtool client select 1", "delayTicks": 5 },
+      { "command": "devtool client hold use 20", "delayTicks": 5 },
+      { "command": "devtool inspect inventory", "delayTicks": 40 },
+      "devtool mark V44_BOW_END"
+    ]
+  },
+  "v44_hold_next": {
+    "description": "Survival, looking 45 degrees down at the stone floor, holds attack for 100 ticks; 40 ticks later a select of slot 2 arrives. Expect the hold released=nextAction with heldTicks about 40, before the select's done. Run v43_platform first.",
+    "result": true,
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V44_NEXT_BEGIN",
+      "gamemode survival",
+      "tp @s 0.5 100 0.5 0 45",
+      { "command": "devtool client hold attack 100", "delayTicks": 5 },
+      { "command": "devtool client select 2", "delayTicks": 40 },
+      { "command": "devtool mark V44_NEXT_END", "delayTicks": 10 }
+    ]
+  },
+  "v44_hold_screen": {
+    "description": "Survival with the bow of v44_bow, holds use for 200 ticks and cues the person to open their inventory. Expect the hold released=screenOpen when the inventory opens, then the close done. Run v44_bow first.",
+    "result": true,
+    "commands": [
+      "devtool mark V44_SCREEN_BEGIN",
+      "gamemode survival",
+      "tp @s 0.5 100 0.5 0 0",
+      { "command": "devtool client select 1", "delayTicks": 5 },
+      { "command": "devtool client hold use 200", "delayTicks": 5 },
+      "devtool checkpoint cue OPEN_INVENTORY_NOW title sound",
+      { "command": "devtool client close", "delayTicks": 120 },
+      { "command": "devtool mark V44_SCREEN_END", "delayTicks": 10 }
+    ]
+  },
+  "v44_hold_died": {
+    "description": "Survival with the bow, holds use for 200 ticks; 20 ticks later the caller is killed. Expect the hold released=died, then a respawn done. Run v44_bow first.",
+    "result": true,
+    "commands": [
+      "devtool mark V44_DIED_BEGIN",
+      "gamemode survival",
+      { "command": "devtool client select 1", "delayTicks": 5 },
+      { "command": "devtool client hold use 200", "delayTicks": 5 },
+      { "command": "kill @s", "delayTicks": 20 },
+      { "command": "devtool mark V44_DIED_END", "delayTicks": 10 },
+      { "command": "devtool client respawn", "delayTicks": 30 }
+    ]
+  },
+  "v44_drop": {
+    "description": "Survival, 10 dirt in hotbar slot 2, selected; drops one, then the rest. Expect CLIENT_ACTION step=drop all=false held=minecraft:dirt heldCount=10, then all=true heldCount=9, item entities near the caller (the first one item, then the stack of nine), and slot 2 empty in INVENTORY_INSPECT. Run v43_platform first.",
+    "result": true,
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V44_DROP_BEGIN",
+      "gamemode survival",
+      "kill @e[type=minecraft:item]",
+      "replaceitem entity @s slot.hotbar.2 minecraft:dirt 10",
+      "tp @s 0.5 100 0.5 0 0",
+      { "command": "devtool client select 2", "delayTicks": 5 },
+      { "command": "devtool client drop", "delayTicks": 5 },
+      { "command": "devtool entities nearby 8", "delayTicks": 10 },
+      { "command": "devtool client drop all", "delayTicks": 5 },
+      { "command": "devtool entities nearby 8", "delayTicks": 10 },
+      "devtool inspect inventory",
+      "kill @e[type=minecraft:item]",
+      "devtool mark V44_DROP_END"
+    ]
+  },
+  "v44_delay_shot": {
+    "description": "Creative, 16 stone in slot 3, looking 45 degrees down: an attack on air delayed 40 ticks (the server's reported worldTick minus requestTick is about 40), then a use that places stone at 0 100 2 with a screenshot labelled v44_after_use. Expect the attack record with delay=40, the use record with screenshot=v44_after_use, and SCREENSHOT side=CLIENT action=saved file=screenshots/v44_after_use-<requestTick>.png. Run v43_platform first.",
+    "result": true,
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V44_DELAY_BEGIN",
+      "gamemode creative",
+      { "command": "fill -2 100 -1 2 107 4 minecraft:air", "toleratedFailures": ["commands.fill.failed"] },
+      "replaceitem entity @s slot.hotbar.3 minecraft:stone 16",
+      "tp @s 0.5 100 0.5 0 -90",
+      { "command": "devtool client select 3", "delayTicks": 5 },
+      { "command": "devtool client attack delay=40", "delayTicks": 5 },
+      { "command": "tp @s 0.5 100 0.5 0 45", "delayTicks": 60 },
+      { "command": "devtool client use screenshot=v44_after_use", "delayTicks": 5 },
+      { "command": "devtool inspect block 0 100 2", "delayTicks": 20 },
+      "devtool mark V44_DELAY_END"
+    ]
+  },
+  "v44_inventory": {
+    "description": "Opens the inventory in survival, closes it, opens it in creative, closes it, then asks for two inventories in one tick: the second is refused screenOpen. Expect CLIENT_ACTION step=inventory result=done showing=net.minecraft.client.gui.inventory.GuiInventory, then showing=net.minecraft.client.gui.inventory.GuiContainerCreative, then one done and one refused reason=screenOpen. Run v43_platform first.",
+    "result": true,
+    "commands": [
+      "devtool mark V44_INVENTORY_BEGIN",
+      "gamemode survival",
+      { "command": "devtool client inventory", "delayTicks": 5 },
+      { "command": "devtool client close", "delayTicks": 20 },
+      { "command": "gamemode creative", "delayTicks": 10 },
+      { "command": "devtool client inventory", "delayTicks": 5 },
+      { "command": "devtool client close", "delayTicks": 20 },
+      { "command": "devtool client inventory", "delayTicks": 10 },
+      "devtool client inventory",
+      { "command": "devtool client close", "delayTicks": 20 },
+      { "command": "devtool mark V44_INVENTORY_END", "delayTicks": 10 }
+    ]
+  },
+  "v44_tooltip_items": {
+    "description": "Puts the tooltip fixtures in the hotbar: slot 0 a diamond sword named Tooltip Sword with two lore lines, slot 4 paper with 25 lore lines (L1 to L25), slot 7 empty. Expect V44_TOOLTIP_ITEMS.",
+    "commands": [
+      "replaceitem entity @s slot.hotbar.0 minecraft:diamond_sword 1 0 {display:{Name:\"Tooltip Sword\",Lore:[\"Lore one\",\"Lore two\"]}}",
+      "replaceitem entity @s slot.hotbar.4 minecraft:paper 1 0 {display:{Name:\"Long\",Lore:[\"L1\",\"L2\",\"L3\",\"L4\",\"L5\",\"L6\",\"L7\",\"L8\",\"L9\",\"L10\",\"L11\",\"L12\",\"L13\",\"L14\",\"L15\",\"L16\",\"L17\",\"L18\",\"L19\",\"L20\",\"L21\",\"L22\",\"L23\",\"L24\",\"L25\"]}}",
+      "replaceitem entity @s slot.hotbar.7 minecraft:air",
+      "devtool mark V44_TOOLTIP_ITEMS"
+    ]
+  },
+  "v44_tooltip": {
+    "description": "Tooltip views, one after another: slot 0 with a screenshot (line1 Tooltip Sword, the lore lines), slot 0 advanced (adds the item id line), slot 4 (lines=26 or more; the client's record has every lore line, the server's action=reported line1 to line20), slot 0 with shift (keys=shift; keysSeen=shift where the keyboard allows it), slot 7 (refused emptySlot), and slot 0 with showTicks=40 (closed=done about 40 ticks later). Run v44_tooltip_items first.",
+    "result": true,
+    "commands": [
+      "devtool mark V44_TOOLTIP_BEGIN",
+      "devtool client tooltip 0 screenshot=v44_tip",
+      { "command": "devtool client tooltip 0 advanced", "delayTicks": 40 },
+      { "command": "devtool client tooltip 4", "delayTicks": 40 },
+      { "command": "devtool client tooltip 0 shift ctrl", "delayTicks": 40 },
+      { "command": "devtool client tooltip 7", "delayTicks": 40 },
+      { "command": "devtool client tooltip 0 showTicks=40", "delayTicks": 10 },
+      { "command": "devtool mark V44_TOOLTIP_END", "delayTicks": 60 }
+    ]
+  },
+  "v44_tooltip_click": {
+    "description": "Opens the tooltip view of slot 0 for 200 ticks and cues the person to click and drag items in it. Inspects the inventory before and after. Expect the same slots and counts before and after, and the view closed=done or closed=person. Run v44_tooltip_items first.",
+    "result": true,
+    "commands": [
+      "devtool mark V44_CLICK_BEGIN",
+      "devtool inspect inventory",
+      "devtool client tooltip 0 showTicks=200",
+      "devtool checkpoint cue CLICK_ITEMS_NOW title sound",
+      { "command": "devtool inspect inventory", "delayTicks": 220 },
+      "devtool mark V44_CLICK_END"
+    ]
+  }
+}

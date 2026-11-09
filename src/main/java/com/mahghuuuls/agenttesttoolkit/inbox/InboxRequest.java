@@ -53,13 +53,16 @@ public final class InboxRequest {
     private final String verb;
     private final String commandLine;
     private final String refusal;
+    /** What a refusal adds for the writer, such as the accepted form; null for none. */
+    private final String detail;
 
-    private InboxRequest(String id, String line, String verb, String commandLine, String refusal) {
+    private InboxRequest(String id, String line, String verb, String commandLine, String refusal, String detail) {
         this.id = id;
         this.line = line;
         this.verb = verb;
         this.commandLine = commandLine;
         this.refusal = refusal;
+        this.detail = detail;
     }
 
     /** True when a file name stem may be a request id. Anything else is ignored, not refused. */
@@ -136,6 +139,10 @@ public final class InboxRequest {
             }
             return accepted(id, line, verb, "devtool " + verb + " " + join(args));
         }
+        if ("devtool".equals(verb) && args.length > 0) {
+            // The inbox adds the root itself; the same line without it is what was meant.
+            return new InboxRequest(id, line, verb, null, REASON_VERB_NOT_ALLOWED, "use:" + join(args));
+        }
         return refused(id, line, verb, REASON_VERB_NOT_ALLOWED);
     }
 
@@ -181,15 +188,20 @@ public final class InboxRequest {
     }
 
     private static InboxRequest accepted(String id, String line, String verb, String commandLine) {
-        return new InboxRequest(id, line, verb, commandLine, null);
+        return new InboxRequest(id, line, verb, commandLine, null, null);
     }
 
     private static InboxRequest refused(String id, String line, String verb, String reason) {
-        return new InboxRequest(id, line, verb, null, reason);
+        return new InboxRequest(id, line, verb, null, reason, null);
     }
 
     public String getId() {
         return id;
+    }
+
+    /** For a refusal, what the writer may need, such as {@code use:client respawn}; null for none. */
+    public String getDetail() {
+        return detail;
     }
 
     /** The request line as written, trimmed, or a shortened form when it was malformed. */

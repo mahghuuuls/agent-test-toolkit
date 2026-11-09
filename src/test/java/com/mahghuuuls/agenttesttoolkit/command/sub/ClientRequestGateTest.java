@@ -18,7 +18,7 @@ class ClientRequestGateTest {
     @Test
     @DisplayName("a player action goes only to a client that said hello with 1.7.0, whatever it allows")
     void actionsNeedTheNewClient() {
-        for (String step : new String[] {"select", "use", "attack"}) {
+        for (String step : new String[] {"select", "use", "attack", "hold", "drop", "inventory", "tooltip"}) {
             assertNull(ClientRequestGate.refusal(step, false, client("1.7.0", Boolean.TRUE)), step);
             assertEquals(Refusal.CLIENT_TOO_OLD, ClientRequestGate.refusal(step, false, client("1.6.0", Boolean.TRUE)));
             assertEquals(Refusal.CLIENT_TOO_OLD, ClientRequestGate.refusal(step, false, client("1.6.0", Boolean.FALSE)),
@@ -40,6 +40,10 @@ class ClientRequestGateTest {
         assertEquals(Refusal.CLIENT_TOO_OLD,
                 ClientRequestGate.refusal("use", false, new Facts(true, false, true, Boolean.TRUE, "1.6.0")));
         assertEquals("devtool.client.dead", Refusal.DEAD.key);
+        assertEquals(Refusal.DEAD, ClientRequestGate.refusal("hold", false, deadNew));
+        assertEquals(Refusal.DEAD, ClientRequestGate.refusal("drop", false, deadNew));
+        assertNull(ClientRequestGate.refusal("inventory", false, deadNew));
+        assertEquals(Refusal.DEAD, ClientRequestGate.refusal("tooltip", false, deadNew));
     }
 
     @Test

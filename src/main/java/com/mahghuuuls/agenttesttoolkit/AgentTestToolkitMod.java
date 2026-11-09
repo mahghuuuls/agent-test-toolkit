@@ -123,6 +123,9 @@ public class AgentTestToolkitMod {
                 new com.mahghuuuls.agenttesttoolkit.command.InboxDispatch());
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.scenario.Scenarios());
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.session.WorldChangeListener());
+        // Beside the world listener: a warning at a single-player join whose name differs from
+        // the owner's only in case.
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.session.HostNameListener());
         // After the world listener, so the WORLD record and the current world key come first.
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.inbox.InboxRejoinListener());
         // After the world and rejoin listeners: a local join opens the inbox only once the world

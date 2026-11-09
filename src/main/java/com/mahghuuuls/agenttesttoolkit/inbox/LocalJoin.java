@@ -37,6 +37,16 @@ public final class LocalJoin {
     static final int SECRET_LENGTH = 32;
     private static final Charset UTF8 = Charset.forName("UTF-8");
 
+    /**
+     * True when two names are the same name in another case. The game reads the single-player
+     * host's data from the world file only on an exact match, so such a pair reads another copy.
+     * Names that differ otherwise are another player, not a warning.
+     */
+    public static boolean nameCaseDiffers(String playerName, String ownerName) {
+        return playerName != null && ownerName != null && playerName.equalsIgnoreCase(ownerName)
+                && !playerName.equals(ownerName);
+    }
+
     private LocalJoin() {
     }
 

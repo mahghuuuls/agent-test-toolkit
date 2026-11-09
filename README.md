@@ -145,6 +145,20 @@ NBT goes to the log, bounded by a configurable limit, and truncation is always r
 
 Four steps you used to do by hand: leave the world and come back to the same place, press Respawn on the death screen, close the open screen, close the game. They always act on your own client, never another player's, and only when your client has the toolkit and allows it with `B:allowActions=true` under `client`. Off by default.
 
+### Player actions
+
+```
+/devtool client select 3
+/devtool client use screenshot=after_use
+/devtool client attack
+/devtool client hold use 20
+/devtool client drop all
+/devtool client inventory
+/devtool client tooltip 0 shift screenshot=tip
+```
+
+From 1.7.0, small player actions on your own client, so a test whose action is a click needs no person: pick a hotbar slot, right click, left click, keep a mouse button down for a time, drop the held item, open the inventory, or show an item's tooltip (with Shift, Ctrl or Alt held for it if asked) and write its lines into the log. A click goes through the game's own key handling, so the game and other mods see it as a click; what it does is the game's decision. The toolkit never moves or turns you: a bundle aims with vanilla `tp`. Same rules as the client actions above.
+
 ### Client request channel
 
 At the title screen no server runs, so nothing above can reach the game. With `B:requestChannel=true` under `client`, your client reads small request files from `config/devtool/client-inbox/` and takes one of four menu steps: create a single-player world with the settings the Create New World screen offers, open a save, connect to a server on your own computer or local network, or quit. A create never replaces an existing save, and a connect never goes anywhere outside your own network. Off by default; with it on, it listens from game start, with no click. Together with the inbox opening at your own join, an AI assistant can run a whole test from the title screen to closing the game while you only launch it.

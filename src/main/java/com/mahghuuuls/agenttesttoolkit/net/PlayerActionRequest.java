@@ -18,6 +18,12 @@ public final class PlayerActionRequest implements IMessage {
 
     private String step;
     private int slot;
+    /** {@code use} or {@code attack} for a hold, {@code all} for a whole-stack drop; empty otherwise. */
+    private String argument;
+    private int ticks;
+    private int delay;
+    private String screenshot;
+    private int screenshotDelay;
     /** Tells this request's answer from another of the same step asked in the same tick. */
     private String token;
     private long requestTick;
@@ -27,23 +33,48 @@ public final class PlayerActionRequest implements IMessage {
     }
 
     public PlayerActionRequest(PlayerActionOptions action, String token, long requestTick) {
-        this(action.getStep(), action.getSlot(), token, requestTick);
+        this(action.getStep(), action.getSlot(), action.getArgument(), action.getTicks(), token, requestTick);
+        this.delay = action.getDelay();
+        this.screenshot = action.getScreenshot();
+        this.screenshotDelay = action.getScreenshotDelay();
     }
 
     /** For tests: any values, valid or not. */
-    PlayerActionRequest(String step, int slot, String token, long requestTick) {
+    PlayerActionRequest(String step, int slot, String argument, int ticks, String token, long requestTick) {
         this.step = step;
         this.slot = slot;
+        this.argument = argument;
+        this.ticks = ticks;
         this.token = token;
         this.requestTick = requestTick;
+        this.screenshot = "";
+    }
+
+    /** For tests: the options. */
+    PlayerActionRequest withOptions(int delay, String screenshot, int screenshotDelay) {
+        this.delay = delay;
+        this.screenshot = screenshot;
+        this.screenshotDelay = screenshotDelay;
+        return this;
     }
 
     public boolean isValid() {
-        return PlayerActionOptions.isValid(step, slot) && ClientActionRequest.isValidToken(token);
+        return PlayerActionOptions.isValid(step, slot, argument, ticks) && ClientActionRequest.isValidToken(token)
+                && PlayerActionOptions.isValidOptions(delay, screenshot, screenshotDelay)
+                && (!isTooltip() || PlayerActionOptions.screenshotFitsTooltip(ticks, screenshot, screenshotDelay));
     }
 
-    public String getToken() {
-        return token;
+    public int getDelay() {
+        return delay;
+    }
+
+    /** The label of the screenshot taken after the action; empty for none. */
+    public String getScreenshot() {
+        return screenshot;
+    }
+
+    public int getScreenshotDelay() {
+        return screenshotDelay;
     }
 
     public String getStep() {
@@ -63,8 +94,56 @@ public final class PlayerActionRequest implements IMessage {
         return PlayerActionOptions.ATTACK.equals(step);
     }
 
+    public boolean isHold() {
+        return PlayerActionOptions.HOLD.equals(step);
+    }
+
+    /** For a hold: the use input is held; otherwise the attack input. */
+    public boolean holdsUse() {
+        return PlayerActionOptions.USE.equals(argument);
+    }
+
+    public boolean isDrop() {
+        return PlayerActionOptions.DROP.equals(step);
+    }
+
+    /** For a drop: the whole held stack. */
+    public boolean dropsAll() {
+        return PlayerActionOptions.ALL.equals(argument);
+    }
+
+    public boolean isInventory() {
+        return PlayerActionOptions.INVENTORY.equals(step);
+    }
+
+    public boolean isTooltip() {
+        return PlayerActionOptions.TOOLTIP.equals(step);
+    }
+
+    /** For a tooltip: the advanced (F3+H) form. */
+    public boolean isAdvanced() {
+        return isTooltip() && PlayerActionOptions.advancedOf(argument);
+    }
+
+    /** For a tooltip: the modifier keys read as held, {@code shift,ctrl,alt} in that order; empty for none. */
+    public String modifierKeys() {
+        return isTooltip() ? PlayerActionOptions.modifierKeysOf(argument) : "";
+    }
+
     public int getSlot() {
         return slot;
+    }
+
+    public String getArgument() {
+        return argument;
+    }
+
+    public int getTicks() {
+        return ticks;
+    }
+
+    public String getToken() {
+        return token;
     }
 
     public long getRequestTick() {
@@ -75,6 +154,11 @@ public final class PlayerActionRequest implements IMessage {
     public void fromBytes(ByteBuf buf) {
         step = ByteBufUtils.readUTF8String(buf);
         slot = buf.readInt();
+        argument = ByteBufUtils.readUTF8String(buf);
+        ticks = buf.readInt();
+        delay = buf.readInt();
+        screenshot = ByteBufUtils.readUTF8String(buf);
+        screenshotDelay = buf.readInt();
         token = ByteBufUtils.readUTF8String(buf);
         requestTick = buf.readLong();
     }
@@ -83,6 +167,11 @@ public final class PlayerActionRequest implements IMessage {
     public void toBytes(ByteBuf buf) {
         ByteBufUtils.writeUTF8String(buf, step);
         buf.writeInt(slot);
+        ByteBufUtils.writeUTF8String(buf, argument);
+        buf.writeInt(ticks);
+        buf.writeInt(delay);
+        ByteBufUtils.writeUTF8String(buf, screenshot);
+        buf.writeInt(screenshotDelay);
         ByteBufUtils.writeUTF8String(buf, token);
         buf.writeLong(requestTick);
     }

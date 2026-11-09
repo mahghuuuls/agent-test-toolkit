@@ -180,6 +180,31 @@ class InboxRequestTest {
         assertRefused("client use now", InboxRequest.REASON_BAD_ARGUMENTS);
         assertRefused("client attack Developer", InboxRequest.REASON_BAD_ARGUMENTS);
         assertRefused("client Use", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertEquals("devtool client hold use 20", parse("client hold use 20").getCommandLine());
+        assertEquals("devtool client drop all", parse("client drop all").getCommandLine());
+        assertEquals("devtool client inventory", parse("client inventory").getCommandLine());
+        assertRefused("client hold use 1201", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client drop 3", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertEquals("devtool client use screenshot=after_use", parse("client use screenshot=after_use").getCommandLine());
+        assertEquals("devtool client attack delay=40", parse("client attack delay=40").getCommandLine());
+        assertRefused("client use delay=1201", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client use screenshotDelay=4", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertEquals("devtool client tooltip 0 screenshot=tip", parse("client tooltip 0 screenshot=tip").getCommandLine());
+        assertEquals("devtool client tooltip 40 advanced showTicks=40", parse("client tooltip 40 advanced showTicks=40").getCommandLine());
+        assertRefused("client tooltip 41", InboxRequest.REASON_BAD_ARGUMENTS);
+    }
+
+    @Test
+    @DisplayName("a line written with the devtool root is refused with the accepted line as detail")
+    void devtoolPrefix() {
+        InboxRequest withRoot = parse("devtool client respawn");
+        assertFalse(withRoot.isAccepted());
+        assertEquals(InboxRequest.REASON_VERB_NOT_ALLOWED, withRoot.getRefusal());
+        assertEquals("use:client respawn", withRoot.getDetail());
+        assertEquals("use:run v42_world_prepare", parse("/devtool run v42_world_prepare").getDetail());
+        assertEquals(null, parse("devtool").getDetail(), "nothing to name");
+        assertEquals(null, parse("teleport x").getDetail(), "another verb: no detail");
+        assertEquals(null, parse("client respawn").getDetail(), "accepted: no detail");
     }
 
     @Test

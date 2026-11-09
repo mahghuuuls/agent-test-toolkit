@@ -73,6 +73,7 @@ The toolkit's own failure keys are tolerated the same way, by declaring them:
 | `devtool.client.noClient` | Your own client does not have the toolkit, or has one older than 1.4.0, for a `devtool client` step. For `quit`, also a client that allows actions but has a toolkit older than 1.5.0; one that has not allowed actions gets `devtool.client.notAllowed` |
 | `devtool.client.notAllowed` | Your client has not allowed client actions |
 | `devtool.client.notDead` | A respawn was asked of a living player |
+| `devtool.client.dead` | A click, hold, drop or tooltip was asked of a dead player (1.7.0) |
 | `devtool.client.busy` | Your client is on a reconnect, from the request until it is back and reported |
 | `devtool.baubles.absent` | Baubles is not installed |
 | `devtool.baubles.rejected` | A bauble slot refused the item |

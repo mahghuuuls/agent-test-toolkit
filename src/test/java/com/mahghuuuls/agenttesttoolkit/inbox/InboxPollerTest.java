@@ -160,6 +160,20 @@ class InboxPollerTest {
         assertTrue(refused.contains("reason=verbNotAllowed"), refused);
         assertTrue(refused.contains("id=a1"), refused);
         assertTrue(refused.contains("operator=Dev"), refused);
+        assertFalse(refused.contains("detail="), "no detail for another verb");
+    }
+
+    @Test
+    @DisplayName("a line written with the devtool root is refused with the accepted line in the record and the result file")
+    void refusedWithDetail(@TempDir File dir) throws Exception {
+        InboxGate.open(true, OWNER, "Dev", CONTEXT);
+        write(dir, "a2.req", "devtool client respawn");
+        assertEquals(1, InboxPoller.pollOnce(new InboxFiles(dir), new Recorder(), null, CONTEXT, true));
+        String refused = records("refused").get(0);
+        assertTrue(refused.contains("reason=verbNotAllowed"), refused);
+        assertTrue(refused.contains("detail=\"use:client respawn\""), refused);
+        String result = new String(java.nio.file.Files.readAllBytes(new File(dir, "a2.result.json").toPath()), "UTF-8");
+        assertTrue(result.contains("\"detail\": \"use:client respawn\""), result);
     }
 
     @Test
