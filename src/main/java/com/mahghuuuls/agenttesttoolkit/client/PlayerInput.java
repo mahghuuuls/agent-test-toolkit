@@ -9,6 +9,7 @@ import com.mahghuuuls.agenttesttoolkit.net.PlayerActionRequest;
 import com.mahghuuuls.agenttesttoolkit.net.ScreenshotRequest;
 import com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGameOver;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
@@ -162,8 +163,7 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver {
             h.heldTicks++;
         }
         boolean worldOpen = mc.world != null && mc.player != null;
-        String released = HoldRelease.reason(worldOpen,
-                worldOpen && !mc.player.isDead && mc.player.getHealth() > 0.0F, mc.currentScreen != null,
+        String released = HoldRelease.reason(worldOpen, worldOpen && !died(mc), mc.currentScreen != null,
                 h.focusedAtStart, Display.isActive(), nextAction, h.heldTicks, h.request.getTicks());
         if (released == null) {
             KeyBinding.setKeyBindState(h.binding.getKeyCode(), true);
@@ -195,7 +195,7 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver {
         String closed = null;
         if (mc.world == null || mc.player == null) {
             closed = "left";
-        } else if (mc.player.isDead || mc.player.getHealth() <= 0.0F) {
+        } else if (died(mc)) {
             closed = "died";
         } else if (mc.currentScreen != t.view) {
             closed = mc.currentScreen == null ? "person" : "replaced";
@@ -210,6 +210,15 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver {
         tooltip = null;
         t.fields.put("closed", closed);
         finish(mc, t.request, "done", null, screenName(mc.currentScreen), null, t.fields);
+    }
+
+    /**
+     * Whether the player has died. The death screen can arrive a tick before the health: the
+     * server sends the death, which opens it, before the health update that brings the health
+     * to 0. A death screen another mod puts in its place is not recognised here.
+     */
+    private static boolean died(Minecraft mc) {
+        return mc.player.isDead || mc.player.getHealth() <= 0.0F || mc.currentScreen instanceof GuiGameOver;
     }
 
     /** Opens the tooltip view. Its record waits for the view to close. */
