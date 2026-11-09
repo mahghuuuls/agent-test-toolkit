@@ -150,7 +150,36 @@ class InboxRequestTest {
         assertRefused("client reconnect -1", InboxRequest.REASON_BAD_ARGUMENTS);
         assertRefused("client respawn Developer", InboxRequest.REASON_BAD_ARGUMENTS);
         assertRefused("client close now", InboxRequest.REASON_BAD_ARGUMENTS);
-        assertRefused("client attack", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client move", InboxRequest.REASON_BAD_ARGUMENTS);
+    }
+
+    @Test
+    @DisplayName("client reconnect takes logout as its last word, with or without an away time")
+    void reconnectLogout() {
+        assertEquals("devtool client reconnect logout", parse("client reconnect logout").getCommandLine());
+        assertEquals("devtool client reconnect 3 logout", parse("client reconnect 3 logout").getCommandLine());
+        assertRefused("client reconnect logout 3", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client reconnect 3 logout logout", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client reconnect Logout", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client reconnect 99 logout", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client quit logout", InboxRequest.REASON_BAD_ARGUMENTS);
+    }
+
+    @Test
+    @DisplayName("client takes the player actions select 0 to 8, use and attack, with nothing else")
+    void playerActions() {
+        assertEquals("devtool client select 0", parse("client select 0").getCommandLine());
+        assertEquals("devtool client select 8", parse("client select 8").getCommandLine());
+        assertEquals("devtool client use", parse("client use").getCommandLine());
+        assertEquals("devtool client attack", parse("client attack").getCommandLine());
+        assertRefused("client select", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client select 9", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client select -1", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client select 01", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client select 1 2", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client use now", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client attack Developer", InboxRequest.REASON_BAD_ARGUMENTS);
+        assertRefused("client Use", InboxRequest.REASON_BAD_ARGUMENTS);
     }
 
     @Test

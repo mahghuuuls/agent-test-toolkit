@@ -35,9 +35,15 @@ public final class ToolkitChannel {
         void serverHello(String serverVersion);
     }
 
+    /** What the client does with a player action. Installed only on a client. */
+    public interface PlayerActionReceiver {
+        void receive(PlayerActionRequest request);
+    }
+
     private static volatile SimpleNetworkWrapper channel;
     private static volatile ClientReceiver receiver;
     private static volatile ActionReceiver actionReceiver;
+    private static volatile PlayerActionReceiver playerActionReceiver;
 
     private ToolkitChannel() {
     }
@@ -51,7 +57,16 @@ public final class ToolkitChannel {
         wrapper.registerMessage(new ClientActionReport.Handler(), ClientActionReport.class, 3, Side.SERVER);
         wrapper.registerMessage(new ServerHello.Handler(), ServerHello.class, 4, Side.CLIENT);
         wrapper.registerMessage(new LocalJoinProof.Handler(), LocalJoinProof.class, 5, Side.SERVER);
+        wrapper.registerMessage(new PlayerActionRequest.Handler(), PlayerActionRequest.class, 6, Side.CLIENT);
         channel = wrapper;
+    }
+
+    public static void setPlayerActionReceiver(PlayerActionReceiver receiver) {
+        playerActionReceiver = receiver;
+    }
+
+    static PlayerActionReceiver playerActionReceiver() {
+        return playerActionReceiver;
     }
 
     public static void setClientReceiver(ClientReceiver clientReceiver) {
@@ -114,6 +129,13 @@ public final class ToolkitChannel {
     /** 1.5.0: a client that takes `quit`, and a server that reads a local-join proof. */
     public static final int[] VERSION_1_5_0 = {1, 5, 0};
 
+    /**
+     * 1.7.0: a client that reads player actions, and a server that reads the extra fields of a
+     * report. An older client has no handler for the player-action message and would drop the
+     * connection on it.
+     */
+    public static final int[] VERSION_1_7_0 = {1, 7, 0};
+
     /** Numeric parts compared in order; anything unreadable counts as older. */
     public static boolean atLeast(String version, int[] minimum) {
         String[] parts = version.split("[.-]");
@@ -150,6 +172,11 @@ public final class ToolkitChannel {
 
     /** Sends a lifecycle step. The caller has checked {@link #canReceive} first. */
     public static void send(ClientActionRequest request, EntityPlayerMP player) {
+        channel.sendTo(request, player);
+    }
+
+    /** Sends a player action. The caller has checked the client said hello at 1.7.0 or later. */
+    public static void send(PlayerActionRequest request, EntityPlayerMP player) {
         channel.sendTo(request, player);
     }
 

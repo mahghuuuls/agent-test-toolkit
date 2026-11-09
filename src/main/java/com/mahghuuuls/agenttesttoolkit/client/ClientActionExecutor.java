@@ -123,6 +123,11 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
         int idleTicks;
         /** A quit: leave as a reconnect does, then close the game instead of rejoining. */
         boolean quit;
+        /**
+         * The leave logs the player out: always from a remote server, and in single player only
+         * when asked, since there it leaves without the pause menu's quitting packet by default.
+         */
+        boolean logsOut;
         /** LEAVING: the connection is no longer read, since then. */
         boolean readStopped;
         long readStoppedAtMillis;
@@ -243,9 +248,14 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
                     .add("step", ClientActionRequest.RECONNECT)
                     .add("result", "done")
                     .add("awayMs", away)
+                    .add("logout", done.logsOut)
                     .add("requestTick", done.request.getRequestTick()));
+            java.util.Map<String, String> fields = new java.util.LinkedHashMap<String, String>();
+            fields.put("awayMs", String.valueOf(away));
+            fields.put("logout", String.valueOf(done.logsOut));
             ToolkitChannel.sendToServer(new ClientActionReport(ClientActionRequest.RECONNECT, "done", null,
-                    null, null, done.request.getToken(), done.request.getRequestTick()));
+                    null, null, done.request.getToken(), done.request.getRequestTick())
+                    .withFields(serverReadsFields() ? fields : null));
         }
     }
 
@@ -451,11 +461,15 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
         if (mc.isIntegratedServerRunning()) {
             reconnect = new Reconnect(request, mc.getIntegratedServer().getFolderName(),
                     mc.getIntegratedServer().getWorldName(), null);
+            reconnect.logsOut = request.isLogout();
         } else {
             reconnect = new Reconnect(request, null, null, mc.getCurrentServerData());
+            reconnect.logsOut = true;
         }
         // Said before leaving, while the server can still hear it.
-        finish(request, "left", null, screenName(mc.currentScreen), null);
+        java.util.Map<String, String> fields = new java.util.LinkedHashMap<String, String>();
+        fields.put("logout", String.valueOf(reconnect.logsOut));
+        finish(request, "left", null, screenName(mc.currentScreen), null, fields);
     }
 
     /**
@@ -551,6 +565,14 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
                 mc.world.sendQuittingDisconnectingPacket();
                 mc.loadWorld(null);
                 mc.displayGuiScreen(new GuiMultiplayer(new GuiMainMenu()));
+            } else if (r.logsOut) {
+                // Single player, asked to log out: the pause menu's Save and Quit, in its order,
+                // so the server logs the player out before it stops. The default below skips
+                // the packet because of a shutdown hang seen once from the toolkit's tick; this
+                // path is used only when a test asks for the logout.
+                mc.world.sendQuittingDisconnectingPacket();
+                mc.loadWorld(null);
+                mc.displayGuiScreen(new GuiMainMenu());
             } else {
                 // Single player: no quitting packet first. Sending it lets the integrated server
                 // notice its host left and stop its loop before the shutdown the client waits
@@ -676,18 +698,39 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
     }
 
     /** One record on the client, one report to the server. */
-    private static void finish(ClientActionRequest request, String result, String reason, String screen,
-                               String showing) {
+    private void finish(ClientActionRequest request, String result, String reason, String screen,
+                        String showing) {
+        finish(request, result, reason, screen, showing, null);
+    }
+
+    /**
+     * With fields: in the client's record always, in the report only to a server that reads
+     * them, since an older one would not expect the extra bytes.
+     */
+    private void finish(ClientActionRequest request, String result, String reason, String screen,
+                        String showing, java.util.Map<String, String> fields) {
         LogRecord record = LogRecord.of(EventType.CLIENT_ACTION)
                 .add("side", "CLIENT")
                 .add("step", request.getStep())
                 .add("result", result)
                 .add("reason", reason)
                 .add("screen", screen)
-                .add("showing", showing)
-                .add("requestTick", request.getRequestTick());
+                .add("showing", showing);
+        if (fields != null) {
+            for (java.util.Map.Entry<String, String> field : fields.entrySet()) {
+                record.add(field.getKey(), field.getValue());
+            }
+        }
+        record.add("requestTick", request.getRequestTick());
         ToolkitLog.write(record);
         ToolkitChannel.sendToServer(new ClientActionReport(
-                request.getStep(), result, reason, screen, showing, null, request.getRequestTick()));
+                request.getStep(), result, reason, screen, showing, null, request.getRequestTick())
+                .withFields(serverReadsFields() ? fields : null));
+    }
+
+    /** The server said hello with 1.7.0 or later, so a report may carry extra fields. */
+    private boolean serverReadsFields() {
+        String version = serverVersion;
+        return version != null && ToolkitChannel.atLeast(version, ToolkitChannel.VERSION_1_7_0);
     }
 }

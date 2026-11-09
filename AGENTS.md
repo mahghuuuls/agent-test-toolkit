@@ -296,7 +296,8 @@ NBT goes to the log, never to chat, and is truncated at `maxNbtOutputLength`. Tr
 | `devtool reload` | Re-read bundles and configuration from disk. Writes `RELOAD trigger=command`. The same reload runs at every server start with `trigger=serverStart` |
 | `devtool save` | Save player data and every loaded world, on single player and dedicated servers alike. Leaves each world's saving flag as it found it, so a `save-off` typed earlier stays off. Writes `SAVE`. A failure writes an `ERROR` and fails with `devtool.save.failed`. Vanilla `save-all` exists on a dedicated server only and needs level 4; this needs level 2 |
 | `devtool screenshot <label> [delayTicks] [player]` | Ask a player's client to save a screenshot after the delay. The label is 1 to 48 letters, digits, `_` or `-`; the delay is 0 to 600 ticks, default 0. The target is the named player, else the sender, which in a bundle is its caller and through the inbox is the inbox operator. The client must have the toolkit installed, or the command fails with `devtool.screenshot.noClient` and nothing is sent |
-| `devtool client reconnect [awaySeconds]\|respawn\|close\|quit` | Ask your own client to leave and come back, press Respawn on the death screen, close the open screen, or close the game. See [Client actions](#client-actions) |
+| `devtool client reconnect [awaySeconds] [logout]\|respawn\|close\|quit` | Ask your own client to leave and come back, press Respawn on the death screen, close the open screen, or close the game. See [Client actions](#client-actions) |
+| `devtool client select <0-8>\|use\|attack` | Ask your own client to hold a hotbar slot, right click once, or left click once. See [Player actions](#player-actions) |
 | `devtool inbox open\|close\|status` | Open, close or report the command inbox. See [The command inbox](#the-command-inbox) |
 | `devtool bundle list` | Loaded bundles and their command counts |
 | `devtool bundle show <name>` | One bundle's commands in order, with delays |
@@ -316,7 +317,7 @@ Four steps a person used to do by hand, so a test can run them from a bundle or 
 
 | Command | What the client does |
 | --- | --- |
-| `devtool client reconnect [awaySeconds]` | Leaves the world, waits `awaySeconds` (0 to 60, default 0) at the menu, and comes back to the same place: the same server entry on a dedicated server, the same save in single player, saved in full before it stopped |
+| `devtool client reconnect [awaySeconds] [logout]` | Leaves the world, waits `awaySeconds` (0 to 60, default 0) at the menu, and comes back to the same place: the same server entry on a dedicated server, the same save in single player, saved in full before it stopped. With `logout` (from 1.7.0), a single-player leave logs the player out as Save and Quit does; see [A reconnect and the logout](#a-reconnect-and-the-logout) |
 | `devtool client respawn` | Presses Respawn on the death screen, once its buttons are enabled (20 ticks). Waits up to 100 ticks for a death screen still opening |
 | `devtool client close` | Closes the open screen the way Escape does, telling the server when it is a container. A tick later it records what is showing |
 | `devtool client quit` | Closes the game. Reports `left` first, then leaves as a reconnect does and closes the game instead of coming back. In single player the world is saved as the game stops; on a dedicated server the client disconnects cleanly first |
@@ -343,6 +344,37 @@ Four steps a person used to do by hand, so a test can run them from a bundle or 
 **What reconnect does not do.** It does not take you to another server or world, and it does nothing at the title screen: once the client is at the menu, no server can reach it. At the menu, the [client request channel](#the-client-request-channel) is the way in.
 
 **A quit, step by step.** The client writes `result=left` and reports it, waits as a reconnect does, so the run or request that asked is answered first, and stops reading the connection. On a dedicated server it then disconnects as the pause menu does; then it closes the game. In single player the integrated server stops with the game and saves the world. There is no `done`: `left` is the client's last record, and the game process ends. The inbox closes, with `operatorLeft` on a dedicated server, or `serverStopped` or `operatorLeft` in single player, and `status.json` is deleted. **A quit is not a reconnect**: the inbox is not suspended, and nothing starts the game again. Starting it again is the owner's.
+
+
+### A reconnect and the logout
+
+**In single player a reconnect does not log the player out unless asked.** Its leave stops the integrated server without the quitting packet the pause menu sends first, because sending that packet from the toolkit once let the server stop before the client's shutdown and hang. So by default the server never writes `left the game` and `PlayerLoggedOutEvent` does not fire: a test of what a mod does at logout passes for the wrong reason. Add `logout` (`client reconnect 3 logout`, client and server 1.7.0 or later) to leave as Save and Quit does, quitting packet first, so the player is logged out before the world stops. On a dedicated server every reconnect logs the player out, with or without the word. A client older than 1.7.0 is refused `logout` with `devtool.client.noClient`, since it would leave without the logout; without the word it reconnects as before.
+
+The reconnect's records say which happened: `logout=true` or `logout=false` on the server's `action=requested`, on the client's `left` and `done`, and in their reports.
+
+**What the logout brings with it in single player.** The server handles the host's leave as any logout: the inbox writes `INBOX action=suspended reason=reconnect` at the logout (not at the server's stop), and a bound session operator is unbound (`OPERATOR action=unbound reason=disconnect`), as on a dedicated server. A bundle that uses operator placeholders after the return binds the operator again first.
+
+**One record when the client is back.** When the reconnect's client returns with its token, the server writes `CLIENT_ACTION action=returned` with `player`, `uuid`, `requestId` (the inbox request that asked for the reconnect, when one did), `awayMs` (the client's own measure, from its leave to its return; for a client older than 1.7.0, which does not report it, the server's, from the request to the return), `logout`, `remote` (the connection's address) and `connection` (a number counted from 1 since the process that runs the server started, the game itself in single player, new at every connection), before the inbox writes `action=resumed`. A test that waits for the return reads this one record. A client that comes back with another token writes none.
+
+### Player actions
+
+From 1.7.0 the toolkit can also take a few small player actions on your own client, so a test whose action is a click can run with no person:
+
+| Command | What the client does |
+| --- | --- |
+| `devtool client select <0-8>` | Makes that hotbar slot the held one, as its number key does |
+| `devtool client use` | One right click with the held item, on what the crosshair is on: a block, an entity, or the air |
+| `devtool client attack` | One left click on what the crosshair is on |
+
+**A click goes through the game's key bindings.** The toolkit counts one press of the key bound to use or attack, and the game turns that into its own click on its next tick, through the same code a mouse click reaches. So the game's and Forge's events of the click itself fire as for a person (the interact and attack events, the item use), and what the click does is the game's decision. What does not fire: the raw mouse input events (Forge's `MouseEvent` and `InputEvent.MouseInputEvent`), since no mouse button is pressed, and the key is not held down: one `attack` on a block breaks it in creative, and in survival breaks only a block that breaks at once, as one quick click does; it does not keep breaking the way a held button does. A key bound with a modifier (Ctrl, Shift or Alt) is not pressed, though the record still says `done`; keep the use and attack keys on plain mouse buttons. `result=done` means the toolkit made the input. What the game then did is read from the game's own records and the toolkit's inspections, such as `devtool inspect block` for a placed block or the target's health after an attack.
+
+**The toolkit does not move or turn the player.** Aim with vanilla commands in the bundle before the click: `tp @s ~ ~ ~ <yaw> <pitch>` sets the look direction, or place the target in front of the player. Keep `client.noPauseOnLostFocus` on: with the game's pause on lost focus, a window without focus opens the pause menu, and every action is refused `screenOpen`.
+
+**The rules of the client actions hold**: always your own client, the toolkit on it and `client.allowActions=true`. The server refuses at once with a key: `devtool.client.noClient` for a client without the toolkit or one whose hello says it is older than 1.7.0, whatever it allows (it has no handler for the action and would drop the connection), `devtool.client.notAllowed`, `devtool.client.busy` during a reconnect, and `devtool.client.dead` for `use` and `attack` asked of a dead player. A `select` is sent to a dead player, but the death screen is open, so the client refuses it `screenOpen`.
+
+**The client refuses** with a reason in its record and report: `noWorld` when no world is open, `screenOpen` when a screen is open (a click would go to the screen, and the game ignores the action keys meanwhile), `unbound` when the key the action presses is unbound in the client's controls, `notAllowed` and `busy` as for the other steps. `failed` with the name of an exception when reading the target or the item threw; nothing was pressed then. The target and the held item are read when the toolkit presses the key, one tick before the game's click.
+
+**Records.** The server writes `CLIENT_ACTION action=requested` with `step`, and `slot` for a select. The client writes `CLIENT_ACTION side=CLIENT` and reports it; the server writes the report as `action=reported`. Both carry what the click met and with what: `target=block` with `targetX`, `targetY`, `targetZ`, `face` and `targetBlock`; `target=entity` with `entityId`, `entityType` and `entityUuid`; or `target=miss`; and `held` (the main-hand item's id, or `empty`) with `heldCount`. A select carries `slot` and the newly held item.
 
 ### Baubles slots (only with Baubles installed)
 
@@ -420,7 +452,8 @@ Rules:
 | `entities ...` | `devtool entities ...` |
 | `nbt ...` | `devtool nbt ...` |
 | `screenshot <label> [delayTicks]` | `devtool screenshot`, always to the inbox operator. No player argument |
-| `client reconnect [awaySeconds]`, `client respawn`, `client close`, `client quit` | `devtool client ...`, for the inbox operator's own client. `awaySeconds` 0 to 60. Lower case only: `client Reconnect` is `badArguments`. `client quit` is answered `done` in the tick it runs; then the game closes and the inbox with it |
+| `client reconnect [awaySeconds] [logout]`, `client respawn`, `client close`, `client quit` | `devtool client ...`, for the inbox operator's own client. `awaySeconds` 0 to 60; `logout` last. Lower case only: `client Reconnect` is `badArguments`. `client quit` is answered `done` in the tick it runs; then the game closes and the inbox with it |
+| `client select <0-8>`, `client use`, `client attack` | `devtool client ...`, a [player action](#player-actions) on the inbox operator's own client. Lower case only; a slot outside 0 to 8 is `badArguments` |
 
 A leading `/` is accepted. Nothing else is: no vanilla command, no other toolkit command, no `devtool` or `att` prefix. Anything that changes the world goes in a bundle you wrote, which the owner can read, and the inbox starts it with `run`.
 
@@ -645,7 +678,7 @@ Field names are camelCase. Field order is stable per type. A value containing wh
 | `SAVE` | `save`: `worlds` saved, `dimensions` (their ids, comma separated; Forge unloads an empty Nether or End, so the count varies), `durationMs` |
 | `INBOX` | the command inbox: `action` (`opened`, `closed`, `claimed`, `refused`, `dispatched`, `failed`, `suspended`, `resumed`), `id` and `request` for a request, `operator`, `reason` for closes, refusals, failures, suspensions and an opening at a local join (`localJoin`), `owner` for a `localJoinNotHost` refusal, and `resumeDeadlineMillis` for a suspension |
 | `SCREENSHOT` | `screenshot`. On the server `action=requested` with `label` `delayTicks` `target` `requestTick` `file`. On the client, `side=CLIENT` with `label` `requestTick` and `action=saved` with `file`, or `action=failed` with `reason` (`queueFull`, `disconnected`, `noFile` with the expected `file`, or an exception name) |
-| `CLIENT_ACTION` | `client`. On the server `action=requested` with `player` `step` `awaySeconds` (reconnect only) `requestTick`, then `action=reported` with `player` `step` `requestTick` and the client's `result` `reason` `screen` `showing`. On the client, `side=CLIENT` with `step` `result` (`done`, `refused`, `failed`, `left`) `reason` `screen` `showing` `requestTick`, and `awayMs` on a reconnect's `done`. See [Client actions](#client-actions) |
+| `CLIENT_ACTION` | `client`. On the server `action=requested` with `player` `step` `awaySeconds` and `logout` (reconnect only) `slot` (select only) `requestTick`, then `action=reported` with `player` `step` `requestTick` and the client's `result` `reason` `screen` `showing` and its fields, and `action=returned` when a reconnect's client is back, with `player` `uuid` `requestId` `awayMs` `logout` `remote` `connection` `requestTick`. On the client, `side=CLIENT` with `step` `result` (`done`, `refused`, `failed`, `left`) `reason` `screen` `showing` `requestTick`; `logout` on a reconnect's `left` and `done`, `awayMs` on its `done`; on a player action `slot`, `target` with its fields, `held` `heldCount`. See [Client actions](#client-actions), [A reconnect and the logout](#a-reconnect-and-the-logout) and [Player actions](#player-actions) |
 | `MENU_STEP` | the client request channel, `side=CLIENT`: `action` (`claimed`, `refused`, `started`, `done`, `failed`) with `id`, `step`, `request`, `reason`, `detail`, and `folder` for `create` and `open`. A reused id writes only `refused` with `id` and `reason=duplicateId`, once per launch. See [The client request channel](#the-client-request-channel) |
 | `BAUBLES` | `baubles set`: `action=set` `player` `slot` `slotType` `item` `count` `meta`, `replaced` when the slot held something, `outcome` (`set` or `rejected`). `baubles clear`: `action=clear` `player` `slots` (`all` or the index) `cleared` (how many held something) `outcome=cleared` |
 | `BUNDLE_STEP` | one command of a bundle with `trace` on, just before it runs, with `bundle` `hash` `index` `command` `dueTick` `elapsedTicks` |

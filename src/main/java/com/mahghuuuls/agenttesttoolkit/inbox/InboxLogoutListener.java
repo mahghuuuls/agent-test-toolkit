@@ -27,8 +27,9 @@ public final class InboxLogoutListener {
         if (!InboxGate.isOperator(player.getUniqueID())) {
             return;
         }
-        // The toolkit sent this client away and expects it back (D19, ARC-023). In single player
-        // there is no logout event for the host: the server's stop handles that leave.
+        // The toolkit sent this client away and expects it back. In single player
+        // the host's leave fires this only for a reconnect asked to log out; the default leave
+        // stops the server without it, and the server's stop handles that one.
         if (InboxGate.suspendIfLeaving(player.getUniqueID(), System.currentTimeMillis(),
                 ToolkitConfigLoader.get().getInboxRejoinWindowSeconds() * 1000L,
                 RecordContext.snapshot(player.world))) {

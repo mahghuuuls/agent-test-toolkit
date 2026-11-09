@@ -32,16 +32,27 @@ public final class ClientActionRequest implements IMessage {
     private int awaySeconds;
     private String token;
     private long requestTick;
+    /**
+     * Leave the way the pause menu's Save and Quit does, so the server logs the player out.
+     * Sent as one byte after the fields every version reads, and only when true, which the
+     * server allows only for a 1.7.0 client: an older one never meets the extra byte.
+     */
+    private boolean logout;
 
     /** For Forge, which builds the message before reading it. */
     public ClientActionRequest() {
     }
 
     public ClientActionRequest(String step, int awaySeconds, String token, long requestTick) {
+        this(step, awaySeconds, token, requestTick, false);
+    }
+
+    public ClientActionRequest(String step, int awaySeconds, String token, long requestTick, boolean logout) {
         this.step = step;
         this.awaySeconds = awaySeconds;
         this.token = token == null ? "" : token;
         this.requestTick = requestTick;
+        this.logout = logout;
     }
 
     public static boolean isValidStep(String step) {
@@ -77,12 +88,18 @@ public final class ClientActionRequest implements IMessage {
         return requestTick;
     }
 
+    /** A reconnect asked to log the player out as it leaves. */
+    public boolean isLogout() {
+        return logout;
+    }
+
     @Override
     public void fromBytes(ByteBuf buf) {
         step = ByteBufUtils.readUTF8String(buf);
         awaySeconds = buf.readInt();
         token = ByteBufUtils.readUTF8String(buf);
         requestTick = buf.readLong();
+        logout = buf.isReadable() && buf.readBoolean();
     }
 
     @Override
@@ -91,6 +108,9 @@ public final class ClientActionRequest implements IMessage {
         buf.writeInt(awaySeconds);
         ByteBufUtils.writeUTF8String(buf, token);
         buf.writeLong(requestTick);
+        if (logout) {
+            buf.writeBoolean(true);
+        }
     }
 
     /**

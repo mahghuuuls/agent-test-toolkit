@@ -112,12 +112,13 @@ public final class InboxRequest {
             return accepted(id, line, verb, "devtool screenshot " + join(args));
         }
         if ("client".equals(verb)) {
-            // client reconnect [awaySeconds] | respawn | close | quit, to the operator only.
+            // client reconnect [awaySeconds] | respawn | close | quit, or a player action, to the
+            // operator only.
             boolean ok = args.length >= 1
-                    && (("reconnect".equals(args[0]) && (args.length == 1
-                            || (args.length == 2 && AWAY.matcher(args[1]).matches())))
+                    && (("reconnect".equals(args[0]) && isReconnectArguments(args))
                     || (("respawn".equals(args[0]) || "close".equals(args[0]) || "quit".equals(args[0]))
-                            && args.length == 1));
+                            && args.length == 1)
+                    || PlayerActionOptions.parse(args) != null);
             if (!ok) {
                 return refused(id, line, verb, REASON_BAD_ARGUMENTS);
             }
@@ -136,6 +137,18 @@ public final class InboxRequest {
             return accepted(id, line, verb, "devtool " + verb + " " + join(args));
         }
         return refused(id, line, verb, REASON_VERB_NOT_ALLOWED);
+    }
+
+    /** After {@code reconnect}: an optional away time, then an optional {@code logout}, in that order. */
+    private static boolean isReconnectArguments(String[] args) {
+        int next = 1;
+        if (args.length > next && AWAY.matcher(args[next]).matches()) {
+            next++;
+        }
+        if (args.length > next && "logout".equals(args[next])) {
+            next++;
+        }
+        return args.length == next;
     }
 
     /** Printable ASCII only, so no control character, tab, or second line can hide in a request. */

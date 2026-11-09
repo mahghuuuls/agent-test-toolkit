@@ -1,0 +1,104 @@
+{
+  "v43_platform": {
+    "description": "Builds the scene every v43 bundle uses, in any overworld: a stone floor 5 by 6 at y 99 around x 0, z 0 to 4, with air above it up to y 107 so nothing is within reach overhead, and puts the caller on it at 0.5 100 0.5 facing south. Creative, so a placed block is not used up. Expect V43_PLATFORM_READY.",
+    "stopOnFailure": true,
+    "commands": [
+      "gamemode creative",
+      "kill @e[type=minecraft:pig,tag=v43_pig]",
+      "fill -2 100 -1 2 107 4 minecraft:air",
+      "fill -2 99 -1 2 99 4 minecraft:stone",
+      "tp @s 0.5 100 0.5 0 0",
+      "devtool mark V43_PLATFORM_READY"
+    ]
+  },
+  "v43_select_use": {
+    "description": "Selects hotbar slot 0 (emptied), then slot 3 (16 stone), then looks 45 degrees down and right clicks once: the ray from the eye at y 101.62 meets the floor's top at z 2.12, so the game places stone at 0 100 2 on the up face of 0 99 2. Expect three CLIENT_ACTION pairs (requested, then side=CLIENT and reported with slot or target=block targetX=0 targetY=99 targetZ=2 face=up held=minecraft:stone), BLOCK_INSPECT minecraft:stone at 0 100 2, and the player's main hand stone in PLAYER_INSPECT. With the use key unbound, the use is refused reason=unbound and the block stays air. Run v43_platform first.",
+    "result": true,
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V43_USE_BEGIN",
+      "replaceitem entity @s slot.hotbar.0 minecraft:air",
+      "replaceitem entity @s slot.hotbar.3 minecraft:stone 16",
+      "tp @s 0.5 100 0.5 0 45",
+      { "command": "devtool client select 0", "delayTicks": 5 },
+      { "command": "devtool client select 3", "delayTicks": 5 },
+      { "command": "devtool client use", "delayTicks": 5 },
+      { "command": "devtool inspect block 0 100 2", "delayTicks": 10 },
+      "devtool inspect player",
+      "devtool mark V43_USE_END"
+    ]
+  },
+  "v43_attack": {
+    "description": "Summons a pig without AI (health 10) at 0.5 100 2.5, looks 30 degrees down at it and left clicks once with the held item: the ray meets the pig's box at about y 100.7. Expect the pig at health 10 in the first ENTITY_INSPECT and below 10 in the second, and CLIENT_ACTION with target=entity entityType=minecraft:pig. Run v43_platform first; v43_cleanup removes the pig.",
+    "result": true,
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V43_ATTACK_BEGIN",
+      "fill -2 100 -1 2 107 4 minecraft:air",
+      "kill @e[type=minecraft:pig,tag=v43_pig]",
+      "summon minecraft:pig 0.5 100 2.5 {NoAI:1b,Tags:[\"v43_pig\"]}",
+      "tp @s 0.5 100 0.5 0 30",
+      { "command": "devtool inspect entity @e[type=minecraft:pig,tag=v43_pig]", "delayTicks": 5 },
+      { "command": "devtool client attack", "delayTicks": 5 },
+      { "command": "devtool inspect entity @e[type=minecraft:pig,tag=v43_pig]", "delayTicks": 10 },
+      "devtool mark V43_ATTACK_END"
+    ]
+  },
+  "v43_miss": {
+    "description": "Looks straight up, where nothing is within reach, and right clicks then left clicks once. Expect both CLIENT_ACTION records with target=miss, and no block placed. Run v43_platform first.",
+    "result": true,
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V43_MISS_BEGIN",
+      "tp @s 0.5 100 0.5 0 -90",
+      { "command": "devtool client use", "delayTicks": 5 },
+      { "command": "devtool client attack", "delayTicks": 5 },
+      { "command": "devtool mark V43_MISS_END", "delayTicks": 10 }
+    ]
+  },
+  "v43_screen_open": {
+    "description": "Puts 16 stone in hotbar slot 3, selects it and looks 45 degrees down at the floor, as v43_select_use does, so a right click that went through would place stone at 0 100 2. Cues the person to open their inventory, then five seconds later asks for a right click, which the client refuses with reason=screenOpen and the inventory's class as screen, then closes the inventory. Expect the cue, CLIENT_ACTION step=use result=refused reason=screenOpen, step=close result=done, and BLOCK_INSPECT air at 0 100 2. Run v43_platform first.",
+    "result": true,
+    "commands": [
+      "devtool mark V43_SCREEN_BEGIN",
+      "fill -2 100 -1 2 107 4 minecraft:air",
+      "replaceitem entity @s slot.hotbar.3 minecraft:stone 16",
+      "tp @s 0.5 100 0.5 0 45",
+      { "command": "devtool client select 3", "delayTicks": 5 },
+      "devtool checkpoint cue OPEN_INVENTORY_NOW title sound",
+      { "command": "devtool client use", "delayTicks": 100 },
+      { "command": "devtool client close", "delayTicks": 20 },
+      { "command": "devtool inspect block 0 100 2", "delayTicks": 10 },
+      "devtool mark V43_SCREEN_END"
+    ]
+  },
+  "v43_dead": {
+    "description": "Kills the caller, then asks for a right click, which the server refuses at once with devtool.client.dead (tolerated here), and a select, which the server sends and the client refuses with reason=screenOpen because the death screen is open. Then asks the client to respawn. Expect the tolerated failure, CLIENT_ACTION step=select result=refused reason=screenOpen, and a respawn done.",
+    "result": true,
+    "commands": [
+      "devtool mark V43_DEAD_BEGIN",
+      "kill @s",
+      { "command": "devtool client use", "delayTicks": 5, "toleratedFailures": ["devtool.client.dead"] },
+      { "command": "devtool client select 1", "delayTicks": 2 },
+      { "command": "devtool mark V43_DEAD_END", "delayTicks": 10 },
+      { "command": "devtool client respawn", "delayTicks": 30 }
+    ]
+  },
+  "v43_operator": {
+    "description": "Starts a session c8a and binds the caller as its operator, so a logout can be seen to unbind it. Expect SESSION started, OPERATOR action=bound, V43_OPERATOR_BOUND.",
+    "commands": [
+      "devtool session start c8a",
+      "devtool session operator @s",
+      "devtool mark V43_OPERATOR_BOUND"
+    ]
+  },
+  "v43_cleanup": {
+    "description": "Removes what the v43 bundles left: the pig, the placed stone, the stone in hotbar slot 3. Leaves the floor. Expect V43_CLEAN.",
+    "commands": [
+      "kill @e[type=minecraft:pig,tag=v43_pig]",
+      "fill -2 100 -1 2 107 4 minecraft:air",
+      "replaceitem entity @s slot.hotbar.3 minecraft:air",
+      "devtool mark V43_CLEAN"
+    ]
+  }
+}

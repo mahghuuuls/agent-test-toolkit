@@ -47,6 +47,11 @@ public class ClientProxy extends CommonProxy {
                 new com.mahghuuuls.agenttesttoolkit.client.ClientActionExecutor();
         com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setActionReceiver(executor);
         MinecraftForge.EVENT_BUS.register(executor);
+        // And the small player actions, which wait while a reconnect runs.
+        com.mahghuuuls.agenttesttoolkit.client.PlayerInput input =
+                new com.mahghuuuls.agenttesttoolkit.client.PlayerInput(executor);
+        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setPlayerActionReceiver(input);
+        MinecraftForge.EVENT_BUS.register(input);
         // And the client request channel of ARC-028, which steps aside while a reconnect runs.
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.client.menu.MenuChannel(executor));
     }

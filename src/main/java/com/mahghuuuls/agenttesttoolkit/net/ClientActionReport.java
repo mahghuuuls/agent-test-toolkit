@@ -29,6 +29,27 @@ public final class ClientActionReport implements IMessage {
     private String showing;
     private String token;
     private long requestTick;
+    /**
+     * What a player action adds: what was looked at, the held item. Appended after the fields
+     * every version reads, and only by a 1.7.0 client answering a 1.7.0 server's action, so an
+     * older server never meets the extra bytes.
+     */
+    private final java.util.LinkedHashMap<String, String> fields = new java.util.LinkedHashMap<String, String>();
+    /** More fields arrived than a report may carry; the report is dropped. */
+    private boolean tooManyFields;
+
+    /** A report carries at most this many extra fields. */
+    static final int MAX_FIELDS = 32;
+    /** And each value at most this many characters. */
+    static final int MAX_FIELD_VALUE = 256;
+    /**
+     * The extra fields a client may report. Fixed, so a client can neither overwrite a field the
+     * server writes itself nor fill the record with names of its own.
+     */
+    static final java.util.Set<String> FIELD_NAMES = java.util.Collections.unmodifiableSet(
+            new java.util.HashSet<String>(java.util.Arrays.asList(
+                    "slot", "target", "targetX", "targetY", "targetZ", "face", "targetBlock",
+                    "entityId", "entityType", "entityUuid", "held", "heldCount", "logout", "awayMs")));
 
     /** For Forge, which builds the message before reading it. */
     public ClientActionReport() {
@@ -49,11 +70,51 @@ public final class ClientActionReport implements IMessage {
         return text == null ? "" : text;
     }
 
-    /** Lengths bounded and the step one of the four, so a report cannot flood the log. */
+    /** Adds the fields of a player action, in the order given. Unknown names make the report invalid. */
+    public ClientActionReport withFields(java.util.Map<String, String> extra) {
+        if (extra != null) {
+            fields.putAll(extra);
+        }
+        return this;
+    }
+
+    /** The extra fields, in the order the client wrote them. */
+    public java.util.Map<String, String> getFields() {
+        return java.util.Collections.unmodifiableMap(fields);
+    }
+
+    /** Lengths bounded and the step a known one, so a report cannot flood the log. */
     boolean isValid() {
-        return ClientActionRequest.isValidStep(step) && RESULTS.contains(result)
+        return (ClientActionRequest.isValidStep(step)
+                || com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions.isStep(step))
+                && RESULTS.contains(result)
                 && reason.length() <= MAX_TEXT && screen.length() <= MAX_TEXT
-                && showing.length() <= MAX_TEXT && ClientActionRequest.isValidToken(token);
+                && showing.length() <= MAX_TEXT && ClientActionRequest.isValidToken(token)
+                && fieldsValid();
+    }
+
+    private boolean fieldsValid() {
+        if (tooManyFields || fields.size() > MAX_FIELDS) {
+            return false;
+        }
+        for (java.util.Map.Entry<String, String> field : fields.entrySet()) {
+            String value = field.getValue();
+            if (!FIELD_NAMES.contains(field.getKey()) || value == null || value.length() > MAX_FIELD_VALUE
+                    || hasControlCharacter(value)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** A line break in a value would start a second log line that only looks like a record. */
+    private static boolean hasControlCharacter(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isISOControl(value.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public String getStep() {
@@ -93,6 +154,18 @@ public final class ClientActionReport implements IMessage {
         showing = ByteBufUtils.readUTF8String(buf);
         token = ByteBufUtils.readUTF8String(buf);
         requestTick = buf.readLong();
+        fields.clear();
+        if (buf.isReadable()) {
+            int count = buf.readUnsignedByte();
+            if (count > MAX_FIELDS) {
+                tooManyFields = true;
+                return;
+            }
+            for (int i = 0; i < count; i++) {
+                String name = ByteBufUtils.readUTF8String(buf);
+                fields.put(name, ByteBufUtils.readUTF8String(buf));
+            }
+        }
     }
 
     @Override
@@ -104,6 +177,15 @@ public final class ClientActionReport implements IMessage {
         ByteBufUtils.writeUTF8String(buf, showing);
         ByteBufUtils.writeUTF8String(buf, token);
         buf.writeLong(requestTick);
+        // Nothing is appended without fields, so every report an older server can be sent
+        // keeps the layout it reads.
+        if (!fields.isEmpty()) {
+            buf.writeByte(fields.size());
+            for (java.util.Map.Entry<String, String> field : fields.entrySet()) {
+                ByteBufUtils.writeUTF8String(buf, field.getKey());
+                ByteBufUtils.writeUTF8String(buf, field.getValue());
+            }
+        }
     }
 
     /** Runs on the network thread; the record is written on the server thread. */
