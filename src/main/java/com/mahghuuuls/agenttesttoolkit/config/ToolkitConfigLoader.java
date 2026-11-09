@@ -236,6 +236,17 @@ public final class ToolkitConfigLoader {
                             + "server's folder and connects through localhost. Needs enabled=true too. A dedicated server reads it "
                             + "at start: change it, then restart the server. Off by default.");
 
+            boolean localJoinOperator = cfg.getBoolean("localJoinOperator", CATEGORY_INBOX,
+                    d.isInboxLocalJoinOperator(),
+                    "On a development dedicated server, with enabled and openOnLocalJoin: a player whose "
+                            + "join proves it shares this server's folder through localhost gets operator "
+                            + "rights for that session, so the inbox opens with nothing typed. A player "
+                            + "already in ops.json is left as is. The rights are taken back when that "
+                            + "player leaves or the server stops in order; after a crash or a killed "
+                            + "process, at the next start with the toolkit. Nothing is granted on an "
+                            + "online-mode server. Off by default. Use it on a development "
+                            + "server only: anyone who can run a game from this folder becomes an operator.");
+
             int rejoinWindow = cfg.getInt("rejoinWindowSeconds", CATEGORY_INBOX,
                     d.getInboxRejoinWindowSeconds(), ToolkitConfig.MIN_REJOIN_WINDOW_SECONDS,
                     ToolkitConfig.MAX_REJOIN_WINDOW_SECONDS,
@@ -261,7 +272,8 @@ public final class ToolkitConfigLoader {
                     .inboxEnabled(inbox)
                     .inboxRejoinWindowSeconds(rejoinWindow)
                     .clientRequestChannel(requestChannel)
-                    .inboxOpenOnLocalJoin(openOnLocalJoin);
+                    .inboxOpenOnLocalJoin(openOnLocalJoin)
+                    .inboxLocalJoinOperator(localJoinOperator);
             for (ToolkitConfig.Volume volume : ToolkitConfig.Volume.values()) {
                 builder.clientVolume(volume, volumes[volume.ordinal()]);
             }

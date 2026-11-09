@@ -56,6 +56,7 @@ public final class ToolkitConfig {
     private final boolean clientRequestChannel;
     private final boolean inboxEnabled;
     private final boolean inboxOpenOnLocalJoin;
+    private final boolean inboxLocalJoinOperator;
     private final int inboxRejoinWindowSeconds;
 
     /**
@@ -91,6 +92,7 @@ public final class ToolkitConfig {
         private boolean requestChannel;
         private boolean inbox;
         private boolean openOnLocalJoin;
+        private boolean localJoinOperator;
         private int rejoinWindowSeconds = DEFAULT_REJOIN_WINDOW_SECONDS;
 
         public Builder arenaSize(int w, int h, int l) {
@@ -187,6 +189,11 @@ public final class ToolkitConfig {
             return this;
         }
 
+        public Builder inboxLocalJoinOperator(boolean value) {
+            this.localJoinOperator = value;
+            return this;
+        }
+
         public Builder inboxRejoinWindowSeconds(int value) {
             this.rejoinWindowSeconds = value;
             return this;
@@ -202,7 +209,7 @@ public final class ToolkitConfig {
             return new ToolkitConfig(width, height, length, block, ceiling, maxDimension,
                     nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle,
                     clientDefaults, brightness, musicVolume, volumes, noPauseOnLostFocus, allowActions,
-                    inbox, rejoinWindowSeconds, requestChannel, openOnLocalJoin);
+                    inbox, rejoinWindowSeconds, requestChannel, openOnLocalJoin, localJoinOperator);
         }
     }
 
@@ -230,7 +237,9 @@ public final class ToolkitConfig {
                   boolean inboxEnabled,
                   int inboxRejoinWindowSeconds,
                   boolean clientRequestChannel,
-                  boolean inboxOpenOnLocalJoin) {
+                  boolean inboxOpenOnLocalJoin,
+                  boolean inboxLocalJoinOperator) {
+        this.inboxLocalJoinOperator = inboxLocalJoinOperator;
         this.inboxEnabled = inboxEnabled;
         this.clientRequestChannel = clientRequestChannel;
         this.inboxOpenOnLocalJoin = inboxOpenOnLocalJoin;
@@ -486,6 +495,15 @@ public final class ToolkitConfig {
      */
     public boolean isInboxOpenOnLocalJoin() {
         return inboxOpenOnLocalJoin;
+    }
+
+    /**
+     * Whether a join to a development dedicated server that passes the local-join proof gets
+     * operator rights for that session, so the inbox opens with nothing typed. Needs
+     * {@link #isInboxEnabled} and {@link #isInboxOpenOnLocalJoin}. Off by default.
+     */
+    public boolean isInboxLocalJoinOperator() {
+        return inboxLocalJoinOperator;
     }
 
     /**

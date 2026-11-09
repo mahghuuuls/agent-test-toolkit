@@ -50,6 +50,39 @@ public final class LocalJoin {
     private LocalJoin() {
     }
 
+    /** What a proven local join does to operator rights, with the grant key. */
+    public enum Grant {
+        /** Nothing to do: a key off, no proof, or the toolkit gave the rights already in this run. */
+        NONE,
+        /** Give the joining player operator rights for this session. */
+        GRANT,
+        /** The player is in the operator list already, at any level: left as is, and said so. */
+        KEEP,
+        /** The server checks accounts: no rights from a proof there, refused with a record. */
+        ONLINE_MODE
+    }
+
+    /**
+     * Whether a dedicated-server join gets operator rights, decided before the inbox decision
+     * so that the inbox then sees an operator. Decided at every proven join, also while the
+     * inbox is already open or suspended, so a player back from a reconnect gets them again. Only
+     * on an offline-mode server: there the name the join carries is all the server knows, and the
+     * proof that the client shares the server's folder is what makes it the owner.
+     */
+    public static Grant decideGrant(boolean grantKey, boolean openOnLocalJoin, boolean inboxEnabled,
+                                    boolean proofMatched, boolean inOpsList, boolean givenThisRun,
+                                    boolean onlineMode) {
+        if (!grantKey || !openOnLocalJoin || !inboxEnabled || !proofMatched || givenThisRun) {
+            return Grant.NONE;
+        }
+        // In the list at any level, even one too low for the toolkit: the owner put it there,
+        // and replacing it would raise it now and remove it at the leave.
+        if (inOpsList) {
+            return Grant.KEEP;
+        }
+        return onlineMode ? Grant.ONLINE_MODE : Grant.GRANT;
+    }
+
     /** What a dedicated-server join does once the client has sent its proof. */
     public static Decision decideDedicated(boolean openOnLocalJoin, boolean inboxEnabled, boolean inboxOpen,
                                            boolean proofMatched, boolean operator) {

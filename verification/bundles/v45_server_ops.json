@@ -1,0 +1,9 @@
+{
+  "v45_stop_server": {
+    "description": "Stops the development dedicated server from inside, as an operator typing /stop would, so the toolkit's stop handler runs: rights it gave at a proven local join are taken back (OP action=revoked reason=serverStop) and ops.json ends as before the join. Needs operator level 4 (the server's op-permission-level). Expect the server to stop; the run is discarded at the stop.",
+    "commands": [
+      "devtool mark V45_STOPPING",
+      { "command": "stop", "delayTicks": 5 }
+    ]
+  }
+}

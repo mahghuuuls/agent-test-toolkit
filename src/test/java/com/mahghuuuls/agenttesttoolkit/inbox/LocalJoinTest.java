@@ -108,4 +108,22 @@ class LocalJoinTest {
         assertFalse(LocalJoin.nameCaseDiffers(null, "Developer"));
         assertFalse(LocalJoin.nameCaseDiffers("Developer", null));
     }
+
+    @Test
+    @DisplayName("operator rights only for a proven join with every key on, on an offline-mode server, to a player not in the operator list")
+    void grant() {
+        assertEquals(LocalJoin.Grant.GRANT, LocalJoin.decideGrant(true, true, true, true, false, false, false));
+        assertEquals(LocalJoin.Grant.KEEP, LocalJoin.decideGrant(true, true, true, true, true, false, false),
+                "in the list at any level: left as is");
+        assertEquals(LocalJoin.Grant.KEEP, LocalJoin.decideGrant(true, true, true, true, true, false, true),
+                "an operator already, on an online-mode server: nothing to give");
+        assertEquals(LocalJoin.Grant.ONLINE_MODE, LocalJoin.decideGrant(true, true, true, true, false, false, true));
+        assertEquals(LocalJoin.Grant.NONE, LocalJoin.decideGrant(true, true, true, true, true, true, false),
+                "given by the toolkit in this run: not kept, not given twice");
+        assertEquals(LocalJoin.Grant.NONE, LocalJoin.decideGrant(false, true, true, true, false, false, false), "grant key off");
+        assertEquals(LocalJoin.Grant.NONE, LocalJoin.decideGrant(true, false, true, true, false, false, false), "openOnLocalJoin off");
+        assertEquals(LocalJoin.Grant.NONE, LocalJoin.decideGrant(true, true, false, true, false, false, false), "inbox off");
+        assertEquals(LocalJoin.Grant.NONE, LocalJoin.decideGrant(true, true, true, false, false, false, false), "no proof");
+        assertEquals(LocalJoin.Grant.NONE, LocalJoin.decideGrant(true, true, true, false, false, false, true), "no proof, online");
+    }
 }

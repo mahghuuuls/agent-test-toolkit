@@ -131,6 +131,8 @@ public class AgentTestToolkitMod {
         // After the world and rejoin listeners: a local join opens the inbox only once the world
         // key is current and a suspended opening has had its chance to resume (ARC-029).
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.inbox.LocalJoinListener());
+        // Rights given at a proven local join end with that player's session.
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.inbox.LocalJoinOperators.LogoutListener());
         // Checkpoints belong to the session but live in wait, which session may not depend on.
         // Installed here so every stop forgets them: the command, a replacing start, and a
         // world change alike.
@@ -182,6 +184,8 @@ public class AgentTestToolkitMod {
         if (event.getServer().isDedicatedServer()) {
             // A fresh secret for a client on this same computer (ARC-029).
             com.mahghuuuls.agenttesttoolkit.inbox.LocalJoinListener.writeSecret();
+            // Operator rights a crash left behind are taken back before anyone joins.
+            com.mahghuuuls.agenttesttoolkit.inbox.LocalJoinOperators.revokeLeftovers(event.getServer());
         }
         event.registerServerCommand(new DevToolCommand());
     }
@@ -195,6 +199,9 @@ public class AgentTestToolkitMod {
     @Mod.EventHandler
     public void serverStopping(net.minecraftforge.fml.common.event.FMLServerStoppingEvent event) {
         if (!net.minecraftforge.fml.common.FMLCommonHandler.instance().getSide().isClient()) {
+            // A dedicated server takes back the operator rights it gave, while it can still write ops.json.
+            com.mahghuuuls.agenttesttoolkit.inbox.LocalJoinOperators.revokeAtStop(
+                    net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance());
             return;
         }
         com.mahghuuuls.agenttesttoolkit.state.InboxOpening opening =

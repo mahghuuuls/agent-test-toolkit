@@ -26,6 +26,8 @@ import java.security.SecureRandom;
 public final class LocalJoinListener {
 
     static final String SECRET_FILE = ToolkitConfigLoader.LOCAL_JOIN_SECRET_FILE;
+    /** A refusal of operator rights at a proven local join on a server that checks accounts. */
+    static final String REASON_ONLINE_MODE = "localJoinOnlineMode";
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final SecureRandom RANDOM = new SecureRandom();
     private static volatile String secret;
@@ -131,6 +133,21 @@ public final class LocalJoinListener {
     }
 
     private static LocalJoin.Decision apply(MinecraftServer server, EntityPlayerMP player, boolean matched) {
+        // Rights first, so the inbox decision below sees an operator. Decided at every proven
+        // join, also while the inbox is open or suspended for a reconnect.
+        LocalJoin.Grant grant = LocalJoin.decideGrant(ToolkitConfigLoader.get().isInboxLocalJoinOperator(),
+                ToolkitConfigLoader.get().isInboxOpenOnLocalJoin(), ToolkitConfigLoader.get().isInboxEnabled(),
+                matched, LocalJoinOperators.inOpsList(server, player),
+                LocalJoinOperators.givenThisRun(player.getUniqueID()), server.isServerInOnlineMode());
+        if (grant == LocalJoin.Grant.GRANT) {
+            LocalJoinOperators.grant(server, player);
+        } else if (grant == LocalJoin.Grant.KEEP) {
+            LocalJoinOperators.kept(player);
+        } else if (grant == LocalJoin.Grant.ONLINE_MODE) {
+            // One refusal for the join: this one says why, so the inbox's own is not written too.
+            InboxGate.recordRefusal(RecordContext.snapshot(player), player.getName(), REASON_ONLINE_MODE);
+            return LocalJoin.Decision.NOT_OPERATOR;
+        }
         LocalJoin.Decision decision = LocalJoin.decideDedicated(ToolkitConfigLoader.get().isInboxOpenOnLocalJoin(),
                 ToolkitConfigLoader.get().isInboxEnabled(), InboxGate.isOpen(), matched,
                 player.canUseCommand(2, "devtool"));

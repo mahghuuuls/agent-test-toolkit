@@ -110,6 +110,13 @@ public enum EventType {
     WARNING,
 
     /**
+     * Operator rights the toolkit gave or took back at a proven local join on a development
+     * server: {@code action} {@code granted}, {@code kept} (already an operator) or
+     * {@code revoked}, with the player, its UUID and {@code reason}.
+     */
+    OP,
+
+    /**
      * The overworld of a server loaded: {@code folder}, {@code seed}, and {@code sameAsSession} when
      * a session was active. Written before any other toolkit record of that world.
      */

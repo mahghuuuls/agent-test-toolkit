@@ -1,6 +1,6 @@
 # Verification bundles
 
-172 bundles used for the pre-release verification passes: the first release, then one file per reported item in each feedback cycle. They exercise the Minecraft-typed layer
+191 bundles used for the pre-release verification passes: the first release, then one file per reported item in each feedback cycle. They exercise the Minecraft-typed layer
 that the unit tests cannot reach: the command surface, the arena, the observers and the bundle
 scheduler in a running game.
 
@@ -65,6 +65,9 @@ and because they are development assets rather than something a user of the mod 
 | `v40_damage_order` | 2 | A one-hit kill's damage record before its death, and a hit before a logging change |
 | `v41_client_actions` | 7 | Client actions: close (inventory, nothing, death screen, chest), respawn, and a reconnect from a bundle |
 | `v42_world_prepare` | 1 | Prepares a test world: no spawning, a pass through peaceful, no drops, a healed caller |
+| `v43_player_actions` | 8 | Player actions on a stone platform at y 99: select, a right click that places stone, a left click on a pig, clicks on air, a refusal with a screen open, a dead player, a session operator, cleanup |
+| `v44_player_actions_more` | 10 | Hold (a bow, a release by the next action, by a screen, by death), drop and drop all, a delayed attack and a screenshot after a use, the inventory, and the tooltip view with its fixtures and a click check |
+| `v45_server_ops` | 1 | Stops the development dedicated server from inside, so the rights given at a proven local join are taken back at the stop |
 
 ## What they found
 
