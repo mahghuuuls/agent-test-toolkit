@@ -4,7 +4,7 @@ A development tool for Minecraft mod authors. **This is not a gameplay mod.** It
 
 It is for someone developing a Minecraft mod. It works on its own, as a way to set up a test scenario without typing the same eight commands every time. But its main purpose is to help an AI coding assistant stop relying on you to describe what happened on screen, by writing what the game actually did into `latest.log` in a form a program can read.
 
-You still play. The toolkit sets the world up, watches, and writes it down.
+You still do the parts of a test that need a person: aiming, walking, working in other mods' screens. The toolkit sets the world up, takes small player actions such as a click, a held button or a tooltip, watches, and writes it down.
 
 ## Where to read what
 

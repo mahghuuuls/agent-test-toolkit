@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.7.0
+
+The theme is a test your assistant can run with small player input: a click, a held button, a dropped item, the inventory or a tooltip, without a person doing them. Tests that need aiming, walking or work in other screens still need a person. The items came from other projects' test sessions with the toolkit and from the developer.
+
+### Added
+
+- **Player actions.** `devtool client select <0-8>`, `use` (one right click), `attack` (one left click), `hold use|attack <1-1200>` (a button kept down for that many ticks, such as drawing a bow), `drop [all]` and `inventory` (open the player's own inventory as its key does). Each acts on the client of whoever asked, from chat, a bundle or the inbox (`client ...`), through the game's key bindings, so the game handles it as a player's input; the toolkit never aims or moves the player. They need the toolkit 1.7.0 on the client and `client.allowActions`. Every record says what was targeted, what was held and whether the window had focus. A hold is always released, and says why: its time ran out, the player left or died, a screen opened, the window lost focus, or the next action came.
+
+- **Waits and screenshots with an action.** `delay=<ticks>` before any player action, and `screenshot=<label>` (with `screenshotDelay=<ticks>`) for a picture after it.
+
+- **An item's tooltip.** `devtool client tooltip <0-40> [advanced] [shift] [ctrl] [alt]` shows the player's inventory with that slot's tooltip for a time (`showTicks`), then writes every line, including those other mods add, as text: up to 200 in the client's record, the first 20 in the server's. Nothing in that view can be moved. Shift, Ctrl and Alt are held only while the lines are read; where the game's input does not allow it (Cleanroom), the step is refused `modifierUnavailable`.
+
+- **A reconnect that logs out.** `devtool client reconnect [awaySeconds] logout` leaves single player as Save and Quit does, so the server logs the player out; without the word a single-player reconnect still does not. When the client is back, the server writes one `CLIENT_ACTION action=returned` with the player, the request id, the time away and the connection.
+
+- **Operator rights at a local join on a development server.** With `inbox.localJoinOperator` (off by default), a dedicated server gives a player who passes the local-join proof operator rights for the session, so the inbox opens at the first join, and takes them back at the leave, at an orderly stop, or at the next start after a crash. A player already in `ops.json` is left as is. Each step writes an `OP` record.
+
+- **`SAVE` names the player file** (`playerFile`, its size and time after the flush), and says when the single-player host's data lives in `level.dat`.
+
+- **A warning when a single-player join name differs from the world owner's only in case** (`WARNING reason=hostNameCase`), since the game then reads the host's data from `playerdata` instead of `level.dat`.
+
+- **A refusal that names the accepted form.** An inbox line starting with `devtool` is refused with a `detail` giving the line without it, such as `use:client respawn`.
+
+- **Two new record types**, `WARNING` and `OP`, for 48 in total.
+
+### Fixed
+
+- **A hold or a tooltip view ended by the player's death now reports `died`.** The death screen opens before the client's health reaches 0, so the end read as a screen opening.
+
+### Compatibility
+
+- **A client with an older toolkit** on a 1.7.0 server is refused every player action, and a reconnect with `logout`, at once with `devtool.client.noClient`; nothing is sent to it.
+
 ## 1.6.0
 
 Small fixes and polish after 1.5.0. The first item came from another project's test sessions with the toolkit; the rest from the developer's own review of the 1.5.0 release.

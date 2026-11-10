@@ -1,123 +1,27 @@
-# Agent Test Toolkit
+A development tool for people who write Minecraft mods, and for the AI coding assistants that help them. It is not a gameplay mod: it adds no items, blocks or recipes. In the game's mod list it appears as Agent Test Toolkit.
 
-A development tool for Minecraft mod authors. **This is not a gameplay mod.** It adds no items, no blocks, no recipes, and nothing to find in a world.
+It automates the tests of your mod that need only a little player control. Your assistant prepares a test world, has your game click, hold a button, drop an item or open the inventory, and then reads from the log what the game did. You launch the game. A test that needs real aiming, walking around, or work inside another mod's screens still needs you; for those, a bundle still sets up the world and the log still records what happened.
 
-It is for someone developing a Minecraft mod. It works perfectly well on its own, as a way to set up a test scenario without typing the same eight commands every time. But its main purpose is to help an AI coding assistant stop relying on the developer to describe what happened on screen, by writing what the game actually did into the log in a form a program can read.
+<span style="color:#d6a100">**AI usage disclaimer:** This mod was developed with AI-agent assistance using [this agent workflow](https://github.com/mahghuuuls/minecraft-1.12.2-mod-agent-workflow). The project owner reviewed the work during development.</span>
 
-It does that by:
-
-- preparing a test arena
-- bundling commands so a scenario can be set up in one step
-- recording what happens in the world into the log
-- reporting the state of players, entities and blocks on demand
-
-Everything it records happens on the server, so that is where it goes. In singleplayer, that just means installing it. Screenshots, the optional client settings, client actions and the client request channel also need it on the client; a client without it can still join. Commands need operator permission; `/devtool help` lists them.
-
-If you are working with an AI assistant, point it at `AGENTS.md`. That file tells it what the toolkit can do, how to keep the log readable, and the traps worth knowing about before it wastes a test run.
-
-If you are reading yourself, start with `README.md`, then `docs/commands.md` for the full command list.
-
-<p style="color:#d6a100"><strong>AI usage disclaimer:</strong> This mod was developed with AI-agent assistance using <a href="https://github.com/mahghuuuls/minecraft-1.12.2-mod-agent-workflow">this agent workflow</a>. The project owner reviewed the work during development.</p>
+**Use a test world.** Arena commands replace blocks and remove entities at once, without asking and without undo. Do not add this mod to a pack meant for play.
 
 ## What it does
 
-**Test arenas.** One command builds an enclosed, lit, empty box of whatever size you ask for. Resetting it clears everything inside and repairs the walls, and it is safe to run at the start of every attempt. Dying inside sends you back to the arena rather than to your bed.
+**Sets up a test in one step.** A bundle is a list of commands in a JSON file in `config/devtool/bundles/`, run with `/devtool run <name>`. It can build an arena (an enclosed, lit, empty space that one command resets between attempts), set game rules, give items, turn on logging, wait for an area to load, and stop at the first failure.
 
-**Command bundles.** Put a list of commands in a JSON file, run it with one command. Delays between commands, stop on first failure, and one bundle can call another. They live in your config folder, not in a world save, so they survive making a fresh test world.
+**Writes what the game did into the log.** Block placing and breaking, spawns, deaths, damage and interactions, each category off until you turn it on, and on request the state of a player, entity, block or inventory. Each is one line a program can read, in `latest.log` next to your own mod's output. A bundle can also compare what it sees with a value you give it and log the result.
 
-**Event logging.** Eight kinds of game event, all off until you turn them on, each restrictable to the arena or to a radius so the log stays readable.
+**Player actions, in small steps.** Your assistant can ask your own game to pick a hotbar slot, right click or left click once, hold a mouse button for a set time (to draw a bow, for example), drop the held item, open the inventory, or show an item's tooltip and write its lines as text, optionally with Shift, Ctrl or Alt held (holding those keys is not available on Cleanroom). Each can be delayed and followed by a screenshot. The game handles the click as a player's click, though mods that read raw mouse input do not see it. The toolkit does not aim: a bundle points the player with a teleport first. It can also leave the world and come back, with a full logout if the test needs one, press Respawn after a death, close the open screen, or close the game.
 
-**Inspection.** Report a player, entity, block, inventory or raw NBT as structured text, on demand.
+**Files your assistant writes.** With the command inbox open, your assistant starts bundles, player actions and read-only commands by writing small files, and reads the results from files next to them. A separate client setting lets it act from the title screen the same way: create a test world, open a save, join a server on your own computer, or quit.
 
-**Sessions and markers.** Name a run and drop labelled bookmarks in the log, so the interesting part can be found later.
+## Installation and settings
 
-**Self reporting.** Ask the mod what it actually supports. The answer comes from the running build, not from a document that might be out of date.
+It runs on the server, so in single player install it as usual. Player actions, rejoining, screenshots and title-screen requests also need it, version 1.7.0, on your client. A client without it can still join. Commands need operator rights (cheats on in single player); start with `/devtool help`.
 
-**Waiting, checking, and asking.** A bundle can wait until a region is loaded instead of guessing a delay, show a label on screen and pause until you type that you are ready, and compare a count, a presence, a dimension or a game mode with a value you declared. Each comparison is written to the log as a plain outcome, and a verdict there means only that the observation matched the value you gave it. The assistant still decides what that means.
+Everything that acts without you typing is off by default. The settings are in `config/devtool/devtool.cfg`, each described in the file (`inbox.enabled` is written `B:enabled=true` under `inbox` there, and so on): `inbox.enabled` lets the inbox be opened (`/devtool inbox open`, or by itself at your own join with `inbox.openOnLocalJoin`), `client.allowActions` allows player actions on your client, and `client.requestChannel` allows the title-screen requests. On a development server in offline mode, `inbox.localJoinOperator` gives you operator rights while you are joined from your own computer and game folder, and takes them back when you leave.
 
-**Fixtures and restarts.** Name the one entity a bundle just summoned, find it again later by that name, and remove exactly it, without a death or a drop. A checkpoint stored in the world save remembers which bundle must run next across a stop and restart, and refuses anything else until it has run.
+## Documentation
 
-**A command inbox for your assistant.** Type `/devtool inbox open` once after opening a world, and an AI assistant can start its own bundles, save, take a screenshot, or look something up, by writing a small file and reading the answer from another. It runs as you, with your permissions, and only bundles and read-only commands are accepted. Off by default. A person opens it, or, if you allow it, it opens by itself when you join your own single-player world or your own development server from your computer, whatever the case of your launch name.
-
-**Client actions.** A bundle or your assistant can ask your own game to leave the world and come back, press Respawn after a death, close the screen that is open, or close the game, so a test that needs a rejoin or a death no longer waits for you. The inbox stays open across a rejoin it asked for. Off unless you allow it in your client's configuration, and it only ever acts on the game of whoever asked.
-
-**From the title screen.** With the client request channel on, your assistant can create a test world with any setting of the Create New World screen (a flat world with cheats and no structures, for example), open a save, join a server on your own computer or home network, or quit, by writing a small file. It never replaces a save and never connects outside your own network. Off by default. You launch the game; the rest of the test needs no click.
-
-**Saves, screenshots, attributes.** Save the world from a bundle, ask your client for a labelled screenshot after a delay, and read or check an entity's attributes and modifiers. With Baubles installed, the bauble slots can be inspected, filled and emptied too. Baubles is optional.
-
-## Examples
-
-### Setting up a repeatable run
-
-Say you are testing what your mod does when a block is placed.
-
-Put this in `config/devtool/bundles/mytest.json`:
-
-```json
-{
-  "block_test": {
-    "commands": [
-      "devtool arena reset",
-      "gamerule doMobSpawning false",
-      "devtool log block_place on arena",
-      "devtool session start block_test",
-      "devtool mark READY"
-    ]
-  }
-}
-```
-
-Then, every time you want a clean run:
-
-```
-/devtool run block_test
-```
-
-That empties the arena, stops mobs wandering in, starts recording block placement inside the arena only, and drops a bookmark. Place a block, and the log has this:
-
-```
-[DevToolkit][BLOCK_PLACE] side=SERVER worldTick=19051 block=minecraft:log meta=0
-dimension=0 posX=177 posY=69 posZ=262 blockState=minecraft:log[axis=y,variant=oak]
-placedBy=Developer placedById=928
-```
-
-One line, always the same shape, sitting in `latest.log` next to your own mod output and Forge output. Your assistant can read that without you describing anything.
-
-### An arena to test in
-
-```
-/devtool arena create 20 10 20
-```
-
-Builds a sealed, lit, empty box twenty blocks across, centred where you stand, floor level with your feet. Lit well enough that nothing hostile spawns inside, apart from slimes, which ignore light. Your respawn point moves in with it, so dying mid-test does not send you back to your bed.
-
-One per dimension, remembered in the world save. Later:
-
-```
-/devtool arena reset
-```
-
-Repairs anything you broke, clears every mob, dropped item and stray block, and puts you back at the start position. Safe at the top of every attempt, because running it twice gives the same result as running it once.
-
-### Running your setup automatically on login
-
-Settings live in `config/devtool/devtool.cfg`: arena defaults, the block arenas are built from, how much NBT is written before it gets truncated, and this. Anything that could change your world or your settings without being asked is off until you turn it on.
-
-```
-join {
-    B:enabled=true
-    S:bundle=block_test
-}
-```
-
-Now that bundle runs whenever an operator joins. Log in and the world is already prepared: arena cleared, mobs off, recording started. Off by default, and the bundle name empty by default, so installing the mod changes nothing on its own.
-
-### Asking what is in the world
-
-```
-/devtool entities nearby 20
-/devtool inspect entity @e[name=target]
-/devtool nbt held
-```
-
-Each writes structured lines into the log rather than chat, so an assistant can read the answer instead of you retyping it.
+Point your assistant at `AGENTS.md`: it lists every command and log line, with worked examples. For a person, `README.md` is the place to start, then `docs/commands.md`, `docs/bundles.md` for the bundle format and `docs/logging.md` for the log lines. All are in the [source repository](https://github.com/mahghuuuls/agent-test-toolkit).
