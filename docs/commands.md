@@ -53,20 +53,20 @@ A session belongs to one world save. Leaving to the title screen and reopening t
 | `devtool bundle list` | Loaded bundles and their command counts |
 | `devtool bundle show <name>` | One bundle's commands, in order, with delays |
 | `devtool run <name>` | Run a bundle |
-| `devtool await chunks <x1> <z1> <x2> <z2> [timeoutTicks]` | Inside a bundle: pause it until every chunk touching that block rectangle, in the caller's current dimension, is loaded, or the timeout passes. Coordinates may be `~`-relative. Default timeout 200 ticks, maximum 12000, region capped at 1024 chunks. A timeout fails the command with `devtool.wait.timeout`; a dimension change cancels it with `devtool.wait.cancelled`. Never loads a chunk. Typed outside a bundle it checks once and reports |
+| `devtool await chunks <x1> <z1> <x2> <z2> [timeoutTicks] [populated]` | Inside a bundle: pause it until every chunk touching that block rectangle, in the caller's current dimension, is loaded, or the timeout passes. Coordinates may be `~`-relative. Default timeout 200 ticks, maximum 12000, region capped at 1024 chunks. A timeout fails the command with `devtool.wait.timeout`; a dimension change cancels it with `devtool.wait.cancelled`. Never loads a chunk. Typed outside a bundle it checks once and reports. From 1.8.0, `populated`, as the last word, also waits until those chunks and the ones one chunk toward -X and -Z are decorated; see [bundles.md](bundles.md#waits) |
 | `devtool checkpoint arm <label> [timeoutTicks]` | Show the label to the operator as a title (labels over 12 characters go on the subtitle line, so they fit) and, inside a bundle, pause until they type `devtool checkpoint ack` or the timeout passes (default 1200 ticks). A timeout fails with `devtool.wait.timeout`. Only one checkpoint may be armed at a time |
 | `devtool checkpoint cue <label> [chat|actionbar|title] [sound]` | Show the label prominently, action bar by default, with a sound if asked. Does not pause. Records the cue tick |
 | `devtool checkpoint ack` | Record that the operator is ready or has acted, with the latency since they were last asked. Records only; never performs any action |
 | `devtool assert entities count <n> within <r> [type <id>] [name <name>]` | Exact count of entities around the caller. Writes an `ASSERT` record with `expected`, `observed` and `outcome`; a mismatch fails the command with `devtool.assert.failed` |
 | `devtool assert entity <uuid> present\|absent [at <x> <y> <z>]` | Whether a loaded entity has that UUID. A dying entity, at zero health in its death animation, counts as absent, with `dead=true` on the record. Absent is only a verdict when the place it should be is loaded: give `at`, or use a claimed fixture, otherwise the outcome is `unloaded` with `devtool.assert.unloaded` |
 | `devtool assert entity <uuid> dimension <d>` and `within <r> of <x> <y> <z>` | Where a loaded entity is |
-| `devtool assert player <name> dimension <d>` and `gamemode <mode>` | Where a player is and how they play |
+| `devtool assert player <name> dimension <d>`, `gamemode <mode>` and `health <n>` | Where a player is, how they play, and from 1.8.0 their current health, compared at two decimals: after 3.5 damage from 20, `health 16.5` passes and `health 20` fails |
 | `devtool assert attribute <target> <attribute> value <n>` | An attribute's final value, compared at two decimals. `<target>` is a selector or UUID matching exactly one living entity; `<attribute>` is the registry name, such as `generic.armor` |
 | `devtool assert attribute <target> <attribute> modifier <uuid\|name> [amount <n>]` | Whether the attribute has that modifier, and with `amount` its amount. A name may hold spaces: every word up to `amount` is the name. A name that matches several modifiers fails with `devtool.assert.ambiguous` rather than choosing one. Vanilla gives all four armour pieces the name `Armor modifier`, so assert those by UUID. A target that matches nothing, several entities, or a non-living entity fails before any comparison and writes no `ASSERT` record |
 | `devtool fixture claim <handle> <selector\|uuid\|entityId>` | Mark exactly one non-player entity as this session's fixture under a handle, by adding the tag `devtool.fx.<session>.<handle>`. A handle is letters, digits, `_` and `-`, with no dot; in the tag, every other character of the session name, a `.` or a space included, becomes `_`. Claiming, under a handle the session does not hold yet, an entity that already carries this session's tag for that handle adopts it (`adopted=true`), as after a `session stop`. Refused: a handle the session already holds, even for the same entity (so after a `fixture list` has refilled the handles, a `claim` of the same fixture fails), a handle another entity holds, an entity that is already this session's fixture under another handle, and a handle whose cached fixture is unloaded while a loaded entity carries the tag. The refusals name the other side and have no key. From then on `${fixture.<handle>.uuid}` names it |
 | `devtool fixture list` | Each fixture of the session as `loaded`, `unloaded`, `absent`, `removing` (dying or being removed), `untagged` (found, but its tag is gone) or `duplicate` (two living entities carry the tag, listed as `carriers`), judged at its last known place. A server never unloads its spawn chunks, so a fixture standing there is always `loaded` |
-| `devtool fixture clear <handle\|all>` | Remove fixtures whose entity still carries this session's tag, without a death: no loot, no experience, no death events, riders left in the world. The `removed` record is written once the removal is confirmed, a tick later, with `confirmedTick`. An entity without the tag is refused (`notOwned`), a duplicate is refused, an unloaded fixture is `notLoaded`, a dying one `alreadyRemoving`. A removal not yet confirmed when the server stops is `unconfirmed reason=serverStopped` |
-| `devtool fixture release <handle\|all>` | Take the tag off and forget the handle, leaving the entity in the world. Refused for an entity without the tag (`notOwned`) and for a duplicate; `notLoaded` for an unloaded fixture |
+| `devtool fixture clear <handle\|all>` | Remove fixtures whose entity still carries this session's tag, without a death: no loot, no experience, no death events, riders left in the world. The `removed` record is written once the removal is confirmed, a tick later, with `confirmedTick`. An entity without the tag is refused (`notOwned`), a duplicate is refused, an unloaded fixture is `notLoaded`, a dying one `alreadyRemoving`. A removal not yet confirmed when the server stops is `unconfirmed reason=serverStopped`. From 1.8.0 a cleared handle is free: every fixture action treats it as unknown, and a new `claim` may take it. Its `${fixture.<handle>.uuid}` still names the removed entity until the session ends or a new claim replaces it, so `assert entity ${fixture.<handle>.uuid} absent` works after the clear, at the fixture's last place, with no `at` |
+| `devtool fixture release <handle\|all>` | Take the tag off and forget the handle, leaving the entity in the world. Refused for an entity without the tag (`notOwned`) and for a duplicate; `notLoaded` for an unloaded fixture. A released handle's placeholder is unbound at once, since its entity is still alive |
 | `devtool scenario checkpoint <id> next <bundle> [clean\|fatal]` | Store, inside the world save, that `<bundle>` must be the next bundle run: its name and hash, the session, its operator, and its fixtures with their last places. Until it runs, `devtool run` of any other bundle, or of that bundle with changed text, is refused with `devtool.scenario.mismatch` naming both sides. Bundles the allowed bundle runs inside itself are not checked again |
 | `devtool scenario status` | The standing checkpoint, or none, or corrupt |
 | `devtool scenario complete <id>` and `abandon <id>` | Clear it, with a record. The resume bundle must not start a session itself; the resume restores the stored one, its operator and its fixtures before the bundle runs |
@@ -79,7 +79,7 @@ A session belongs to one world save. Leaving to the title screen and reopening t
 
 `devtool run` refuses a call that does not come from the server thread. RCON runs its commands on its own thread, so start bundles from chat, the server console or the inbox instead.
 
-**A fixture's handle is a cache; its tag is the truth.** Placeholders, tab completion and scenario checkpoints read the session's handles. After a `session stop` and a new `session start` of the same name, a fixture known only by its tag is unbound in `${fixture.<handle>.uuid}` and missing from a checkpoint until `fixture list` or `fixture claim` fills the handles again. Session names that map to the same tag part, such as `my test`, `my_test` and `my.test`, share fixtures. If a fixture's tag moves to another entity, the handle follows the tag, and `clear` removes the new carrier.
+**A fixture's handle is a cache; its tag is the truth.** Placeholders, tab completion and scenario checkpoints read the session's handles, and placeholders, from 1.8.0, also the UUIDs of handles cleared in the session. After a `session stop` and a new `session start` of the same name, a fixture known only by its tag is unbound in `${fixture.<handle>.uuid}` and missing from a checkpoint until `fixture list` or `fixture claim` fills the handles again. Session names that map to the same tag part, such as `my test`, `my_test` and `my.test`, share fixtures. If a fixture's tag moves to another entity, the handle follows the tag, and `clear` removes the new carrier.
 
 A 1.3.0 tag with a dotted handle, or from a session whose name had a dot, belongs to no session in 1.4.0. Remove it with vanilla `kill` or `scoreboard players tag <entity> remove <tag>`. A 1.3.0 scenario checkpoint of a dotted session resumes its fixtures as `untagged`.
 
@@ -116,7 +116,9 @@ Arena commands place blocks without emptying containers first. A loot chest insi
 | --- | --- |
 | `devtool inspect player [selector]` | Position, health, hunger, experience, gamemode, held items, effects, and `openContainer`: `inventory`, or the class of another container the server has open for the player. The server cannot tell the player's own inventory screen from no screen: both are `inventory` |
 | `devtool inspect entity <selector>` | Registry id, position, motion, health, effects |
-| `devtool inspect block <x> <y> <z>` | Block id, metadata, blockstate, tile entity class |
+| `devtool inspect block <x> <y> <z>` | Block id, metadata, blockstate, tile entity class, and from 1.8.0 `blockLight` and `skyLight`, the stored light values (0 to 15) |
+| `devtool inspect chunk [<x> <z>]` | From 1.8.0: whether the chunk holding that block column, default your own, is loaded, and when it is, its `terrainPopulated` (decorated), `lightPopulated` and `populated` flags, in one `CHUNK_INSPECT` record. Never loads it |
+| `devtool find block <block> [<property=value,...>] <x1> <y1> <z1> <x2> <y2> <z2> [limit <n>]` | From 1.8.0: every position of that block in the box, in loaded chunks only. See [Finding a block](#finding-a-block) |
 | `devtool inspect container <x> <y> <z>` | A container's occupied slots, one record each |
 | `devtool inspect inventory [selector]` | Occupied slots across main inventory, armour and offhand, and bauble slots when Baubles is installed |
 | `devtool inspect attributes [selector\|uuid]` | Every attribute of a living entity, default yourself, with its base value, final value and modifiers |
@@ -131,7 +133,13 @@ NBT goes to the log, never to chat, and is truncated at `maxNbtOutputLength` cha
 
 Inspection reports what Minecraft and Forge expose. A modded tile entity's class is named; its contents are not interpreted.
 
-**Inspection never loads a chunk.** `inspect block`, `inspect container` and `nbt block` check that the position is loaded before reading it. Reading an unloaded position would make Minecraft load the chunk, or generate and save it if it was never made, so a read would change the world. An unloaded position fails with `devtool.inspect.notLoaded` and an `ERROR` record naming the position and dimension. This holds in chat, in bundles and through the inbox.
+**Inspection never loads a chunk.** `inspect block`, `inspect container` and `nbt block` check that the position is loaded before reading it. Reading an unloaded position would make Minecraft load the chunk, or generate and save it if it was never made, so a read would change the world. An unloaded position fails with `devtool.inspect.notLoaded` and an `ERROR` record naming the position and dimension. This holds in chat, in bundles and through the inbox. `inspect chunk` and `find block` (from 1.8.0) read only chunks already loaded, and neither loads a chunk nor keeps one loaded longer.
+
+**The light fields are the stored values**, as the F3 screen shows them. A solid block stores 0 unless it gives light itself, so read the light on a face from the air block beside it. `skyLight` is the value before the time of day dims it, so an air block open to the sky reads 15 at night too.
+
+**Loaded does not mean decorated.** The world generator decorates a chunk (trees, ores, lakes) only once its +X, +Z and +X+Z neighbours are loaded, and that decoration writes into those neighbours. So a chunk can be loaded before the decoration reaching into it has run, and a `fill` right after it loads can be partly overwritten a moment later. `inspect chunk` shows the flags, and `await chunks ... populated` waits for them.
+
+`inspect chunk` takes block coordinates, which may be `~`-relative; from the console give absolute ones. An unloaded chunk is reported as `loaded=false`, not as a failure.
 
 `inspect inventory` with Baubles installed adds one record per occupied bauble slot, with `section=baubles area=baubles` and the slot's type as `slotType`, for example `slot=1 slotType=ring`.
 
@@ -156,19 +164,34 @@ One useful consequence: a container whose loot table has not yet rolled writes a
 
 NBT output is truncated at `maxNbtOutputLength`, and truncation is always reported with the original length, so a large container may need that limit raised.
 
+### Finding a block
+
+From 1.8.0, `devtool find block <block> [<property=value,...>] <x1> <y1> <z1> <x2> <y2> <z2> [limit <n>]` lists where a block is in a box of the caller's dimension, for example `devtool find block minecraft:diamond_block ~-10 0 ~-10 ~10 80 ~10`. The block is a registry id. The state, when given, is one word written as in a blockstate, such as `facing=north,half=lower`; only positions whose stored state has every value given are found. Coordinates may be `~`-relative from a player; from the console give absolute ones. Through the inbox the line is `find block ...`.
+
+- It writes one `BLOCK_FOUND` record per position found, with `block`, `dimension`, the position and `blockState`, then one `BLOCK_SEARCH` summary with `found`, `truncated`, `chunksSearched`, `chunksSkipped` (not loaded, so not read), `chunksNotRead` (loaded, left unread once the limit was reached), the box as searched and `elapsedMillis`.
+- Only loaded chunks are read, and none is loaded. `found=0` with `chunksSkipped` above 0 is not "nowhere": part of the box was not searched.
+- `limit` is 1 to 1024, default 64; past it the search stops with `truncated=true`. The box covers at most 1024 chunks, or the command fails with `devtool.find.tooLarge`. Its height is clamped to 0 to 255, and a box entirely outside that fails with a message and no key.
+- An unknown block fails with `devtool.find.unknownBlock`. A property the block does not have, a value it cannot take, or a property the world does not store (one worked out from the neighbours when the block is drawn, such as a fence's sides) fails with `devtool.find.badState`.
+- A block half that does not store a wanted property is left out: a door's upper half stores its hinge but not its facing, so `facing=north` finds lower halves only.
+- The whole search runs in one server tick, so keep boxes small.
+
 ## Screenshots
 
 | Command | Effect |
 | --- | --- |
-| `devtool screenshot <label> [delayTicks] [player]` | Ask a player's client to save a screenshot after the delay |
+| `devtool screenshot <label> [delayTicks] [player] [hide=chat\|hud]` | Ask a player's client to save a screenshot after the delay |
 
 - The label is 1 to 48 letters, digits, `_` or `-`. It becomes a file name, so nothing else is accepted. A refused label writes an `ERROR` and fails with a message, not a failure key.
 - The delay is 0 to 600 ticks, default 0.
-- The target is the named player, or else you. In a bundle that is whoever ran the bundle; through the inbox it is the inbox operator. The command's chat reply goes to whoever ran it. The target sees only vanilla's "Saved screenshot" line on their own client, when the capture happens.
+- The target is the named player, or else you. In a bundle that is whoever ran the bundle; through the inbox it is the inbox operator. The command's chat reply goes to whoever ran it. Without `hide`, the target sees the "Saved screenshot" chat line on their own client when the capture happens, as F2 prints it; with `hide`, no line is printed, so it cannot land in the next picture.
 - The file is `screenshots/<label>-<requestTick>.png` on the target's computer, where `requestTick` is the target's world tick when the request was made. The capture includes an open inventory or menu.
 - The target's client must have the toolkit installed. If it does not, nothing is sent and the command fails with `devtool.screenshot.noClient`. A client without the toolkit can still join a server that has it.
+- From 1.8.0, `hide=chat`, as the last word, leaves the chat lines out of the picture, and `hide=hud` the whole HUD as F1 does: hotbar, crosshair, hand and chat. Only the captured frame is changed: the next frame shows chat again, and the player's own F1 state comes back. An open screen is not hidden, and with a screen open the game draws the HUD behind it anyway, so then `hide=hud` leaves out the chat lines, the hand and the block outline, and `hide=chat` the chat lines; close the screen first with `client close`. `hide` needs the toolkit 1.8.0 on the target's client: an older one is refused at once with `devtool.screenshot.noClient`, and nothing is sent. Without `hide`, a screenshot is as in 1.7.0.
+- The player actions take the same choice as `screenshotHide=chat|hud`, next to their `screenshot=`.
 
-The server writes `SCREENSHOT action=requested`. The client writes `SCREENSHOT side=CLIENT action=saved` with the file once it is on disk, or `action=failed` with a `reason`; `reason=noFile`, when no new file appeared, also names the `file`. At most 8 screenshots wait on one client; more fail with `reason=queueFull`, and waiting ones fail with `reason=disconnected` when the player leaves the world.
+For a picture of a hover in another mod's screen, the toolkit has nothing: it cannot point the mouse. Ask the person to hold the mouse over the item and press F2, and read the newest picture in `screenshots/`. For a hover in your own inventory, the tooltip action's `screenshot=`, or a screenshot with a delay while the person holds the mouse there, does it.
+
+The server writes `SCREENSHOT action=requested`, with `hide` when given. The client writes `SCREENSHOT side=CLIENT action=saved` with the file once it is on disk, or `action=failed` with a `reason`; `reason=noFile`, when no new file appeared, also names the `file`. With `hide` the client's record carries `hide` too, and `screen`, the open screen's class, when a screen was open. At most 8 screenshots wait on one client; more fail with `reason=queueFull`, and waiting ones fail with `reason=disconnected` when the player leaves the world.
 
 ## Client actions
 
@@ -243,7 +266,7 @@ From 1.7.0, small player actions on your own client. Same rules as the client ac
 | `devtool client inventory` | Open the inventory, as its key does |
 | `devtool client tooltip <0-40> [advanced] [shift] [ctrl] [alt]` | Show the inventory with that slot's tooltip and write its lines into the log; close after `showTicks=<ticks>` (default 20) |
 
-- Any action takes `delay=<ticks>` (0 to 1200) before it acts, and `screenshot=<label>` with `screenshotDelay=<ticks>` (0 to 200) for a picture after it.
+- Any action takes `delay=<ticks>` (0 to 1200) before it acts, and `screenshot=<label>` with `screenshotDelay=<ticks>` (0 to 200) for a picture after it. From 1.8.0 `screenshotHide=chat|hud`, with `screenshot=`, leaves the chat lines or the HUD out of that picture, as `hide` does for `devtool screenshot`; a client older than 1.8.0 is then refused with `devtool.client.noClient`.
 - A click goes through the game's key handling. The game's and Forge's events of the click fire as for a person; the raw mouse events do not. `result=done` means the toolkit made the input; read what the game did from its own records or an inspection.
 - The toolkit does not move or turn you. Aim in the bundle with `tp @s ~ ~ ~ <yaw> <pitch>`.
 - The server refuses a client older than 1.7.0 (`devtool.client.noClient`), one that does not allow actions, a click, hold, drop or tooltip asked of a dead player (`devtool.client.dead`), and anything during a reconnect. The client refuses `noWorld`, `screenOpen`, `unbound`, `emptySlot` and `modifierUnavailable`.
@@ -287,6 +310,8 @@ The dedicated-server case needs the client and the server in one game folder, so
 
 A reconnect the toolkit started suspends the inbox instead of closing it. In single player the host is told from a LAN guest by the same name rule as the join, ignoring case (from 1.6.0). When the inbox operator's own `client reconnect`, from a request, a bundle or typed, makes their client leave, the inbox writes `INBOX action=suspended reason=reconnect` with `resumeDeadlineMillis` and stops reading requests; they wait in the folder. When the same client is back with the one-time token it was sent away with, the inbox writes `INBOX action=resumed` and reads the waiting requests, without anyone typing `inbox open`.
 
+From 1.8.0 the inbox takes the name you come back with, which can differ in case from the one it opened with (the same UUID): `status.json` and the `INBOX` records from `resumed` on show that current name, and every `INBOX` record carries `operatorUuid`.
+
 Between the reconnect request and the leave, the inbox already holds further requests, for at most 15 seconds, so a batch's next line runs after the return.
 
 Every other path closes it, with a reason:
@@ -318,11 +343,11 @@ Accepted lines, and nothing else:
 | `reload` | `devtool reload` |
 | `save` | `devtool save` |
 | `mark <label>` | `devtool mark <label>` |
-| `inspect ...`, `entities ...`, `nbt ...` | The toolkit command of that name, with the same arguments |
-| `screenshot <label> [delayTicks]` | `devtool screenshot`, to the inbox operator only |
-| `client reconnect [awaySeconds] [logout]`, `client respawn`, `client close`, `client quit`, and the player actions (`client select <0-8>`, `use`, `attack`, `hold use\|attack <ticks>`, `drop [all]`, `inventory`, `tooltip <0-40> [advanced] [shift] [ctrl] [alt]`, with `delay=`, `screenshot=`, `screenshotDelay=`, `showTicks=` last) | `devtool client ...`, for the inbox operator's own client. `awaySeconds` is 0 to 60. Lower case only: `client Reconnect` is `badArguments`. `client quit` is answered in the tick it runs; then the game closes, and the inbox with it |
+| `inspect ...`, `entities ...`, `nbt ...`, `find ...` | The toolkit command of that name, with the same arguments (`find` from 1.8.0) |
+| `screenshot <label> [delayTicks] [hide=chat\|hud]` | `devtool screenshot`, to the inbox operator only (`hide` from 1.8.0, last) |
+| `client reconnect [awaySeconds] [logout]`, `client respawn`, `client close`, `client quit`, and the player actions (`client select <0-8>`, `use`, `attack`, `hold use\|attack <ticks>`, `drop [all]`, `inventory`, `tooltip <0-40> [advanced] [shift] [ctrl] [alt]`, with `delay=`, `screenshot=`, `screenshotDelay=`, `screenshotHide=`, `showTicks=` last) | `devtool client ...`, for the inbox operator's own client. `awaySeconds` is 0 to 60. Lower case only: `client Reconnect` is `badArguments`. `client quit` is answered in the tick it runs; then the game closes, and the inbox with it |
 
-A leading `/` is accepted. A vanilla command, any other toolkit command, or a line starting with `devtool` is refused with `verbNotAllowed`; from 1.7.0 a line starting with `devtool` carries a `detail` with the same line without the root (`use:client respawn`). Other refusal reasons: `badArguments` (an allowed verb with arguments it does not take, such as `client reconnect 99`), `malformed` (empty, several lines, non-ASCII, too long, or a file over 4096 bytes), `placedBeforeOpen`, `operatorLeft` (the operator is no longer online; the inbox closes too), `duplicateId`, and `noHandler` (the toolkit's request handler is not installed yet, which cannot happen once the mod has started). An accepted request fails with `rootShadowed` when another mod has taken both `devtool` and `att`, so the request is never handed to that mod's command.
+A leading `/` is accepted. A vanilla command, any other toolkit command, or a line starting with `devtool` is refused with `verbNotAllowed`; from 1.7.0 a line starting with `devtool` carries a `detail` with the same line without the root (`use:client respawn`). Other refusal reasons: `badArguments` (an allowed verb with arguments it does not take, such as `client reconnect 99`, `screenshot s1 hide=all`, or `screenshotHide=` without `screenshot=`), `malformed` (empty, several lines, non-ASCII, too long, or a file over 4096 bytes), `placedBeforeOpen`, `operatorLeft` (the operator is no longer online; the inbox closes too), `duplicateId`, and `noHandler` (the toolkit's request handler is not installed yet, which cannot happen once the mod has started). An accepted request fails with `rootShadowed` when another mod has taken both `devtool` and `att`, so the request is never handed to that mod's command.
 
 ### Results and status
 
@@ -341,11 +366,13 @@ A `run` is answered when its bundle ends, with the bundle's `BUNDLE_END` counter
 
 The log differs in one detail: when a command fails, the `INBOX action=failed` record's `reason` is the command's own message, where the result file says `commandFailed` and puts the message in `detail`.
 
-While the inbox is open, `status.json` in the same folder holds `schemaVersion`, `open`, `operator`, `operatorUuid`, `world` (the save folder), `openedWorldTick` and `openedAtMillis`, and while suspended also `suspended`, `reason` and `resumeDeadlineMillis`. It is deleted when the inbox closes and when the server stops, and a stale one is removed at server start. A request written while the inbox is suspended waits and runs after the return.
+While the inbox is open, `status.json` in the same folder holds `schemaVersion`, `open`, `operator`, `operatorUuid`, `world` (the save folder), `openedWorldTick` and `openedAtMillis`, and while suspended also `suspended`, `reason` and `resumeDeadlineMillis`. From 1.8.0 `operator` is your current name after a reconnect. It is deleted when the inbox closes and when the server stops, and a stale one is removed at server start. A request written while the inbox is suspended waits and runs after the return.
 
-Every open, close, claim, refusal, dispatch, suspension and resume writes an `INBOX` record. See [logging.md](logging.md).
+Every open, close, claim, refusal, dispatch, suspension and resume writes an `INBOX` record, from 1.8.0 with `operatorUuid`. See [logging.md](logging.md).
 
-In single player the game pauses when its window loses focus, and a paused game reads no requests. `noPauseOnLostFocus` under `client`, together with `applyOnJoin`, turns that pause off; see [Client defaults](#client-defaults).
+In single player the game pauses when its window loses focus or a screen that pauses it is open (a book, the pause menu, many mods' own screens; not the inventory), and a paused game reads no requests: a request written then gets no answer and no record until the game runs again. `noPauseOnLostFocus` under `client`, together with `applyOnJoin`, turns the focus pause off; see [Client defaults](#client-defaults).
+
+**The pause note (from 1.8.0).** While a screen pauses a single-player game, your client keeps `config/devtool/inbox/paused.json`, with `schemaVersion`, `paused`, `screen` (the open screen's class), `sinceMillis` and `worldTick` (the last world tick the client saw). It is removed when the game runs again, when you leave the world, at every world entry and at launch, so a note from a game closed while paused does not stay. It is written only when the inbox folder already exists, and a client of a dedicated server never writes it. When a request gets no answer, look for `paused.json`: its `screen` says what to close.
 
 **Use the inbox in a development or test instance only.** A mod that runs commands as the real player, as some quest or macro mods do, looks like chat to the toolkit and could open the inbox. That needs such a mod installed and configured, but it is why the inbox is off by default.
 
@@ -370,7 +397,7 @@ The folder is `config/devtool/client-inbox/`, on the client's computer, beside t
 
 `status.json` in the folder holds `schemaVersion`, `listening` and `startedAtMillis`. It is written at the first read of each launch, written again with a new `startedAtMillis` when the key is turned back on, and deleted when the key is turned off or the channel's own `quit` runs. It is not deleted by `devtool client quit`, a crash or closing the window, so a file from the previous launch can still be there for a moment after the game starts. Write requests only once `startedAtMillis` is from this launch.
 
-A step begins only at a menu: no world open, no single-player server running, no connection, and a menu screen showing. The "Disconnected" screen counts as a menu. The connecting and loading screens do not, and neither does Forge's old-save confirmation. Otherwise the request is answered at once: `inWorld` while a world is open, since in a world the command inbox is the way in, and `busy` while another step or a toolkit reconnect or quit is under way, or while the client is connecting, loading or showing the old-save confirmation. While one of Forge's startup questions or notices is on screen, the client does not tick, and nothing is read or answered until someone clicks; see [Forge's startup questions](#forges-startup-questions).
+A step begins only at a menu: no world open, no single-player server running, no connection, and a menu screen showing. The "Disconnected" screen counts as a menu. The connecting and loading screens do not, and neither does Forge's old-save confirmation. Otherwise the request is answered at once: `inWorld` while a world is open, since in a world the command inbox is the way in (from 1.8.0 with `detail` `paused=<true|false>`, followed by ` screen=<class>` when a screen is open, which says whether a command-inbox request can be answered now), and `busy` while another step or a toolkit reconnect or quit is under way, or while the client is connecting, loading or showing the old-save confirmation. While one of Forge's startup questions or notices is on screen, the client does not tick, and nothing is read or answered until someone clicks; see [Forge's startup questions](#forges-startup-questions).
 
 ### Steps
 
@@ -407,7 +434,7 @@ A `flat` string has the 1.12.2 shape `3;<layers>;<biome>;<features>`. Layers go 
 
 ### Results
 
-Each claimed request gets one `<id>.result.json`, written under a temporary name and moved into place, with `schemaVersion`, `id`, `request`, `step`, `outcome` (`done`, `failed` or `refused`), `reason` when not `done`, `detail` for a `create` refused over its options, and `folder` for `create` and `open` when the step ran. `request` is missing when the file could not be read or was over 4096 bytes, and is cut to 80 characters for a `malformed` line. `step` is missing for `verbNotAllowed` and `malformed`.
+Each claimed request gets one `<id>.result.json`, written under a temporary name and moved into place, with `schemaVersion`, `id`, `request`, `step`, `outcome` (`done`, `failed` or `refused`), `reason` when not `done`, `detail` for a `create` refused over its options and, from 1.8.0, for an `inWorld` refusal, and `folder` for `create` and `open` when the step ran. `request` is missing when the file could not be read or was over 4096 bytes, and is cut to 80 characters for a `malformed` line. `step` is missing for `verbNotAllowed` and `malformed`.
 
 Refusal reasons: `verbNotAllowed` (not one of the four steps), `badArguments`, `malformed`, `placedBeforeStart`, `inWorld`, `busy`, `exists`, `notFound`, `newerVersion`, `notLocal` and `unknownHost`. A reused id is refused `duplicateId` in the log only, with no result file.
 

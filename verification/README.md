@@ -1,6 +1,6 @@
 # Verification bundles
 
-191 bundles used for the pre-release verification passes: the first release, then one file per reported item in each feedback cycle. They exercise the Minecraft-typed layer
+205 bundles used for the pre-release verification passes: the first release, then one file per reported item in each feedback cycle. They exercise the Minecraft-typed layer
 that the unit tests cannot reach: the command surface, the arena, the observers and the bundle
 scheduler in a running game.
 
@@ -68,6 +68,7 @@ and because they are development assets rather than something a user of the mod 
 | `v43_player_actions` | 8 | Player actions on a stone platform at y 99: select, a right click that places stone, a left click on a pig, clicks on air, a refusal with a screen open, a dead player, a session operator, cleanup |
 | `v44_player_actions_more` | 10 | Hold (a bow, a release by the next action, by a screen, by death), drop and drop all, a delayed attack and a screenshot after a use, the inventory, and the tooltip view with its fixtures and a click check |
 | `v45_server_ops` | 1 | Stops the development dedicated server from inside, so the rights given at a proven local join are taken back at the stop |
+| `v46_evidence` | 14 | 1.8.0: the session and operator, light in the block inspection, the health assert (a fractional health), a cleared fixture's placeholder, `find block` with its scene (diamonds, doors, a fence) and cleanup, item pickups full and partial, the pause note with a book and the inventory after it, screenshots with `hide` (and with a screen open), and waiting for decorated chunks in a flat forest world with decoration |
 
 ## What they found
 

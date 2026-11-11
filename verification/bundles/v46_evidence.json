@@ -1,0 +1,497 @@
+{
+  "v46_session": {
+    "description": "Starts the v46 session and binds the caller as its operator, so ${operator.name} and fixture placeholders resolve. Run once per world, after v42_world_prepare. Expect V46_SESSION_READY.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v46_evidence",
+      "devtool session operator @s",
+      "devtool mark V46_SESSION_READY"
+    ]
+  },
+  "v46_light": {
+    "description": "Light in BLOCK_INSPECT (1.8.0). Run v43_platform first. Puts a torch on the floor at 2 100 2, then inspects the torch's own position (expect blockLight=14), the air one step away at 2 100 3 (expect blockLight=13), and air open to the sky at 0 104 0 (expect skyLight=15). Ends with V46_LIGHT_END; v46_light_cleanup removes the torch.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V46_LIGHT_BEGIN",
+      {
+        "command": "setblock 2 100 2 minecraft:torch",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "devtool inspect block 2 100 2",
+        "delayTicks": 2
+      },
+      "devtool inspect block 2 100 3",
+      "devtool inspect block 0 104 0",
+      "devtool mark V46_LIGHT_END"
+    ]
+  },
+  "v46_light_cleanup": {
+    "description": "Removes v46_light's torch. Expect V46_LIGHT_CLEAN.",
+    "commands": [
+      {
+        "command": "setblock 2 100 2 minecraft:air",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      "devtool mark V46_LIGHT_CLEAN"
+    ]
+  },
+  "v46_health": {
+    "description": "The health assert (1.8.0). Run v46_session first. Survival with natural regeneration off for the bundle, so health does not change by itself; full health, then Resistance I and one instant damage: 6 magic damage reduced by a fifth to 4.8, health 15.2 (a fractional value). Expect ASSERT predicate=player.health outcome=pass for 20, then pass for 15.2, then outcome=fail for 20 (tolerated devtool.assert.failed), and PLAYER_INSPECT health=15.20 between. Restores regeneration, effects, health and creative at the end.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V46_HEALTH_BEGIN",
+      "gamerule naturalRegeneration false",
+      "gamemode survival",
+      {
+        "command": "effect @s clear",
+        "toleratedFailures": [
+          "commands.effect.failure.notActive.all"
+        ]
+      },
+      "effect @s minecraft:instant_health 1 10 true",
+      {
+        "command": "devtool assert player ${operator.name} health 20",
+        "delayTicks": 5
+      },
+      "effect @s minecraft:resistance 30 0 true",
+      "effect @s minecraft:instant_damage 1 0 true",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      "devtool assert player ${operator.name} health 15.2",
+      {
+        "command": "devtool assert player ${operator.name} health 20",
+        "toleratedFailures": [
+          "devtool.assert.failed"
+        ]
+      },
+      {
+        "command": "effect @s clear",
+        "toleratedFailures": [
+          "commands.effect.failure.notActive.all"
+        ]
+      },
+      "effect @s minecraft:instant_health 1 10 true",
+      {
+        "command": "gamerule naturalRegeneration true",
+        "delayTicks": 5
+      },
+      "gamemode creative",
+      "devtool mark V46_HEALTH_END"
+    ]
+  },
+  "v46_fixture_cleared": {
+    "description": "A cleared fixture's placeholder (1.8.0). Run v46_session and v43_platform first. Summons a pig without AI, claims it as p46, clears it, then asserts the cleared handle's entity absent with no 'at': expect FIXTURE outcome=removed and ASSERT outcome=pass predicate entity.absent. Ends with V46_FIXTURE_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V46_FIXTURE_BEGIN",
+      "kill @e[type=minecraft:pig,name=v46pig]",
+      {
+        "command": "summon minecraft:pig 0.5 100 3.5 {CustomName:\"v46pig\",NoAI:1b,PersistenceRequired:1b}",
+        "delayTicks": 2
+      },
+      "devtool fixture claim p46 @e[name=v46pig]",
+      {
+        "command": "devtool fixture clear p46",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool assert entity ${fixture.p46.uuid} absent",
+        "delayTicks": 5
+      },
+      "devtool mark V46_FIXTURE_END"
+    ]
+  },
+  "v46_find_setup": {
+    "description": "The scene for find block (1.8.0). Run v43_platform first. Three diamond blocks at -1, 0 and 1 100 3; three wooden doors, lower and upper halves: facing east at -2 100 0, facing north at 2 100 0, facing south at 2 100 4; one oak fence at -2 100 4. Expect V46_FIND_READY.",
+    "stopOnFailure": true,
+    "commands": [
+      {
+        "command": "setblock -1 100 3 minecraft:diamond_block",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "setblock 0 100 3 minecraft:diamond_block",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "setblock 1 100 3 minecraft:diamond_block",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "setblock -2 100 0 minecraft:wooden_door facing=east,half=lower",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "setblock -2 101 0 minecraft:wooden_door facing=east,half=upper,hinge=left",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "setblock 2 100 0 minecraft:wooden_door facing=north,half=lower",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "setblock 2 101 0 minecraft:wooden_door facing=north,half=upper,hinge=left",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "setblock 2 100 4 minecraft:wooden_door facing=south,half=lower",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "setblock 2 101 4 minecraft:wooden_door facing=south,half=upper,hinge=left",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "setblock -2 100 4 minecraft:fence",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "devtool inspect block -2 101 0",
+        "delayTicks": 2
+      },
+      "devtool mark V46_FIND_READY"
+    ]
+  },
+  "v46_find": {
+    "description": "find block (1.8.0). Run v46_find_setup first. Expect: diamond_block found=3 truncated=false chunksSkipped=0; with limit 1 found=1 truncated=true; wooden_door facing=east found=1 (the lower half only: the upper halves store no facing); fence north=true refused devtool.find.badState (tolerated: the world does not store a fence's sides); a box far away with chunksSkipped above 0 and found=0, and CHUNK_INSPECT loaded=false there afterwards (nothing was loaded); a box of 38 by 38 chunks refused devtool.find.tooLarge (tolerated). Ends with V46_FIND_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V46_FIND_BEGIN",
+      "devtool find block minecraft:diamond_block -2 99 -1 2 107 4",
+      "devtool find block minecraft:diamond_block -2 99 -1 2 107 4 limit 1",
+      "devtool find block minecraft:wooden_door facing=east -2 99 -1 2 107 4",
+      {
+        "command": "devtool find block minecraft:fence north=true -2 99 -1 2 107 4",
+        "toleratedFailures": [
+          "devtool.find.badState"
+        ]
+      },
+      "devtool find block minecraft:diamond_block 3000 0 3000 3200 255 3200",
+      "devtool inspect chunk 3000 3000",
+      {
+        "command": "devtool find block minecraft:stone 0 0 0 600 10 600",
+        "toleratedFailures": [
+          "devtool.find.tooLarge"
+        ]
+      },
+      "devtool mark V46_FIND_END"
+    ]
+  },
+  "v46_find_cleanup": {
+    "description": "Clears v46_find_setup's blocks (the air above the v43 floor). Expect V46_FIND_CLEAN.",
+    "commands": [
+      {
+        "command": "fill -2 100 -1 2 107 4 minecraft:air",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      "devtool mark V46_FIND_CLEAN"
+    ]
+  },
+  "v46_pickup": {
+    "description": "item_pickup (1.8.0). Run v43_platform first. Survival; a stack of 5 dirt dropped at the feet: expect one ITEM_PICKUP count=5. Then an inventory full of stone with 62 dirt in its last slot and 5 dirt dropped: expect ITEM_PICKUP count=2 (the dirt stack fills to 64); a slot then freed: expect ITEM_PICKUP count=3 for the rest. INVENTORY_INSPECT after each. Turns the category off, clears the inventory and returns to creative at the end; V46_PICKUP_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V46_PICKUP_BEGIN",
+      "devtool log item_pickup on",
+      "gamemode survival",
+      {
+        "command": "clear @s",
+        "toleratedFailures": [
+          "commands.clear.failure"
+        ]
+      },
+      "tp @s 0.5 100 0.5 0 0",
+      "summon minecraft:item 0.5 100.2 0.5 {Item:{id:\"minecraft:dirt\",Count:5b},PickupDelay:0s}",
+      {
+        "command": "devtool inspect inventory",
+        "delayTicks": 20
+      },
+      {
+        "command": "clear @s",
+        "toleratedFailures": [
+          "commands.clear.failure"
+        ]
+      },
+      {
+        "command": "replaceitem entity @s slot.hotbar.0 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.hotbar.1 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.hotbar.2 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.hotbar.3 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.hotbar.4 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.hotbar.5 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.hotbar.6 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.hotbar.7 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.hotbar.8 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.0 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.1 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.2 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.3 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.4 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.5 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.6 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.7 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.8 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.9 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.10 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.11 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.12 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.13 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.14 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.15 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.16 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.17 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.18 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.19 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.20 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.21 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.22 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.23 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.24 minecraft:stone 64"
+      },
+      {
+        "command": "replaceitem entity @s slot.inventory.25 minecraft:stone 64"
+      },
+      "replaceitem entity @s slot.inventory.26 minecraft:dirt 62",
+      "summon minecraft:item 0.5 100.2 0.5 {Item:{id:\"minecraft:dirt\",Count:5b},PickupDelay:0s}",
+      {
+        "command": "devtool inspect inventory",
+        "delayTicks": 20
+      },
+      "replaceitem entity @s slot.inventory.25 minecraft:air",
+      {
+        "command": "devtool inspect inventory",
+        "delayTicks": 20
+      },
+      "devtool log item_pickup off",
+      {
+        "command": "clear @s",
+        "toleratedFailures": [
+          "commands.clear.failure"
+        ]
+      },
+      "gamemode creative",
+      "devtool mark V46_PICKUP_END"
+    ]
+  },
+  "v46_pause_book": {
+    "description": "The pause note (1.8.0). Single player, development client with client.allowActions. Puts a book and quill in hotbar slot 5, selects it and uses it: the book screen opens and pauses the game. Expect CLIENT_ACTION step=use result=done and, while the book is open, config/devtool/inbox/paused.json with screen=net.minecraft.client.gui.GuiScreenBook. The person then closes the book (Esc): the note is removed. Nothing after the use runs until then, so the use is last.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V46_PAUSE_BEGIN",
+      "gamemode creative",
+      "replaceitem entity @s slot.hotbar.5 minecraft:writable_book",
+      {
+        "command": "devtool client select 5",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client use",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v46_pause_after": {
+    "description": "After the pause card (1.8.0): opens the inventory, which does not pause (expect no paused.json while it is open), closes it, and puts the hotbar slot back to 0. Ends with V46_PAUSE_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool client inventory",
+      {
+        "command": "devtool client close",
+        "delayTicks": 40
+      },
+      {
+        "command": "devtool client select 0",
+        "delayTicks": 5
+      },
+      {
+        "command": "replaceitem entity @s slot.hotbar.5 minecraft:air",
+        "delayTicks": 5
+      },
+      "devtool mark V46_PAUSE_END"
+    ]
+  },
+  "v46_screens": {
+    "description": "Screenshots with hide (1.8.0), development client with the toolkit 1.8.0. Writes chat lines (marks), then four pictures: v46_nochat with hide=chat (expect no chat lines) and v46_plain 5 ticks later (expect chat lines and the HUD); v46_nohud with hide=hud (expect no hotbar, crosshair, chat or hand) and v46_after_hud 5 ticks later (expect the HUD back: F1 restored). SCREENSHOT records with hide; no Saved screenshot chat line naming v46_nochat or v46_nohud (the plain ones print theirs). Ends with V46_SCREENS_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V46_SCREENS_LINE_1",
+      "devtool mark V46_SCREENS_LINE_2",
+      {
+        "command": "devtool screenshot v46_nochat 0 hide=chat",
+        "delayTicks": 5
+      },
+      "devtool screenshot v46_plain 5",
+      {
+        "command": "devtool screenshot v46_nohud 0 hide=hud",
+        "delayTicks": 20
+      },
+      "devtool screenshot v46_after_hud 5",
+      {
+        "command": "devtool mark V46_SCREENS_END",
+        "delayTicks": 20
+      }
+    ]
+  },
+  "v46_screens_open": {
+    "description": "hide=hud with a screen open (1.8.0): survival, so the inventory key opens the survival inventory (creative would open the creative one); opens it, takes v46_inv_nohud with hide=hud (expect the inventory drawn and the HUD behind it, chat, hand and block outline left out; the SCREENSHOT record names net.minecraft.client.gui.inventory.GuiInventory), closes it, back to creative. Ends with V46_SCREENS_OPEN_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "gamemode survival",
+      {
+        "command": "devtool client inventory",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool screenshot v46_inv_nohud 0 hide=hud",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool client close",
+        "delayTicks": 10
+      },
+      {
+        "command": "gamemode creative",
+        "delayTicks": 5
+      },
+      "devtool mark V46_SCREENS_OPEN_END"
+    ]
+  },
+  "v46_populated": {
+    "description": "Waiting for decorated chunks (1.8.0). Run in a flat forest world with decoration (create ... type=flat structures=false flat=3;minecraft:bedrock,2*minecraft:dirt,minecraft:grass;4;decoration), where trees grow in every chunk: grass at y 3, trees above. Moves the caller to a fresh area at 3000.5 40 3000.5 in creative; the plain wait for loaded chunks; CHUNK_INSPECT right after it of the +X+Z corner chunk at 3032 3032 and the -X ring chunk at 2950 2950, whose decoration the plain wait does not guarantee (observed either way: terrainPopulated=false there shows the gap the populated wait closes); the wait with populated (expect populated=true; its waitedTicks says how long decoration still ran); a search of the box 3000 4 3000 3010 30 3010 for leaves and logs (expect found above 0: trees are there); the box cleared to air; 200 ticks later the same searches (expect found=0 for leaves, logs, leaves2 and log2: nothing decorated into it afterwards); then a populated wait over a rectangle reaching the loaded area's edge east of the caller with a short timeout (expect AWAIT outcome=timedOut naming firstUnpopulatedChunk, tolerated devtool.wait.timeout), and CHUNK_INSPECT eastward. Ends with V46_POPULATED_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V46_POPULATED_BEGIN",
+      "gamemode creative",
+      "tp @s 3000.5 40 3000.5 0 0",
+      {
+        "command": "devtool await chunks ~-32 ~-32 ~32 ~32 1200",
+        "delayTicks": 1
+      },
+      "devtool inspect chunk 3032 3032",
+      "devtool inspect chunk 2950 2950",
+      "devtool await chunks ~-32 ~-32 ~32 ~32 1200 populated",
+      "devtool find block minecraft:leaves 3000 4 3000 3010 30 3010 limit 1",
+      "devtool find block minecraft:log 3000 4 3000 3010 30 3010 limit 1",
+      {
+        "command": "fill 3000 4 3000 3010 30 3010 minecraft:air",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      {
+        "command": "devtool find block minecraft:leaves 3000 4 3000 3010 30 3010",
+        "delayTicks": 200
+      },
+      "devtool find block minecraft:log 3000 4 3000 3010 30 3010",
+      "devtool find block minecraft:leaves2 3000 4 3000 3010 30 3010",
+      "devtool find block minecraft:log2 3000 4 3000 3010 30 3010",
+      {
+        "command": "devtool await chunks ~176 ~-8 ~208 ~8 20 populated",
+        "toleratedFailures": [
+          "devtool.wait.timeout"
+        ]
+      },
+      "devtool inspect chunk ~128 ~",
+      "devtool inspect chunk ~160 ~",
+      "devtool inspect chunk ~176 ~",
+      "devtool inspect chunk ~192 ~",
+      "devtool inspect chunk ~208 ~",
+      "devtool mark V46_POPULATED_END"
+    ]
+  }
+}

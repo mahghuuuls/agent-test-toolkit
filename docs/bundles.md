@@ -69,14 +69,17 @@ The toolkit's own failure keys are tolerated the same way, by declaring them:
 | `devtool.scenario.mismatch` | A scenario checkpoint expects a different bundle, or different text |
 | `devtool.inspect.notLoaded` | An inspection names a position whose chunk is not loaded |
 | `devtool.save.failed` | `devtool save` could not save a world |
-| `devtool.screenshot.noClient` | The screenshot target's client does not have the toolkit |
-| `devtool.client.noClient` | Your own client does not have the toolkit, or has one older than 1.4.0, for a `devtool client` step. For `quit`, also a client that allows actions but is older than 1.5.0; for a player action or a reconnect's `logout`, a client older than 1.7.0, whatever it allows |
+| `devtool.screenshot.noClient` | The screenshot target's client does not have the toolkit; from 1.8.0, for a screenshot with `hide`, also one older than 1.8.0 |
+| `devtool.client.noClient` | Your own client does not have the toolkit, or has one older than 1.4.0, for a `devtool client` step. For `quit`, also a client that allows actions but is older than 1.5.0; for a player action or a reconnect's `logout`, a client older than 1.7.0, whatever it allows; from 1.8.0, for a player action with `screenshotHide`, a client older than 1.8.0 |
 | `devtool.client.notAllowed` | Your client has not allowed client actions |
 | `devtool.client.notDead` | A respawn was asked of a living player |
 | `devtool.client.dead` | A click, hold, drop or tooltip was asked of a dead player (1.7.0) |
 | `devtool.client.busy` | Your client is on a reconnect, from the request until it is back and reported |
 | `devtool.baubles.absent` | Baubles is not installed |
 | `devtool.baubles.rejected` | A bauble slot refused the item |
+| `devtool.find.unknownBlock` | `devtool find block` names no block the game knows (1.8.0) |
+| `devtool.find.badState` | `devtool find block` asks a state the block cannot have: a property it lacks, a value it cannot take, or a property the world does not store, such as a fence's sides (1.8.0) |
+| `devtool.find.tooLarge` | The `devtool find block` box covers more than 1024 chunks (1.8.0) |
 
 A screenshot label with a forbidden character fails with a message, not a key, so it cannot be tolerated.
 
@@ -121,6 +124,20 @@ Every wait has a finite timeout: 200 ticks unless you say otherwise, never more 
 
 A `delayTicks` on the command after a wait counts from the end of the wait. Outside a bundle, typed by hand, the command checks once, reports, and does not wait.
 
+### Loaded is not decorated
+
+A loaded chunk is not necessarily finished. The world generator decorates a chunk, with its trees, ores and lakes, only once its +X, +Z and +X+Z neighbours are loaded too, and that decoration writes into those neighbours. So in fresh terrain a chunk can be loaded while decoration is still to come into it, and a `fill` right after a plain wait can be partly overwritten a moment later.
+
+From 1.8.0, add `populated` as the last word to wait for that as well:
+
+```json
+"tp @p 1000 70 1000",
+"devtool await chunks 990 990 1010 1010 400 populated",
+"fill 990 60 990 1010 75 1010 minecraft:air"
+```
+
+With `populated` the wait ends only when every chunk touching the rectangle, and every chunk one chunk toward -X and -Z of it, is loaded and decorated (the game's `TerrainPopulated` flag). The `AWAIT` record then also carries `populated=true`, `populatedChunks` (how many of those are loaded and decorated), `populatedChecked` (how many were checked) and, while one is not, `firstUnpopulatedChunk` in chunk coordinates. It still never loads or generates a chunk. `devtool inspect chunk` reports one chunk's flags.
+
 ## Placeholders
 
 A command may name a value the toolkit fills in when the command runs. Exactly four forms exist:
@@ -130,7 +147,7 @@ A command may name a value the toolkit fills in when the command runs. Exactly f
 | `${operator.name}` | The bound operator's name |
 | `${operator.uuid}` | Their UUID |
 | `${operator.selector}` | `@p[name=<their name>]` |
-| `${fixture.<handle>.uuid}` | The UUID of the fixture claimed under that handle in this session |
+| `${fixture.<handle>.uuid}` | The UUID of the fixture claimed under that handle in this session; from 1.8.0 also of the fixture `devtool fixture clear` removed under it, until the session ends |
 
 Bind the operator first, inside the session:
 
@@ -148,6 +165,7 @@ Rules that keep this a lookup and not a language:
 - A value containing whitespace, a quote or a brace is never substituted; the command fails with `devtool.placeholder.unsafe`. Names, UUIDs and selectors never contain those, so this only ever catches something wrong.
 - `BUNDLE_STEP` and `ERROR` records show the substituted text, so the log says what actually ran.
 - `${fixture.<handle>.uuid}` reads the session's handles, not the tags. After a `session stop` and a new `session start` of the same name, a fixture known only by its tag is unbound until `devtool fixture list` or `devtool fixture claim` fills the handles again.
+- From 1.8.0 a cleared fixture can still be named. After `devtool fixture clear <handle>`, `${fixture.<handle>.uuid}` still gives the removed entity's UUID until the session ends, so `devtool assert entity ${fixture.<handle>.uuid} absent` checks that it is gone. The handle itself is free: every fixture action treats it as unknown, and a new `claim` under it replaces the cleared UUID. A released handle is not kept, since its entity is still alive: its placeholder is unbound.
 
 ## Result files
 

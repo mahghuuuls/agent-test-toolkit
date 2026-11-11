@@ -65,11 +65,11 @@ Named lists of commands in JSON, under `config/devtool/bundles/`, scanned recurs
 - **`BUNDLE_START` and `BUNDLE_END`** in the log, so events your setup caused can be told apart from events of the test that followed. Both carry a hash of the bundle's text, and every load writes `BUNDLE_SOURCE` with the file's SHA-256, so a log line proves which text a run came from. `BUNDLE_START` also says who started the run and through which channel: chat, console, command block, join, inbox, or another bundle.
 - **Tolerated failures, on the record.** Declare the failure key a command may end with, such as `commands.fill.failed` on a second run, and the bundle carries on. Each tolerated step writes a `TOLERATED` record, so it never reads as a command that simply worked.
 - **Read again at every world start.** Bundles and configuration reload by themselves whenever a world opens, so a file edited at the title screen is used without typing `devtool reload`.
-- **Waits.** `devtool await chunks` parks the bundle until a region is loaded, with a timeout that is always finite. Never a guessed delay for something the toolkit can check.
+- **Waits.** `devtool await chunks` parks the bundle until a region is loaded, or with `populated` (from 1.8.0) loaded and decorated by the world generator, with a timeout that is always finite. Never a guessed delay for something the toolkit can check.
 - **Checkpoints.** `devtool checkpoint arm` shows a label to the person and pauses until they type `devtool checkpoint ack`; `cue` shows a label without pausing. The ticks asked and answered are recorded.
 - **An operator and placeholders.** Bind one player with `devtool session operator @s`, then write `${operator.name}`, `${operator.uuid}`, `${operator.selector}` or `${fixture.<handle>.uuid}` in any command. Those four are the whole list, and an unknown one refuses the file.
-- **Assertions and result files.** `devtool assert` compares a count, a presence, a dimension or a game mode with a value you declare, and writes the outcome; `"result": true` on a bundle also writes one JSON file per run with every assertion, failure, marker, checkpoint and wait, and which run it was: how it started, by whom, from which inbox request, when, and in which world.
-- **Fixtures.** `devtool fixture claim` names the one entity you just summoned; `list` says whether it is still there; `clear` removes exactly it, without a death, by a tag the toolkit owns, and nothing else; `release` takes the tag off and leaves it in the world.
+- **Assertions and result files.** `devtool assert` compares a count, a presence, a dimension, a game mode or a player's health with a value you declare, and writes the outcome; `"result": true` on a bundle also writes one JSON file per run with every assertion, failure, marker, checkpoint and wait, and which run it was: how it started, by whom, from which inbox request, when, and in which world.
+- **Fixtures.** `devtool fixture claim` names the one entity you just summoned; `list` says whether it is still there; `clear` removes exactly it, without a death, by a tag the toolkit owns, and nothing else, while its placeholder still names it so its absence can be asserted; `release` takes the tag off and leaves it in the world.
 - **Scenario checkpoints.** `devtool scenario checkpoint` stores in the world save which bundle must run next, across a stop and restart, and refuses anything else until it has run or you abandon it.
 
 They live outside the world save, so they survive making a fresh test world. They are deliberately **not** a scripting language: no variables, no conditionals, no loops, and the placeholders are lookups rather than expressions.
@@ -82,15 +82,15 @@ A verdict from an assertion means only that an observation matched, or did not m
 /devtool inbox open
 ```
 
-Off by default, and opened by you typing it, once each time you open a world, or, with `B:openOnLocalJoin=true` under `inbox`, by itself when you join from your own computer: as the single-player host with cheats on, or as an operator connecting through `localhost` to a development server that shares your client's folder. While it is open, an AI assistant can start one of its bundles, reload, save, take a screenshot, ask for a client action, or run a read-only inspection by writing a small file into `config/devtool/inbox/`, and reads the answer from a result file next to it. Requests run as you, with your permissions. Nothing else is accepted, and no vanilla command in particular: anything that changes the world has to be in a bundle, where you can read it. It closes when you leave, when the server stops, or when you type `/devtool inbox close`. A reconnect the toolkit started itself only suspends it: requests wait, and run once you are back.
+Off by default, and opened by you typing it, once each time you open a world, or, with `B:openOnLocalJoin=true` under `inbox`, by itself when you join from your own computer: as the single-player host with cheats on, or as an operator connecting through `localhost` to a development server that shares your client's folder. While it is open, an AI assistant can start one of its bundles, reload, save, take a screenshot, ask for a client action, or run a read-only inspection by writing a small file into `config/devtool/inbox/`, and reads the answer from a result file next to it. Requests run as you, with your permissions. Nothing else is accepted, and no vanilla command in particular: anything that changes the world has to be in a bundle, where you can read it. It closes when you leave, when the server stops, or when you type `/devtool inbox close`. While a screen pauses a single-player game, nothing is read, and your client leaves a `paused.json` note beside the requests saying which screen it is. A reconnect the toolkit started itself only suspends it: requests wait, and run once you are back.
 
 Turn it on with `B:enabled=true` under `inbox` in the configuration, in a development or test instance only.
 
 ### Event logging
 
-Eight categories, all off by default:
+Nine categories, all off by default:
 
-`block_place`, `block_break`, `entity_spawn`, `entity_death`, `entity_damage`, `player_interaction`, `entity_interaction`, `item_use`
+`block_place`, `block_break`, `entity_spawn`, `entity_death`, `entity_damage`, `player_interaction`, `entity_interaction`, `item_use`, `item_pickup`
 
 ```
 /devtool log entity_damage on arena
@@ -108,6 +108,8 @@ An excluded event and an event that never happened look identical in the log. So
 /devtool inspect player
 /devtool inspect entity @e[name=target]
 /devtool inspect block ~ ~-1 ~
+/devtool inspect chunk
+/devtool find block minecraft:chest ~-16 0 ~-16 ~16 80 ~16
 /devtool inspect container 10 64 -3
 /devtool inspect inventory
 /devtool inspect attributes
@@ -117,11 +119,11 @@ An excluded event and an event that never happened look identical in the log. So
 
 Structured records rather than chat output. A selector matching more than one entity is an error rather than an invitation to pick one, so name your fixtures and select on the name.
 
-`inspect block` answers what a block **is**: id, metadata, blockstate, tile entity class. `inspect container` answers what is **in** it, one record per occupied slot, and reports a loot table that has not rolled yet without rolling it. For the raw tile entity tag, use `nbt block`.
+`inspect block` answers what a block **is**: id, metadata, blockstate, tile entity class, and the light stored there. `inspect chunk` says whether a chunk is loaded and whether the world generator has decorated it yet, and `find block` lists where a block is in a box of loaded chunks, saying how many chunks it could not search. `inspect container` answers what is **in** it, one record per occupied slot, and reports a loot table that has not rolled yet without rolling it. For the raw tile entity tag, use `nbt block`.
 
 `inspect attributes` lists a living entity's attributes with every modifier, and `devtool assert attribute` checks a value or one modifier by UUID or name. With Baubles installed, `inspect inventory` includes the bauble slots, and `devtool baubles set` and `clear` fill and empty them. Baubles is optional and never required.
 
-Inspection only observes. A position whose chunk is not loaded is refused rather than loaded or generated.
+Inspection only observes. A position whose chunk is not loaded is refused, or for `inspect chunk` and `find block` reported as not loaded, rather than loaded or generated.
 
 ### Saves and screenshots
 
@@ -130,7 +132,7 @@ Inspection only observes. A position whose chunk is not loaded is refused rather
 /devtool screenshot inv_open 200
 ```
 
-`save` saves player data and every loaded world, in single player too, and leaves a `save-off` in place. `screenshot` asks a player's client to save a labelled screenshot after a delay; that client needs the toolkit installed.
+`save` saves player data and every loaded world, in single player too, and leaves a `save-off` in place. `screenshot` asks a player's client to save a labelled screenshot after a delay, and with `hide=chat` or `hide=hud` leaves the chat or the whole HUD out of that one picture; that client needs the toolkit installed.
 
 NBT goes to the log, bounded by a configurable limit, and truncation is always reported along with the original length.
 
