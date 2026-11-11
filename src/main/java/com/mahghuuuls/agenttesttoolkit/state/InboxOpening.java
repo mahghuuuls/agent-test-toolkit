@@ -53,6 +53,15 @@ public final class InboxOpening {
                 deadlineMillis, 0L);
     }
 
+    /**
+     * This opening under the name its operator has now: the same player can come back from a
+     * reconnect with another casing of the name.
+     */
+    public InboxOpening renamed(String name) {
+        return new InboxOpening(operatorUuid, name, openedWorldTick, openedAtMillis, worldKey,
+                suspendedUntilMillis, returnedAtMillis);
+    }
+
     /** This opening, listening again. */
     public InboxOpening resumed() {
         return new InboxOpening(operatorUuid, operatorName, openedWorldTick, openedAtMillis, worldKey, 0L, 0L);

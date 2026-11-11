@@ -64,6 +64,7 @@ public final class InboxGate {
         SessionStamp.apply(record);
         record.add("action", "suspended");
         record.add("operator", existing.getOperatorName());
+        record.add("operatorUuid", existing.getOperatorUuid().toString());
         record.add("reason", "reconnect");
         record.add("resumeDeadlineMillis", deadlineMillis);
         ToolkitLog.write(record);
@@ -109,7 +110,7 @@ public final class InboxGate {
     }
 
     /** A returning client's report: resume on the right token, close on a wrong one. */
-    public static void onReturn(java.util.UUID player, String token, RecordContext.Snapshot context) {
+    public static void onReturn(java.util.UUID player, String name, String token, RecordContext.Snapshot context) {
         InboxOpening existing = ToolkitState.getInboxOpening();
         InboxRejoin.Return decision = InboxRejoin.onReturn(existing, player, token, ToolkitState.getPendingRejoin());
         if (decision == InboxRejoin.Return.NOT_SUSPENDED) {
@@ -125,10 +126,15 @@ public final class InboxGate {
             close("tokenMismatch", context);
             return;
         }
-        InboxOpening resumed = existing.resumed();
+        // The name the player has now, which can differ in case from the one it opened with.
+        InboxOpening resumed = existing.resumed().renamed(name == null ? existing.getOperatorName() : name);
         ToolkitState.setInboxOpening(resumed);
-        InboxStatus.write(InboxPoller.directory(), resumed, worldFolder());
-        write(context, "resumed", existing.getOperatorName(), null);
+        // Asked first, so a server-less test or an early tick does not look up the world folder.
+        java.io.File directory = InboxPoller.directory();
+        if (directory != null) {
+            InboxStatus.write(directory, resumed, worldFolder());
+        }
+        write(context, "resumed", resumed.getOperatorUuid(), resumed.getOperatorName(), null);
     }
 
     /** Closes a suspended opening whose deadline passed, or whose operator came back without the token. */
@@ -148,7 +154,7 @@ public final class InboxGate {
     public static OpenResult open(boolean configEnabled, UUID operator, String name,
                                   RecordContext.Snapshot context) {
         if (!configEnabled) {
-            write(context, "refused", name, "disabled");
+            write(context, "refused", operator, name, "disabled");
             return OpenResult.DISABLED;
         }
         InboxOpening existing = ToolkitState.getInboxOpening();
@@ -156,12 +162,12 @@ public final class InboxGate {
             if (existing.getOperatorUuid().equals(operator)) {
                 return OpenResult.ALREADY_OPEN;
             }
-            write(context, "refused", name, "openForAnother");
+            write(context, "refused", operator, name, "openForAnother");
             return OpenResult.OPEN_FOR_ANOTHER;
         }
         ToolkitState.setInboxOpening(new InboxOpening(operator, name, context.getWorldTick(),
                 System.currentTimeMillis(), ToolkitState.getCurrentWorldKey()));
-        write(context, "opened", name, null);
+        write(context, "opened", operator, name, null);
         return OpenResult.OPENED;
     }
 
@@ -177,7 +183,7 @@ public final class InboxGate {
         }
         ToolkitState.setInboxOpening(new InboxOpening(operator, name, context.getWorldTick(),
                 System.currentTimeMillis(), ToolkitState.getCurrentWorldKey()));
-        write(context, "opened", name, "localJoin");
+        write(context, "opened", operator, name, "localJoin");
         InboxFiles files = new InboxFiles(InboxPoller.directory());
         files.ensureDirectory();
         InboxPoller.refuseLeftovers(files, context);
@@ -198,7 +204,7 @@ public final class InboxGate {
         }
         ToolkitState.setInboxOpening(null);
         InboxStatus.delete(InboxPoller.directory());
-        write(context, "closed", existing.getOperatorName(), reason);
+        write(context, "closed", existing.getOperatorUuid(), existing.getOperatorName(), reason);
         return true;
     }
 
@@ -215,27 +221,28 @@ public final class InboxGate {
     }
 
     /** Records a refused open decided by the caller, such as one attempted from a bundle. */
-    public static void recordRefusal(RecordContext.Snapshot context, String name, String reason) {
-        write(context, "refused", name, reason, null, null);
+    public static void recordRefusal(RecordContext.Snapshot context, UUID player, String name, String reason) {
+        write(context, "refused", player, name, reason, null, null);
     }
 
     /** A refusal with one more field, such as the owner name a host check compared against. */
-    public static void recordRefusal(RecordContext.Snapshot context, String name, String reason,
+    public static void recordRefusal(RecordContext.Snapshot context, UUID player, String name, String reason,
                                      String extraKey, String extraValue) {
-        write(context, "refused", name, reason, extraKey, extraValue);
+        write(context, "refused", player, name, reason, extraKey, extraValue);
     }
 
-    private static void write(RecordContext.Snapshot context, String action, String operator,
+    private static void write(RecordContext.Snapshot context, String action, UUID operatorUuid, String operator,
                               String reason) {
-        write(context, action, operator, reason, null, null);
+        write(context, action, operatorUuid, operator, reason, null, null);
     }
 
-    private static void write(RecordContext.Snapshot context, String action, String operator,
+    private static void write(RecordContext.Snapshot context, String action, UUID operatorUuid, String operator,
                               String reason, String extraKey, String extraValue) {
         LogRecord record = RecordContext.stamp(LogRecord.of(EventType.INBOX), context);
         SessionStamp.apply(record);
         record.add("action", action);
         record.add("operator", operator);
+        record.add("operatorUuid", operatorUuid == null ? null : operatorUuid.toString());
         record.add("reason", reason);
         if (extraKey != null) {
             record.add(extraKey, extraValue);

@@ -279,6 +279,15 @@ public final class ToolkitState {
         currentWorldKey = key;
     }
 
+    /**
+     * UUIDs of handles cleared in the active session (the entity removed, or already leaving
+     * the world when the clear came), by handle. Kept so a bundle can still name what it
+     * removed, for an absence check; no fixture action reads them. A released handle is not
+     * kept: its entity is still alive. Emptied with the session.
+     */
+    private static volatile java.util.Map<String, String> clearedFixtureUuids =
+            java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<String, String>());
+
     /** @return the UUID text of the fixture claimed under this handle, or null. */
     public static String getFixtureUuid(String handle) {
         return handle == null ? null : fixtureUuids.get(handle);
@@ -289,6 +298,10 @@ public final class ToolkitState {
         java.util.Map<String, String> next = new java.util.LinkedHashMap<String, String>(fixtureUuids);
         next.put(handle, uuid);
         fixtureUuids = java.util.Collections.unmodifiableMap(next);
+        // A handle claimed again names the new entity from now on.
+        java.util.Map<String, String> cleared = new java.util.LinkedHashMap<String, String>(clearedFixtureUuids);
+        cleared.remove(handle);
+        clearedFixtureUuids = java.util.Collections.unmodifiableMap(cleared);
     }
 
     /** Forgets one handle. The entity's last place is kept, in case it is asked about again. */
@@ -296,6 +309,23 @@ public final class ToolkitState {
         java.util.Map<String, String> next = new java.util.LinkedHashMap<String, String>(fixtureUuids);
         next.remove(handle);
         fixtureUuids = java.util.Collections.unmodifiableMap(next);
+    }
+
+    /** Forgets a cleared handle, keeping the UUID it named for the placeholder until the session ends. */
+    public static void clearFixture(String handle) {
+        java.util.Map<String, String> next = new java.util.LinkedHashMap<String, String>(fixtureUuids);
+        String uuid = next.remove(handle);
+        fixtureUuids = java.util.Collections.unmodifiableMap(next);
+        if (uuid != null) {
+            java.util.Map<String, String> cleared = new java.util.LinkedHashMap<String, String>(clearedFixtureUuids);
+            cleared.put(handle, uuid);
+            clearedFixtureUuids = java.util.Collections.unmodifiableMap(cleared);
+        }
+    }
+
+    /** @return the UUID text this handle named before it was cleared, or null. */
+    public static String getClearedFixtureUuid(String handle) {
+        return handle == null ? null : clearedFixtureUuids.get(handle);
     }
 
     /** Every claimed handle and its UUID, in claim order. */
@@ -341,6 +371,7 @@ public final class ToolkitState {
     /** Forgets every fixture. Called when the session that claimed them ends. */
     public static void clearFixtures() {
         fixtureUuids = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<String, String>());
+        clearedFixtureUuids = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<String, String>());
         fixturePlaces = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<String, FixturePlace>());
     }
 

@@ -84,6 +84,7 @@ public final class PlayerActionOptions {
     private int delay;
     private String screenshot = "";
     private int screenshotDelay;
+    private String screenshotHide = "";
 
     private PlayerActionOptions(String step, int slot, String argument, int ticks) {
         this.step = step;
@@ -132,6 +133,8 @@ public final class PlayerActionOptions {
                 action.screenshot = value;
             } else if (OPTION_SCREENSHOT_DELAY.equals(key) && TICKS.matcher(value).matches()) {
                 action.screenshotDelay = Integer.parseInt(value);
+            } else if (OPTION_SCREENSHOT_HIDE.equals(key) && (HIDE_CHAT.equals(value) || HIDE_HUD.equals(value))) {
+                action.screenshotHide = value;
             } else if (OPTION_SHOW_TICKS.equals(key) && TOOLTIP.equals(action.step) && HOLD_TICKS.matcher(value).matches()) {
                 action.ticks = Integer.parseInt(value);
             } else {
@@ -139,6 +142,10 @@ public final class PlayerActionOptions {
             }
         }
         if (TOOLTIP.equals(action.step) && !screenshotFitsTooltip(action.ticks, action.screenshot, action.screenshotDelay)) {
+            return null;
+        }
+        if (!action.screenshotHide.isEmpty() && action.screenshot.isEmpty()) {
+            // What to leave out of a picture means nothing without one.
             return null;
         }
         return isValidOptions(action.delay, action.screenshot, action.screenshotDelay) ? action : null;
@@ -150,6 +157,14 @@ public final class PlayerActionOptions {
     public static final String OPTION_SCREENSHOT = "screenshot";
     /** {@code screenshotDelay=}: ticks from the action to that screenshot. */
     public static final String OPTION_SCREENSHOT_DELAY = "screenshotDelay";
+    /** {@code screenshotHide=}: {@code chat} or {@code hud}, left out of that screenshot. */
+    public static final String OPTION_SCREENSHOT_HIDE = "screenshotHide";
+    /**
+     * The values of {@code screenshotHide}, which are also the screenshot command's {@code hide}
+     * values; the one list both read.
+     */
+    public static final String HIDE_CHAT = "chat";
+    public static final String HIDE_HUD = "hud";
     /** {@code showTicks=}: for a tooltip, the ticks the view stays open (1 to 1200). */
     public static final String OPTION_SHOW_TICKS = "showTicks";
 
@@ -315,5 +330,10 @@ public final class PlayerActionOptions {
     /** Ticks from the action to its screenshot. */
     public int getScreenshotDelay() {
         return screenshotDelay;
+    }
+
+    /** What that screenshot leaves out, {@code chat} or {@code hud}; empty for nothing. */
+    public String getScreenshotHide() {
+        return screenshotHide;
     }
 }

@@ -24,6 +24,8 @@ public final class PlayerActionRequest implements IMessage {
     private int delay;
     private String screenshot;
     private int screenshotDelay;
+    /** What the screenshot leaves out ({@code chat}, {@code hud}); empty for nothing. */
+    private String screenshotHide = "";
     /** Tells this request's answer from another of the same step asked in the same tick. */
     private String token;
     private long requestTick;
@@ -37,6 +39,7 @@ public final class PlayerActionRequest implements IMessage {
         this.delay = action.getDelay();
         this.screenshot = action.getScreenshot();
         this.screenshotDelay = action.getScreenshotDelay();
+        this.screenshotHide = action.getScreenshotHide();
     }
 
     /** For tests: any values, valid or not. */
@@ -61,7 +64,9 @@ public final class PlayerActionRequest implements IMessage {
     public boolean isValid() {
         return PlayerActionOptions.isValid(step, slot, argument, ticks) && ClientActionRequest.isValidToken(token)
                 && PlayerActionOptions.isValidOptions(delay, screenshot, screenshotDelay)
-                && (!isTooltip() || PlayerActionOptions.screenshotFitsTooltip(ticks, screenshot, screenshotDelay));
+                && (!isTooltip() || PlayerActionOptions.screenshotFitsTooltip(ticks, screenshot, screenshotDelay))
+                && (screenshotHide.isEmpty() || (!screenshot.isEmpty()
+                        && ScreenshotRequest.isValidHide(screenshotHide)));
     }
 
     public int getDelay() {
@@ -75,6 +80,17 @@ public final class PlayerActionRequest implements IMessage {
 
     public int getScreenshotDelay() {
         return screenshotDelay;
+    }
+
+    /** What the screenshot leaves out; empty for nothing. */
+    public String getScreenshotHide() {
+        return screenshotHide;
+    }
+
+    /** For tests: what the screenshot leaves out. */
+    PlayerActionRequest withScreenshotHide(String hide) {
+        this.screenshotHide = hide;
+        return this;
     }
 
     public String getStep() {
@@ -161,6 +177,8 @@ public final class PlayerActionRequest implements IMessage {
         screenshotDelay = buf.readInt();
         token = ByteBufUtils.readUTF8String(buf);
         requestTick = buf.readLong();
+        // Written only when set, so a request without it has 1.7.0's bytes.
+        screenshotHide = buf.isReadable() ? ByteBufUtils.readUTF8String(buf) : "";
     }
 
     @Override
@@ -174,6 +192,9 @@ public final class PlayerActionRequest implements IMessage {
         buf.writeInt(screenshotDelay);
         ByteBufUtils.writeUTF8String(buf, token);
         buf.writeLong(requestTick);
+        if (!screenshotHide.isEmpty()) {
+            ByteBufUtils.writeUTF8String(buf, screenshotHide);
+        }
     }
 
     /** Network thread: hands the action to the client's receiver; it runs on the client thread. */

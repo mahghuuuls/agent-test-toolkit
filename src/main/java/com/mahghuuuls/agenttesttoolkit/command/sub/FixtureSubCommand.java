@@ -233,7 +233,7 @@ public final class FixtureSubCommand implements SubCommand {
                 record.add("state", found.state.recordName());
                 record.add("outcome", "alreadyRemoving");
                 ToolkitLog.write(record);
-                ToolkitState.removeFixture(handle);
+                ToolkitState.clearFixture(handle);
                 continue;
             }
             if (entity == null) {

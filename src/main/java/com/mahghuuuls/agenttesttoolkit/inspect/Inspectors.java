@@ -17,6 +17,7 @@ import net.minecraft.potion.PotionEffect;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.EnumSkyBlock;
 import net.minecraft.world.World;
 
 /**
@@ -112,6 +113,11 @@ public final class Inspectors {
                 .add("dimension", world.provider.getDimension());
         record.addBlockPos("pos", pos.getX(), pos.getY(), pos.getZ());
         record.add("blockState", state.toString());
+        // The stored light values, as the F3 screen shows them: a solid block stores 0, so the
+        // light on a face is read from the air beside it. The sky light is before the time of
+        // day dims it. Reading them loads nothing; the position was checked above.
+        record.add("blockLight", world.getLightFor(EnumSkyBlock.BLOCK, pos));
+        record.add("skyLight", world.getLightFor(EnumSkyBlock.SKY, pos));
 
         TileEntity tile = world.getTileEntity(pos);
         if (tile != null) {

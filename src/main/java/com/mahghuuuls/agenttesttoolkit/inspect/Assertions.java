@@ -163,6 +163,14 @@ public final class Assertions {
     }
 
     /**
+     * A player's current health. Equal when the two agree to the two decimals the records
+     * show, as an attribute's value is compared.
+     */
+    public static Result health(double expected, double observed) {
+        return attributeValue(expected, Double.valueOf(observed));
+    }
+
+    /**
      * One modifier, named by UUID or by name, optionally with its amount.
      *
      * <p>A UUID names at most one modifier. A name may name several: vanilla gives all four

@@ -46,6 +46,9 @@ public final class InboxRequest {
     /** A reconnect's away time, 0 to 60 seconds. */
     private static final Pattern AWAY = Pattern.compile("(?:[0-9]|[1-5][0-9]|60)");
     private static final Pattern DELAY = Pattern.compile("[0-9]|[1-9][0-9]|[1-5][0-9][0-9]|600");
+    /** A screenshot's {@code hide}: what the captured frame leaves out. */
+    private static final Pattern SCREENSHOT_HIDE = Pattern.compile("hide=(?:" + PlayerActionOptions.HIDE_CHAT
+            + "|" + PlayerActionOptions.HIDE_HUD + ")");
     private static final Pattern REQUEST_ID = Pattern.compile("[A-Za-z0-9_.\\-]{1,64}");
 
     private final String id;
@@ -107,9 +110,12 @@ public final class InboxRequest {
             return accepted(id, line, verb, "devtool run " + args[0]);
         }
         if ("screenshot".equals(verb)) {
-            // screenshot <label> [delayTicks], to the operator only: no player argument here.
-            if (args.length < 1 || args.length > 2 || !SCREENSHOT_LABEL.matcher(args[0]).matches()
-                    || (args.length == 2 && !DELAY.matcher(args[1]).matches())) {
+            // screenshot <label> [delayTicks] [hide=chat|hud], to the operator only: no player
+            // argument here.
+            boolean hide = args.length >= 2 && SCREENSHOT_HIDE.matcher(args[args.length - 1]).matches();
+            int positional = hide ? args.length - 1 : args.length;
+            if (positional < 1 || positional > 2 || !SCREENSHOT_LABEL.matcher(args[0]).matches()
+                    || (positional == 2 && !DELAY.matcher(args[1]).matches())) {
                 return refused(id, line, verb, REASON_BAD_ARGUMENTS);
             }
             return accepted(id, line, verb, "devtool screenshot " + join(args));

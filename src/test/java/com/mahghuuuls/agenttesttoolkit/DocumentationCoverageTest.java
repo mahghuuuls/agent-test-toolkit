@@ -113,10 +113,10 @@ class DocumentationCoverageTest {
             Pattern.compile("REASON_[A-Z_]+\\s*=\\s*\"([A-Za-z]+)\""),
             Pattern.compile("\"reason\"\\s*,\\s*\"([A-Za-z]+)\""),
             Pattern.compile("reason=([A-Za-z]{2,})"),
-            Pattern.compile("recordRefusal\\([^,;]+,[^,;]+,\\s*\"([A-Za-z]+)\""),
+            Pattern.compile("recordRefusal\\((?:[^,;]+,){2,3}\\s*\"([A-Za-z]+)\""),
             Pattern.compile("InboxResult\\.(?:refused|failed)\\([^,;]+,\\s*\"([A-Za-z]+)\""),
             Pattern.compile("(?<![A-Za-z])close\\(\\s*\"([A-Za-z]+)\""),
-            Pattern.compile("(?:record|write)\\([^,;]+,\\s*\"(?:refused|failed)\"\\s*,\\s*[^,;]+,\\s*\"([A-Za-z]+)\""),
+            Pattern.compile("(?:record|write)\\([^,;]+,\\s*\"(?:refused|failed)\"\\s*,(?:\\s*[^,;]+,){1,2}\\s*\"([A-Za-z]+)\""),
             Pattern.compile("refuse\\(\\s*files\\s*,\\s*request\\s*,\\s*\"([A-Za-z]+)\""),
     };
 

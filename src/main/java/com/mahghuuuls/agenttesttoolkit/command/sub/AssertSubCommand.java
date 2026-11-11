@@ -77,7 +77,7 @@ public final class AssertSubCommand implements SubCommand {
     public String getUsage() {
         return "assert <entities count <n> within <r> [type <id>] [name <name>]"
                 + " | entity <uuid> <present|absent [at <x> <y> <z>] | dimension <d> | within <r> of <x> <y> <z>>"
-                + " | player <name> <dimension <d> | gamemode <mode>>"
+                + " | player <name> <dimension <d> | gamemode <mode> | health <n>>"
                 + " | attribute <target> <attribute> <value <n> | modifier <uuid|name> [amount <n>]>>";
     }
 
@@ -345,11 +345,13 @@ public final class AssertSubCommand implements SubCommand {
         return new ModifierArgs(reference.toString(), amount);
     }
 
-    /** {@code player <name> dimension <d>} and {@code player <name> gamemode <mode>}. */
+    private static final String PLAYER_USAGE = "/devtool assert player <name> <dimension <d>|gamemode <mode>|health <n>>";
+
+    /** {@code player <name> dimension <d>}, {@code gamemode <mode>} and {@code health <n>}. */
     private Assertions.Result player(MinecraftServer server, String[] args, LogRecord record)
             throws CommandException {
         if (args.length < 4) {
-            throw new WrongUsageException("/devtool assert player <name> <dimension <d>|gamemode <mode>>");
+            throw new WrongUsageException(PLAYER_USAGE);
         }
         EntityPlayerMP player = server.getPlayerList().getPlayerByUsername(args[1]);
         record.add("player", args[1]);
@@ -368,7 +370,10 @@ public final class AssertSubCommand implements SubCommand {
             return Assertions.equalsText(args[3].toLowerCase(Locale.ROOT),
                     player.interactionManager.getGameType().getName());
         }
-        throw new WrongUsageException("/devtool assert player <name> <dimension <d>|gamemode <mode>>");
+        if ("health".equals(form)) {
+            return Assertions.health(CommandBase.parseDouble(args[3]), player.getHealth());
+        }
+        throw new WrongUsageException(PLAYER_USAGE);
     }
 
     @Override

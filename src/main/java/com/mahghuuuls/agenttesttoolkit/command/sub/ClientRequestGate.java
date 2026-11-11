@@ -54,8 +54,16 @@ final class ClientRequestGate {
 
     /** The refusal of this step, or null when it may be sent. */
     static Refusal refusal(String step, boolean logout, Facts facts) {
+        return refusal(step, logout, false, facts);
+    }
+
+    /**
+     * The refusal of this step, or null when it may be sent; {@code hideScreenshot} when a
+     * player action's screenshot is asked to leave chat or the HUD out.
+     */
+    static Refusal refusal(String step, boolean logout, boolean hideScreenshot, Facts facts) {
         if (PlayerActionOptions.isStep(step)) {
-            return actionRefusal(step, facts);
+            return actionRefusal(step, hideScreenshot, facts);
         }
         if (ClientActionRequest.RESPAWN.equals(step) && !facts.dead) {
             // Known here at once; the client hears of the death a tick later.
@@ -87,11 +95,15 @@ final class ClientRequestGate {
      * A player action: the version first, since an older client has no handler for the action's
      * message and would drop the connection on it, whatever it allows.
      */
-    private static Refusal actionRefusal(String step, Facts facts) {
+    private static Refusal actionRefusal(String step, boolean hideScreenshot, Facts facts) {
         if (!facts.speaksActions) {
             return Refusal.NO_CLIENT;
         }
         if (facts.allowed != null && !atLeast(facts.helloVersion, ToolkitChannel.VERSION_1_7_0)) {
+            return Refusal.CLIENT_TOO_OLD;
+        }
+        if (hideScreenshot && facts.allowed != null && !atLeast(facts.helloVersion, ToolkitChannel.VERSION_1_8_0)) {
+            // A 1.7.0 client would take the picture with the chat or HUD it was asked to leave out.
             return Refusal.CLIENT_TOO_OLD;
         }
         if (!Boolean.TRUE.equals(facts.allowed)) {

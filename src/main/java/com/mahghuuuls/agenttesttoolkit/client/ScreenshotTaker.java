@@ -7,6 +7,7 @@ import com.mahghuuuls.agenttesttoolkit.net.ScreenshotRequest;
 import com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.ScreenShotHelper;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
@@ -35,6 +36,10 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
     private final ConcurrentLinkedQueue<ScreenshotRequest> incoming = new ConcurrentLinkedQueue<ScreenshotRequest>();
     /** Client thread only. */
     private final List<Pending> pending = new ArrayList<Pending>();
+    /** The frame a capture with {@code hide} falls in; client thread only. */
+    private final FrameHide frame = new FrameHide();
+    /** The capture that frame was armed for, taken at the frame's end. */
+    private Pending armedFor;
 
     private static final class Pending {
         final ScreenshotRequest request;
@@ -81,19 +86,72 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
 
     @SubscribeEvent
     public void onRenderTick(TickEvent.RenderTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || pending.isEmpty()) {
+        if (event.phase == TickEvent.Phase.START) {
+            armFrame();
             return;
         }
-        // One capture per frame: each is a synchronous file write.
+        if (pending.isEmpty() && !frame.isArmed()) {
+            return;
+        }
+        // One capture per frame: each is a synchronous file write. The capture armed at this
+        // frame's start is the one taken, so what the frame left out is what the picture shows.
+        Pending due = armedFor != null ? armedFor : firstDue();
+        try {
+            // Only a capture still waiting is taken: one the world's end already failed is not
+            // taken late, even if its frame was armed.
+            if (due != null && pending.remove(due)) {
+                capture(due.request);
+            }
+        } finally {
+            disarmFrame();
+        }
+    }
+
+    /**
+     * Leaves chat out of the frame being drawn while it is armed: for {@code chat}, and for
+     * {@code hud}, which includes chat, also when an open screen keeps the HUD drawn. Forge's
+     * chat overlay returns before it ends its profiler section when cancelled, which only shows
+     * in the F3 profiler for that one frame.
+     */
+    @SubscribeEvent
+    public void onChatOverlay(RenderGameOverlayEvent.Chat event) {
+        if (frame.cancelsChat()) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** The first waiting capture whose delay has run out; null when none is due. */
+    private Pending firstDue() {
         Iterator<Pending> it = pending.iterator();
         while (it.hasNext()) {
             Pending p = it.next();
             if (p.remaining <= 0) {
-                it.remove();
-                capture(p.request);
-                return;
+                return p;
             }
         }
+        return null;
+    }
+
+    /** At a frame's start: when the capture due in it asks {@code hide}, the frame is drawn without that. */
+    private void armFrame() {
+        // A frame whose end never came (the game recovering from an error) is put back first.
+        disarmFrame();
+        Pending due = firstDue();
+        if (due == null || ScreenshotRequest.HIDE_NONE.equals(due.request.getHide())) {
+            return;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        mc.gameSettings.hideGUI = frame.arm(due.request.getHide(), mc.gameSettings.hideGUI);
+        armedFor = due;
+    }
+
+    /** At the frame's end, after the capture: the player's own F1 state comes back. */
+    private void disarmFrame() {
+        if (frame.isArmed()) {
+            Minecraft mc = Minecraft.getMinecraft();
+            mc.gameSettings.hideGUI = frame.disarm(mc.gameSettings.hideGUI);
+        }
+        armedFor = null;
     }
 
     private static void failed(ScreenshotRequest request, String reason) {
@@ -112,13 +170,22 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
                 .add("side", "CLIENT")
                 .add("label", request.getLabel())
                 .add("requestTick", request.getRequestTick());
+        boolean hidden = !ScreenshotRequest.HIDE_NONE.equals(request.getHide());
+        if (hidden) {
+            record.add("hide", request.getHide());
+            if (mc.currentScreen != null) {
+                // An open screen is drawn whatever the frame leaves out.
+                record.add("screen", mc.currentScreen.getClass().getName());
+            }
+        }
         try {
             File file = new File(new File(mc.gameDir, "screenshots"), name);
             long before = file.isFile() ? file.lastModified() : -1L;
             net.minecraft.util.text.ITextComponent said = ScreenShotHelper.saveScreenshot(
                     mc.gameDir, name, mc.displayWidth, mc.displayHeight, mc.getFramebuffer());
-            if (said != null && mc.ingameGUI != null) {
-                // The player is told, as F2 tells them.
+            if (said != null && mc.ingameGUI != null && !hidden) {
+                // The player is told, as F2 tells them; not for a picture meant to be clean,
+                // since the line would land in the next one.
                 mc.ingameGUI.getChatGUI().printChatMessage(said);
             }
             // Checked rather than assumed: another mod's ScreenshotEvent can cancel or redirect

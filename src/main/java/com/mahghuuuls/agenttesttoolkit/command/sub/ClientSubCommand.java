@@ -71,7 +71,7 @@ public final class ClientSubCommand implements SubCommand {
         return "client <reconnect [awaySeconds] [logout] | respawn | close | quit | select <0-8> | use | attack"
                 + " | hold <use|attack> <ticks> | drop [all] | inventory | tooltip <0-40> [advanced] [shift] [ctrl] [alt] [showTicks=<ticks>]>"
                 + " [delay=<ticks>] [screenshot=<label>]"
-                + " [screenshotDelay=<ticks>]";
+                + " [screenshotDelay=<ticks>] [screenshotHide=chat|hud]";
     }
 
     @Override
@@ -158,7 +158,7 @@ public final class ClientSubCommand implements SubCommand {
     private static void executePlayerAction(ICommandSender sender, PlayerActionOptions action) throws CommandException {
         EntityPlayerMP player = requireOwnPlayer(sender);
         String step = action.getStep();
-        refuseIfNeeded(player, step, false);
+        refuseIfNeeded(player, step, false, !action.getScreenshotHide().isEmpty());
 
         long requestTick = player.world.getTotalWorldTime();
         // Tells this request's answer from another of the same step asked in the same tick.
@@ -188,6 +188,9 @@ public final class ClientSubCommand implements SubCommand {
         if (!action.getScreenshot().isEmpty()) {
             record.add("screenshot", action.getScreenshot());
             record.add("screenshotDelay", action.getScreenshotDelay());
+            if (!action.getScreenshotHide().isEmpty()) {
+                record.add("screenshotHide", action.getScreenshotHide());
+            }
         }
         record.add("requestTick", requestTick);
         ToolkitLog.write(record);
@@ -211,8 +214,13 @@ public final class ClientSubCommand implements SubCommand {
 
     /** Refuses at once, with a key, what the server already knows would fail. */
     private static void refuseIfNeeded(EntityPlayerMP player, String step, boolean logout) throws CommandException {
+        refuseIfNeeded(player, step, logout, false);
+    }
+
+    private static void refuseIfNeeded(EntityPlayerMP player, String step, boolean logout, boolean hideScreenshot)
+            throws CommandException {
         Boolean allowed = ClientCapabilities.allowsActions(player);
-        ClientRequestGate.Refusal refusal = ClientRequestGate.refusal(step, logout, new ClientRequestGate.Facts(
+        ClientRequestGate.Refusal refusal = ClientRequestGate.refusal(step, logout, hideScreenshot, new ClientRequestGate.Facts(
                 player.getHealth() <= 0.0F,
                 ClientCapabilities.isBusy(player, com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader.get()
                         .getInboxRejoinWindowSeconds() * 1000L),

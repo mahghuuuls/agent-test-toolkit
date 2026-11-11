@@ -87,7 +87,7 @@ public final class InboxSubCommand implements SubCommand {
             // cannot tell a bundle from the person. Bundle commands are only ever dispatched
             // while the scheduler advances them, so a running execution means a bundle, or join
             // automation with nobody typing, is asking. The inbox opens only when a person types.
-            InboxGate.recordRefusal(RecordContext.snapshot(sender), player.getName(), "fromBundle");
+            InboxGate.recordRefusal(RecordContext.snapshot(sender), player.getUniqueID(), player.getName(), "fromBundle");
             throw new CommandException("[DevToolkit] The inbox is opened by typing the command in "
                     + "chat, never from a bundle.");
         }

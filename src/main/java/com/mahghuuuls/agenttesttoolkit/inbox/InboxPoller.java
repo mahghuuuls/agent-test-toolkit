@@ -186,6 +186,7 @@ public final class InboxPoller {
         record.add("request", content == null ? null : InboxRequest.parse(id, content).getLine());
         InboxOpening opening = InboxGate.current();
         record.add("operator", opening == null ? null : opening.getOperatorName());
+        record.add("operatorUuid", opening == null ? null : opening.getOperatorUuid().toString());
         record.add("reason", "duplicateId");
         ToolkitLog.write(record);
     }
@@ -200,6 +201,7 @@ public final class InboxPoller {
         record.add("request", request.getLine());
         InboxOpening opening = InboxGate.current();
         record.add("operator", opening == null ? null : opening.getOperatorName());
+        record.add("operatorUuid", opening == null ? null : opening.getOperatorUuid().toString());
         record.add("reason", reason);
         if (reason != null) {
             record.add("detail", request.getDetail());

@@ -128,7 +128,7 @@ public final class LocalJoinListener {
         boolean matched = loopback && LocalJoin.matches(secret, proof);
         LocalJoin.Decision decision = apply(server, player, matched);
         if (decision == LocalJoin.Decision.NOT_LOCAL && MISMATCHED.add(player.getUniqueID())) {
-            InboxGate.recordRefusal(RecordContext.snapshot(player), player.getName(), "localJoinNotProven");
+            InboxGate.recordRefusal(RecordContext.snapshot(player), player.getUniqueID(), player.getName(), "localJoinNotProven");
         }
     }
 
@@ -145,7 +145,7 @@ public final class LocalJoinListener {
             LocalJoinOperators.kept(player);
         } else if (grant == LocalJoin.Grant.ONLINE_MODE) {
             // One refusal for the join: this one says why, so the inbox's own is not written too.
-            InboxGate.recordRefusal(RecordContext.snapshot(player), player.getName(), REASON_ONLINE_MODE);
+            InboxGate.recordRefusal(RecordContext.snapshot(player), player.getUniqueID(), player.getName(), REASON_ONLINE_MODE);
             return LocalJoin.Decision.NOT_OPERATOR;
         }
         LocalJoin.Decision decision = LocalJoin.decideDedicated(ToolkitConfigLoader.get().isInboxOpenOnLocalJoin(),
@@ -161,9 +161,9 @@ public final class LocalJoinListener {
         if (decision == LocalJoin.Decision.OPEN) {
             InboxGate.openAtLocalJoin(player.getUniqueID(), player.getName(), server.getFolderName(), context);
         } else if (decision == LocalJoin.Decision.NOT_OPERATOR) {
-            InboxGate.recordRefusal(context, player.getName(), "localJoinNotOperator");
+            InboxGate.recordRefusal(context, player.getUniqueID(), player.getName(), "localJoinNotOperator");
         } else if (decision == LocalJoin.Decision.NOT_HOST) {
-            InboxGate.recordRefusal(context, player.getName(), "localJoinNotHost", "owner", server.getServerOwner());
+            InboxGate.recordRefusal(context, player.getUniqueID(), player.getName(), "localJoinNotHost", "owner", server.getServerOwner());
         }
     }
 }

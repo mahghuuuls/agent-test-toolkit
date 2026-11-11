@@ -136,6 +136,12 @@ public final class ToolkitChannel {
      */
     public static final int[] VERSION_1_7_0 = {1, 7, 0};
 
+    /**
+     * 1.8.0: a client that reads a screenshot's {@code hide}. An older client would take the
+     * picture with the chat and HUD it was asked to leave out, so it is refused instead.
+     */
+    public static final int[] VERSION_1_8_0 = {1, 8, 0};
+
     /** Numeric parts compared in order; anything unreadable counts as older. */
     public static boolean atLeast(String version, int[] minimum) {
         String[] parts = version.split("[.-]");

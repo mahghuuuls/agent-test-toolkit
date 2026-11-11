@@ -110,7 +110,7 @@ public class AgentTestToolkitMod {
                                     player.getUniqueID(), report.getRequestTick());
                         } else if ("done".equals(report.getResult())) {
                             com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.onReturn(player.getUniqueID(),
-                                    report.getToken(),
+                                    player.getName(), report.getToken(),
                                     com.mahghuuuls.agenttesttoolkit.logging.RecordContext.snapshot(player));
                         }
                     }

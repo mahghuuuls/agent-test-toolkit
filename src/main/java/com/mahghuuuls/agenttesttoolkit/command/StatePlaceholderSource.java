@@ -34,6 +34,9 @@ public final class StatePlaceholderSource implements PlaceholderSource {
 
     @Override
     public String fixtureUuid(String handle) {
-        return ToolkitState.getFixtureUuid(handle);
+        // A cleared handle still names what it removed, so a bundle can check it is gone; the
+        // fixture actions read the claimed handles only.
+        String claimed = ToolkitState.getFixtureUuid(handle);
+        return claimed != null ? claimed : ToolkitState.getClearedFixtureUuid(handle);
     }
 }

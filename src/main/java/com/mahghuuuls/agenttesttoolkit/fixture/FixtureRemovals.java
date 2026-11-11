@@ -64,7 +64,7 @@ public final class FixtureRemovals {
         // removeEntity, not the kill path: no death, no loot, no experience, riders dismounted
         // and left in the world. Not removeEntityDangerously, which skips the riders.
         entity.world.removeEntity(entity);
-        ToolkitState.removeFixture(handle);
+        ToolkitState.clearFixture(handle);
         DiagnosticSession session = ToolkitState.getActiveSession();
         PENDING.add(new Pending(handle, entity.getUniqueID().toString(), entity.getEntityId(),
                 session == null ? null : session.getName(), entity.dimension, record, server.getTickCounter(),

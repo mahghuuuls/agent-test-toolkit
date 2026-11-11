@@ -353,8 +353,10 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver {
             return;
         }
         fields.put("screenshot", request.getScreenshot());
+        // What the picture leaves out is on the server's request record and the client's
+        // SCREENSHOT record; the report's fields are full for a long tooltip.
         screenshots.receive(new ScreenshotRequest(request.getScreenshot(), request.getScreenshotDelay(),
-                request.getRequestTick()));
+                request.getRequestTick(), request.getScreenshotHide()));
     }
 
     /** The key an action presses, or null for one that presses none. */
