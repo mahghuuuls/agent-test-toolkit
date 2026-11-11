@@ -16,7 +16,7 @@ You still do the parts of a test that need a person: aiming, walking, working in
 | Parsing the log | [docs/logging.md](docs/logging.md) |
 | Deciding whether to install it | [MOD-PAGE.md](MOD-PAGE.md) |
 
-`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 48 record types, and twelve worked examples of testing a freshly implemented feature, one of them run entirely through the command inbox, one with a reconnect in the middle, and one a whole launch from the title screen to the game closing, with nobody typing. The `docs/` pages are the same material written for a person.
+`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 52 record types, and twelve worked examples of testing a freshly implemented feature, one of them run entirely through the command inbox, one with a reconnect in the middle, and one a whole launch from the title screen to the game closing, with nobody typing. The `docs/` pages are the same material written for a person.
 
 It also covers the traps that waste a test run: why an absent record is ambiguous, why `entity_spawn` floods, and why `latest.log` may not be the file you think it is.
 

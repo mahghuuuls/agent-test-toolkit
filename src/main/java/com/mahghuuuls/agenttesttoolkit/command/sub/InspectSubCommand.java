@@ -47,7 +47,7 @@ public final class InspectSubCommand implements SubCommand {
      */
     public static final List<String> TARGETS =
             Collections.unmodifiableList(
-                    Arrays.asList("player", "entity", "block", "container", "inventory", "attributes"));
+                    Arrays.asList("player", "entity", "block", "chunk", "container", "inventory", "attributes"));
 
     @Override
     public String getName() {
@@ -61,7 +61,7 @@ public final class InspectSubCommand implements SubCommand {
 
     @Override
     public String getUsage() {
-        return "inspect <player [selector]|entity <selector>|block <x> <y> <z>"
+        return "inspect <player [selector]|entity <selector>|block <x> <y> <z>|chunk [<x> <z>]"
                 + "|container <x> <y> <z>|inventory [selector]|attributes [selector|uuid]>";
     }
 
@@ -88,6 +88,8 @@ public final class InspectSubCommand implements SubCommand {
             inspectEntity(server, sender, rest);
         } else if ("block".equals(target)) {
             inspectBlock(sender, rest);
+        } else if ("chunk".equals(target)) {
+            inspectChunk(sender, rest);
         } else if ("container".equals(target)) {
             inspectContainer(sender, rest);
         } else if ("inventory".equals(target)) {
@@ -229,6 +231,33 @@ public final class InspectSubCommand implements SubCommand {
 
         BlockPos pos = CommandBase.parseBlockPos(sender, args, 0, false);
         emit(Inspectors.block(sender.getEntityWorld(), pos), sender, "Block inspection written to log.");
+    }
+
+    /**
+     * Reports the flags of the chunk holding a block column: the caller's own, or the one at
+     * {@code <x> <z>}, which may be {@code ~}-relative. Never loads it.
+     */
+    private void inspectChunk(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 0 && args.length != 2) {
+            throw new WrongUsageException("/devtool inspect chunk [<x> <z>]");
+        }
+        boolean relative = args.length == 0 || args[0].startsWith("~") || args[1].startsWith("~");
+        if (relative && sender.getCommandSenderEntity() == null) {
+            // A console's position is the world origin, which would quietly report the wrong chunk.
+            ToolkitLog.error("Relative coordinates require an entity sender", "inspect chunk");
+            throw new CommandException("Relative coordinates need a player sender. Use absolute coordinates.");
+        }
+        if (!(sender.getEntityWorld() instanceof net.minecraft.world.WorldServer)) {
+            throw new CommandException("inspect chunk runs on the server.");
+        }
+        double baseX = sender.getPositionVector().x;
+        double baseZ = sender.getPositionVector().z;
+        int x = args.length == 0 ? (int) Math.floor(baseX)
+                : (int) Math.floor(CommandBase.parseCoordinate(baseX, args[0], false).getResult());
+        int z = args.length == 0 ? (int) Math.floor(baseZ)
+                : (int) Math.floor(CommandBase.parseCoordinate(baseZ, args[1], false).getResult());
+        emit(Inspectors.chunk((net.minecraft.world.WorldServer) sender.getEntityWorld(), x, z), sender,
+                "Chunk inspection written to log.");
     }
 
     /**

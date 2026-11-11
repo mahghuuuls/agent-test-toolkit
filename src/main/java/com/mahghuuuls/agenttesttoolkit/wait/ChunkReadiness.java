@@ -32,14 +32,23 @@ public final class ChunkReadiness implements WaitCondition {
     /** The waiting player, or null for a sender that cannot change dimension. */
     private final UUID player;
 
+    /** Also wait until the chunks are decorated, and the ones that decorate into them. */
+    private final boolean populated;
+
     private String firstUnloaded;
     private long loadedCount;
+    private ChunkPopulation.Result population;
 
     /**
      * @param player the sender's UUID when the sender is a player, so a dimension change can
      *               be noticed; null for the console or a command block
      */
     public ChunkReadiness(MinecraftServer server, ChunkRegion region, int dimension, UUID player) {
+        this(server, region, dimension, player, false);
+    }
+
+    /** @param populated also wait until the chunks are decorated for good ({@link ChunkPopulation}) */
+    public ChunkReadiness(MinecraftServer server, ChunkRegion region, int dimension, UUID player, boolean populated) {
         if (server == null || region == null) {
             throw new IllegalArgumentException("server and region must not be null");
         }
@@ -47,6 +56,7 @@ public final class ChunkReadiness implements WaitCondition {
         this.region = region;
         this.dimension = dimension;
         this.player = player;
+        this.populated = populated;
     }
 
     @Override
@@ -82,7 +92,24 @@ public final class ChunkReadiness implements WaitCondition {
                 }
             }
         }
-        return firstUnloaded == null ? Poll.satisfied() : Poll.pending();
+        if (!populated) {
+            return firstUnloaded == null ? Poll.satisfied() : Poll.pending();
+        }
+        final ChunkProviderServer chunks = provider;
+        population = ChunkPopulation.check(region.getMinChunkX(), region.getMinChunkZ(),
+                region.getMaxChunkX(), region.getMaxChunkZ(), new ChunkPopulation.Flags() {
+                    @Override
+                    public boolean isLoaded(int chunkX, int chunkZ) {
+                        return LoadedChunks.get(chunks, chunkX, chunkZ) != null;
+                    }
+
+                    @Override
+                    public boolean isDecorated(int chunkX, int chunkZ) {
+                        net.minecraft.world.chunk.Chunk chunk = LoadedChunks.get(chunks, chunkX, chunkZ);
+                        return chunk != null && chunk.isTerrainPopulated();
+                    }
+                });
+        return firstUnloaded == null && population.isReady() ? Poll.satisfied() : Poll.pending();
     }
 
     @Override
@@ -99,6 +126,16 @@ public final class ChunkReadiness implements WaitCondition {
         if (firstUnloaded != null) {
             record.add("firstUnloadedChunk", firstUnloaded);
         }
+        if (populated) {
+            record.add("populated", true);
+            if (population != null) {
+                record.add("populatedChunks", population.getDecoratedCount());
+                record.add("populatedChecked", population.getCheckedCount());
+                if (population.getFirstNotDecorated() != null) {
+                    record.add("firstUnpopulatedChunk", population.getFirstNotDecorated());
+                }
+            }
+        }
     }
 
     /** Chunks found loaded on the most recent poll. */
@@ -109,6 +146,16 @@ public final class ChunkReadiness implements WaitCondition {
     /** The first chunk found missing on the most recent poll, or null when all were loaded. */
     public String getFirstUnloaded() {
         return firstUnloaded;
+    }
+
+    /** Whether this wait also asks for decorated chunks. */
+    public boolean isPopulated() {
+        return populated;
+    }
+
+    /** The decoration check of the most recent poll; null without {@code populated} or before a poll. */
+    public ChunkPopulation.Result getPopulation() {
+        return population;
     }
 
     public ChunkRegion getRegion() {

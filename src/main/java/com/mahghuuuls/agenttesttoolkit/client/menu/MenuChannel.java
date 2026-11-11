@@ -167,8 +167,10 @@ public final class MenuChannel {
             } else if (step != null || actions.isOnReconnect()) {
                 refuse(files, request, "busy");
             } else if (mc.world != null) {
-                // D25 (a): in a world the command inbox is the channel.
-                refuse(files, request, "inWorld");
+                // In a world the command inbox is the channel. The detail says whether a screen
+                // pauses the game, which is why a command-inbox request may get no answer.
+                refuse(files, request, "inWorld", "paused=" + mc.isGamePaused()
+                        + (mc.currentScreen == null ? "" : " screen=" + mc.currentScreen.getClass().getName()));
             } else if (!isAtMenu(mc)) {
                 refuse(files, request, "busy");
             } else {

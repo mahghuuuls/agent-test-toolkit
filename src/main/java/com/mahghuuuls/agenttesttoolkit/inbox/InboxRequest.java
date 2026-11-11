@@ -37,7 +37,7 @@ public final class InboxRequest {
             new HashSet<String>(Arrays.asList("reload", "save")));
     /** Verbs whose arguments are passed through to the toolkit subcommand of the same name. */
     private static final Set<String> WITH_ARGUMENTS = Collections.unmodifiableSet(
-            new HashSet<String>(Arrays.asList("mark", "inspect", "entities", "nbt")));
+            new HashSet<String>(Arrays.asList("mark", "inspect", "entities", "nbt", "find")));
 
     private static final Pattern BUNDLE_NAME = Pattern.compile("[A-Za-z0-9_.\\-]{1,128}");
     /** A screenshot label: the file name on the operator's computer, so no path characters. */

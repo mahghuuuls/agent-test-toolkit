@@ -21,7 +21,7 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 
 ## Every record type
 
-48 in total. The name in brackets is the whole vocabulary: nothing else appears, and these names do not change.
+52 in total. The name in brackets is the whole vocabulary: nothing else appears, and these names do not change.
 
 **Written only when their category is enabled.** These are the observed game events, and they are the only ones you can turn off.
 
@@ -35,6 +35,7 @@ Records go to `latest.log`, alongside Forge output and the output of the mod und
 | `PLAYER_INTERACT` | A block is right or left clicked |
 | `ENTITY_INTERACT` | An entity is right clicked |
 | `ITEM_USE` | An item is used while targeting nothing |
+| `ITEM_PICKUP` | A player picks an item up, with the amount that entered the inventory |
 
 A target's `ENTITY_DAMAGE` comes before its `ENTITY_DEATH`, and before a `LOG_CONFIG` that turns the category off. A hit on the same target that stopped before the damage stage in that tick is still written at the tick end, after the death. Records of different targets may appear out of attack order; each carries its `worldTick`. An instant effect from `/effect` hurts at the target's next update, a tick after the command.
 
@@ -67,6 +68,9 @@ A target's `ENTITY_DAMAGE` comes before its `ENTITY_DEATH`, and before a `LOG_CO
 | `PLAYER_INSPECT` | `devtool inspect player`. Carries `openContainer`: `inventory`, or the class of another container the server has open for the player. The server cannot tell the player's own inventory screen from no screen: both are `inventory` |
 | `ENTITY_INSPECT` | `devtool inspect entity` |
 | `BLOCK_INSPECT` | `devtool inspect block` |
+| `CHUNK_INSPECT` | `devtool inspect chunk` |
+| `BLOCK_FOUND` | `devtool find block`, one per position found |
+| `BLOCK_SEARCH` | `devtool find block`, the summary |
 | `INVENTORY_INSPECT` | `devtool inspect inventory` and `devtool inspect container`. One record per occupied slot, plus `occupiedSlots` even when zero. A bauble slot carries `section=baubles`, `area=baubles` and `slotType`. A container whose loot has not rolled writes one record with `lootRolled=false` and `lootTable`, and no `occupiedSlots` |
 | `ATTRIBUTE` | `devtool inspect attributes`, one per attribute: `target`, `targetUuid`, `name`, `base`, `value` (the final value) and `modifiers` (the count) |
 | `ATTRIBUTE_MODIFIER` | `devtool inspect attributes`, one per modifier, after its attribute: `target`, `targetUuid`, `attribute`, `uuid`, `name`, `operation`, `operationName` (`add`, `multiplyBase` or `multiplyTotal`) and `amount` |

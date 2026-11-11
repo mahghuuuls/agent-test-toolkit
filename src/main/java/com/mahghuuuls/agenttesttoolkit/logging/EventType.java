@@ -21,6 +21,8 @@ public enum EventType {
     PLAYER_INTERACT,
     ENTITY_INTERACT,
     ITEM_USE,
+    /** A player picked an item up. From 1.8.0. */
+    ITEM_PICKUP,
 
     SESSION_START,
     SESSION_STOP,
@@ -156,6 +158,12 @@ public enum EventType {
     PLAYER_INSPECT,
     ENTITY_INSPECT,
     BLOCK_INSPECT,
+    /** A chunk's game flags: loaded, decorated, lit, ticked. From 1.8.0. */
+    CHUNK_INSPECT,
+    /** One position a block search found. From 1.8.0. */
+    BLOCK_FOUND,
+    /** The summary of a block search: what was found, and what could not be searched. From 1.8.0. */
+    BLOCK_SEARCH,
     INVENTORY_INSPECT,
     NBT,
     ENTITY_LIST,

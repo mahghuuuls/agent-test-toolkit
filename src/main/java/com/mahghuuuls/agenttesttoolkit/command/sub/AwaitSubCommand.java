@@ -8,6 +8,7 @@ import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.wait.ChunkReadiness;
+import com.mahghuuuls.agenttesttoolkit.wait.ChunkPopulation;
 import com.mahghuuuls.agenttesttoolkit.wait.ChunkRegion;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
@@ -56,7 +57,7 @@ public final class AwaitSubCommand implements SubCommand {
 
     @Override
     public String getUsage() {
-        return "await chunks <x1> <z1> <x2> <z2> [timeoutTicks]";
+        return "await chunks <x1> <z1> <x2> <z2> [timeoutTicks] [populated]";
     }
 
     @Override
@@ -68,6 +69,12 @@ public final class AwaitSubCommand implements SubCommand {
     @Override
     public void execute(MinecraftServer server, ICommandSender sender, String[] args)
             throws CommandException {
+        // populated is the last word when given: loaded is not decorated, and a test that
+        // clears an area needs the generator to have finished writing into it.
+        boolean populated = args.length > 5 && POPULATED.equals(args[args.length - 1].toLowerCase(Locale.ROOT));
+        if (populated) {
+            args = java.util.Arrays.copyOf(args, args.length - 1);
+        }
         if (args.length < 5 || !"chunks".equals(args[0].toLowerCase(Locale.ROOT))) {
             throw new WrongUsageException("/devtool " + getUsage());
         }
@@ -94,7 +101,7 @@ public final class AwaitSubCommand implements SubCommand {
         EntityPlayerMP player = Senders.asServerPlayer(sender);
         int dimension = sender.getEntityWorld().provider.getDimension();
         ChunkReadiness condition = new ChunkReadiness(server, region, dimension,
-                player == null ? null : player.getUniqueID());
+                player == null ? null : player.getUniqueID(), populated);
 
         String command = "devtool " + getName() + " " + String.join(" ", args);
         BundleExecution execution = Bundles.scheduler().getCurrentExecution();
@@ -109,7 +116,7 @@ public final class AwaitSubCommand implements SubCommand {
                     command, condition, "satisfied", null, 0, timeout);
             sender.sendMessage(new TextComponentString("[DevToolkit] All "
                     + region.chunkCount() + " chunks in dimension " + dimension
-                    + " are loaded."));
+                    + (populated ? " are loaded and decorated." : " are loaded.")));
             return;
         }
 
@@ -131,9 +138,17 @@ public final class AwaitSubCommand implements SubCommand {
     }
 
     private static String describeShortfall(ChunkReadiness condition, ChunkRegion region) {
-        return condition.getLoadedCount() + " of " + region.chunkCount() + " chunks in "
-                + region.bounds() + " are loaded, first missing " + condition.getFirstUnloaded();
+        String loaded = condition.getLoadedCount() + " of " + region.chunkCount() + " chunks in "
+                + region.bounds() + " are loaded";
+        if (condition.getFirstUnloaded() != null) {
+            return loaded + ", first missing " + condition.getFirstUnloaded();
+        }
+        ChunkPopulation.Result population = condition.getPopulation();
+        return population == null ? loaded : loaded + "; " + population.getDecoratedCount() + " of "
+                + population.getCheckedCount() + " decorated, first not yet " + population.getFirstNotDecorated();
     }
+
+    private static final String POPULATED = "populated";
 
     private static int floor(double value) {
         return (int) Math.floor(value);

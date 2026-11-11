@@ -27,7 +27,8 @@ public enum LoggingCategory {
     ENTITY_DAMAGE("entity_damage", EventType.ENTITY_DAMAGE),
     PLAYER_INTERACTION("player_interaction", EventType.PLAYER_INTERACT),
     ENTITY_INTERACTION("entity_interaction", EventType.ENTITY_INTERACT),
-    ITEM_USE("item_use", EventType.ITEM_USE);
+    ITEM_USE("item_use", EventType.ITEM_USE),
+    ITEM_PICKUP("item_pickup", EventType.ITEM_PICKUP);
 
     private static final Map<String, LoggingCategory> BY_NAME;
 

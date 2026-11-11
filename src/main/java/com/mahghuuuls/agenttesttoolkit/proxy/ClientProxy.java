@@ -54,6 +54,8 @@ public class ClientProxy extends CommonProxy {
         MinecraftForge.EVENT_BUS.register(input);
         // And the client request channel of ARC-028, which steps aside while a reconnect runs.
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.client.menu.MenuChannel(executor));
+        // And the note beside the command inbox while single player is paused.
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.client.PauseNote());
     }
 
     @SubscribeEvent

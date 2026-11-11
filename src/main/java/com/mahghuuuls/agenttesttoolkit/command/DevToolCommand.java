@@ -10,6 +10,7 @@ import com.mahghuuuls.agenttesttoolkit.command.sub.CheckpointSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.ClientSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.EntitiesSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.EnvironmentSubCommand;
+import com.mahghuuuls.agenttesttoolkit.command.sub.FindSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.FixtureSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.ModsSubCommand;
 import com.mahghuuuls.agenttesttoolkit.command.sub.NbtSubCommand;
@@ -77,6 +78,7 @@ public final class DevToolCommand extends CommandBase {
         register(new MarkSubCommand());
         register(new SessionSubCommand());
         register(new InspectSubCommand());
+        register(new FindSubCommand());
         register(new LogSubCommand());
         register(new BundleSubCommand());
         register(new RunSubCommand());

@@ -21,6 +21,43 @@ public final class InboxFiles {
 
     public static final String REQUEST_SUFFIX = ".req";
     public static final String CLAIMED_SUFFIX = ".claimed";
+    /**
+     * The note a single-player client keeps in the command inbox folder while the game is
+     * paused. Not a request: the poller reads only {@link #REQUEST_SUFFIX} files.
+     */
+    public static final String PAUSE_NOTE = "paused.json";
+    /** The command inbox folder's name under the toolkit's configuration folder. */
+    public static final String INBOX_FOLDER = "inbox";
+
+    /** The command inbox folder under this configuration folder; null when there is none. */
+    public static File inboxDirectory(File configDirectory) {
+        return configDirectory == null ? null : new File(configDirectory, INBOX_FOLDER);
+    }
+
+    /**
+     * Writes a file beside its target and moves it into place, so a reader never sees half of
+     * it. False when that failed; the temporary file is then removed.
+     */
+    public static boolean writeAtomically(File target, byte[] bytes) {
+        File temporary = new File(target.getParentFile(), target.getName() + ".tmp");
+        try {
+            java.nio.file.Files.write(temporary.toPath(), bytes);
+            try {
+                java.nio.file.Files.move(temporary.toPath(), target.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException notAtomic) {
+                java.nio.file.Files.move(temporary.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } catch (java.io.IOException | RuntimeException e) {
+            try {
+                java.nio.file.Files.deleteIfExists(temporary.toPath());
+            } catch (java.io.IOException | RuntimeException ignored) {
+                // The caller says the file is missing.
+            }
+            return false;
+        }
+    }
 
     /** Largest request file read. Anything bigger is read as malformed, never as a command. */
     static final int MAX_FILE_BYTES = 4096;

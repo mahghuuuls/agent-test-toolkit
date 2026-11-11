@@ -128,6 +128,30 @@ public final class Inspectors {
         return record;
     }
 
+    /**
+     * A chunk's game flags, read through the server's own map of loaded chunks: nothing is
+     * loaded, generated or kept loaded. Not loaded is a plain answer, not a failure.
+     */
+    public static LogRecord chunk(net.minecraft.world.WorldServer world, int blockX, int blockZ) {
+        int chunkX = blockX >> 4;
+        int chunkZ = blockZ >> 4;
+        net.minecraft.world.chunk.Chunk chunk = com.mahghuuuls.agenttesttoolkit.wait.LoadedChunks.get(
+                world.getChunkProvider(), chunkX, chunkZ);
+        LogRecord record = LogRecord.of(EventType.CHUNK_INSPECT)
+                .add("dimension", world.provider.getDimension())
+                .add("chunkX", chunkX)
+                .add("chunkZ", chunkZ)
+                .add("loaded", chunk != null);
+        if (chunk != null) {
+            // The generator decorates a chunk only once its +X, +Z and +X+Z neighbours are
+            // loaded; populated also needs it ticked and lit.
+            record.add("terrainPopulated", chunk.isTerrainPopulated());
+            record.add("lightPopulated", chunk.isLightPopulated());
+            record.add("populated", chunk.isPopulated());
+        }
+        return record;
+    }
+
     private static void addPosition(LogRecord record, Entity entity) {
         record.addEntityPos("pos", entity.posX, entity.posY, entity.posZ);
     }

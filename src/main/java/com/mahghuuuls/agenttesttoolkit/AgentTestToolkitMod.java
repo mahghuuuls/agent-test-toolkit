@@ -87,6 +87,7 @@ public class AgentTestToolkitMod {
         MinecraftForge.EVENT_BUS.register(new BundleTicker());
         MinecraftForge.EVENT_BUS.register(new BlockPlaceObserver());
         MinecraftForge.EVENT_BUS.register(new DiscreteActionObserver());
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.observe.ItemPickupObserver());
         MinecraftForge.EVENT_BUS.register(new EntitySpawnObserver());
         MinecraftForge.EVENT_BUS.register(damageObserver);
         com.mahghuuuls.agenttesttoolkit.logging.PendingRecords.install(damageObserver);

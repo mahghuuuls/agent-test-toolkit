@@ -101,11 +101,11 @@ class LoggingCategoryStateTest {
     }
 
     @Test
-    @DisplayName("all eight categories from the requirement exist and are addressable by name")
+    @DisplayName("the eight categories of the first requirement and item_pickup exist and are addressable by name")
     void allRequiredCategoriesExist() {
         String[] required = {
                 "block_place", "block_break", "entity_spawn", "entity_death",
-                "entity_damage", "player_interaction", "entity_interaction", "item_use"
+                "entity_damage", "player_interaction", "entity_interaction", "item_use", "item_pickup"
         };
         assertEquals(required.length, LoggingCategory.values().length);
         for (String name : required) {
