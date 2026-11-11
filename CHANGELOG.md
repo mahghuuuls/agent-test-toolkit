@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.8.0
+
+Small additions that save a person a step during a test: the screenshot without chat, the light level without F3, the reason a request waits, and checks a bundle could not make before. They came from another project's test sessions with the toolkit.
+
+### Added
+
+- **A screenshot without chat or the HUD.** `devtool screenshot <label> [delayTicks] [player] hide=chat|hud` leaves the chat lines, or the whole HUD as F1 does, out of that one picture; the player's own chat and F1 settings are unchanged after it. A player action takes the same choice as `screenshotHide=chat|hud`. With `hide`, the client prints no "Saved screenshot" chat line.
+
+- **Light in the block inspection.** `BLOCK_INSPECT` carries `blockLight` and `skyLight`.
+
+- **A health assert.** `devtool assert player <name> health <n>` compares the player's current health at two decimals.
+
+- **A note while single player is paused.** While a screen such as a book pauses a single-player game, the client keeps `config/devtool/inbox/paused.json`, naming the open screen, and removes it when the game runs again. A title-screen request refused `inWorld` says `paused=` and the screen.
+
+- **Waiting for decorated chunks.** `devtool await chunks ... populated` waits until the chunks are loaded and decorated (trees, ores, lakes), one chunk further toward -X and -Z, because decorating a chunk writes into its neighbours. A plain wait ends once the chunks are loaded.
+
+- **`devtool inspect chunk [<x> <z>]`** says whether a chunk is loaded and, when it is, whether it is decorated (`CHUNK_INSPECT`).
+
+- **`devtool find block <block> [<property=value,...>] <x1> <y1> <z1> <x2> <y2> <z2> [limit <n>]`** lists where a block is in a box, in loaded chunks only, without loading any (`BLOCK_FOUND`, then a `BLOCK_SEARCH` summary that counts the chunks it skipped). The inbox takes it as `find block ...`.
+
+- **Item pickups in the log.** The `item_pickup` logging category writes `ITEM_PICKUP` with the item and the count that entered the inventory.
+
+- **A cleared fixture can still be named.** After `devtool fixture clear`, `${fixture.<handle>.uuid}` still gives the cleared entity's UUID for the rest of the session, so a bundle can assert it is gone.
+
+- **The operator's UUID on inbox records.** Every `INBOX` record and `status.json` carry `operatorUuid`; after a reconnect they show the name the player came back with.
+
+- **Four new record types**, `CHUNK_INSPECT`, `BLOCK_FOUND`, `BLOCK_SEARCH` and `ITEM_PICKUP`, for 52 in total.
+
+### Compatibility
+
+- **A client with an older toolkit** is refused a screenshot or a player action with `hide` at once (`devtool.screenshot.noClient`, `devtool.client.noClient`); nothing is sent to it. Without `hide`, everything works as in 1.7.0.
+
+### Known Issues
+
+- **With Gnetum installed**, `hide=chat` leaves the chat in the picture, though the record says `hide=chat`. Use `hide=hud` there.
+
 ## 1.7.0
 
 The theme is a test your assistant can run with small player input: a click, a held button, a dropped item, the inventory or a tooltip, without a person doing them. Tests that need aiming, walking or work in other screens still need a person. The items came from other projects' test sessions with the toolkit and from the developer.
