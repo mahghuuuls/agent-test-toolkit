@@ -132,7 +132,7 @@ Inspection only observes. A position whose chunk is not loaded is refused, or fo
 /devtool screenshot inv_open 200
 ```
 
-`save` saves player data and every loaded world, in single player too, and leaves a `save-off` in place. `screenshot` asks a player's client to save a labelled screenshot after a delay, and with `hide=chat` or `hide=hud` leaves the chat or the whole HUD out of that one picture; that client needs the toolkit installed.
+`save` saves player data and every loaded world, in single player too, and leaves a `save-off` in place. `screenshot` asks a player's client to save a labelled screenshot after a delay, and with `hide=chat` or `hide=hud` leaves the chat or the whole HUD out of that one picture; that client needs the toolkit installed. With Gnetum installed, `hide=chat` leaves the chat in the picture; use `hide=hud` there.
 
 NBT goes to the log, bounded by a configurable limit, and truncation is always reported along with the original length.
 
