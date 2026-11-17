@@ -138,14 +138,8 @@ public final class PlayerActionOptions {
     public static final String OPTION_SCREENSHOT = StepExtras.SCREENSHOT;
     /** {@code screenshotDelay=}: ticks from the action to that screenshot. */
     public static final String OPTION_SCREENSHOT_DELAY = StepExtras.SCREENSHOT_DELAY;
-    /** {@code screenshotHide=}: {@code chat} or {@code hud}, left out of that screenshot. */
+    /** {@code screenshotHide=}: what is left out of that screenshot: {@code chat}, {@code hud}, {@code toasts}, or a comma list. */
     public static final String OPTION_SCREENSHOT_HIDE = StepExtras.SCREENSHOT_HIDE;
-    /**
-     * The values of {@code screenshotHide}, which are also the screenshot command's {@code hide}
-     * values; the one list both read.
-     */
-    public static final String HIDE_CHAT = StepExtras.HIDE_CHAT;
-    public static final String HIDE_HUD = StepExtras.HIDE_HUD;
     /** {@code showTicks=}: for a tooltip, the ticks the view stays open (1 to 1200). */
     public static final String OPTION_SHOW_TICKS = "showTicks";
 

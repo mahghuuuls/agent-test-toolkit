@@ -47,8 +47,7 @@ public final class InboxRequest {
     private static final Pattern AWAY = Pattern.compile("(?:[0-9]|[1-5][0-9]|60)");
     private static final Pattern DELAY = Pattern.compile("[0-9]|[1-9][0-9]|[1-5][0-9][0-9]|600");
     /** A screenshot's {@code hide}: what the captured frame leaves out. */
-    private static final Pattern SCREENSHOT_HIDE = Pattern.compile("hide=(?:" + PlayerActionOptions.HIDE_CHAT
-            + "|" + PlayerActionOptions.HIDE_HUD + ")");
+    private static final String SCREENSHOT_HIDE = "hide=";
     private static final Pattern REQUEST_ID = Pattern.compile("[A-Za-z0-9_.\\-]{1,64}");
 
     private final String id;
@@ -110,9 +109,9 @@ public final class InboxRequest {
             return accepted(id, line, verb, "devtool run " + args[0]);
         }
         if ("screenshot".equals(verb)) {
-            // screenshot <label> [delayTicks] [hide=chat|hud], to the operator only: no player
+            // screenshot <label> [delayTicks] [hide=<set>], to the operator only: no player
             // argument here.
-            boolean hide = args.length >= 2 && SCREENSHOT_HIDE.matcher(args[args.length - 1]).matches();
+            boolean hide = args.length >= 2 && isHideWord(args[args.length - 1]);
             int positional = hide ? args.length - 1 : args.length;
             if (positional < 1 || positional > 2 || !SCREENSHOT_LABEL.matcher(args[0]).matches()
                     || (positional == 2 && !DELAY.matcher(args[1]).matches())) {
@@ -164,6 +163,15 @@ public final class InboxRequest {
             next++;
         }
         return args.length == next;
+    }
+
+    /** {@code hide=} with one value or a comma list of them, such as {@code hide=chat,toasts}. */
+    private static boolean isHideWord(String word) {
+        if (!word.startsWith(SCREENSHOT_HIDE)) {
+            return false;
+        }
+        String set = HideSet.canonical(word.substring(SCREENSHOT_HIDE.length()));
+        return set != null && !set.isEmpty();
     }
 
     /** Printable ASCII only, so no control character, tab, or second line can hide in a request. */

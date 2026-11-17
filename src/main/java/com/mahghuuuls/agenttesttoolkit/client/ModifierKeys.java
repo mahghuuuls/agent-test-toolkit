@@ -60,6 +60,20 @@ final class ModifierKeys {
     }
 
     /**
+     * The same, for work that throws nothing checked, such as building or drawing a tooltip: what
+     * it throws goes on unchanged, so a mod's handler that fails is the caller's to report.
+     */
+    static <T> T holding(int[] codes, Callable<T> work) {
+        try {
+            return during(codes, work);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception unexpected) {
+            throw new IllegalStateException(unexpected);
+        }
+    }
+
+    /**
      * The same, on a given key state; for tests. Every key set is put back, also when the work
      * or one of the writes throws: a write that fails stops the route for later requests, and the
      * other keys are still put back.

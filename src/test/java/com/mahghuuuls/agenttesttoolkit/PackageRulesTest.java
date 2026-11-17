@@ -36,12 +36,25 @@ class PackageRulesTest {
     private static final Pattern ROOT_REFERENCE = Pattern.compile("com\\.mahghuuuls\\.agenttesttoolkit\\.([A-Z]\\w*)");
     /** Any Minecraft or Forge type, imported or written out. */
     private static final Pattern GAME_REFERENCE = Pattern.compile("\\bnet\\.minecraft(forge)?\\.");
+    /**
+     * A string literal. A pure class may compare class names as text, which loads nothing, so a
+     * game class's name inside quotes is not a use of the game type.
+     */
+    private static final Pattern STRING_LITERAL = Pattern.compile("\"(?:[^\"\\\\\n]|\\\\.)*\"");
+    /**
+     * A class loaded by its name. Text alone loads nothing, but text handed to these calls does,
+     * so a pure class may not reach a game type through quotes this way.
+     */
+    private static final Pattern LOAD_BY_NAME = Pattern.compile("\\bClass\\.forName\\s*\\(|\\bloadClass\\s*\\(");
 
     private static final Set<String> CLIENT_MAY_USE =
             new HashSet<String>(Arrays.asList("client", "net", "logging", "config"));
-    /** From the inbox, the client uses only the request-file protocol and the pure parsers of the newer steps. */
+    /**
+     * From the inbox, the client uses only the request-file protocol, the pure parsers of the
+     * newer steps, and the pure hide set its pictures share with the server.
+     */
     private static final Set<String> CLIENT_MAY_USE_FROM_INBOX = new HashSet<String>(Arrays.asList(
-            "InboxFiles", "InputOptions", "ScreenOptions"));
+            "InboxFiles", "InputOptions", "ScreenOptions", "HideSet"));
     /** From the inbox, the session code uses only the pure name check. */
     private static final Set<String> SESSION_MAY_USE_FROM_INBOX = new HashSet<String>(Arrays.asList("LocalJoin"));
 
@@ -52,7 +65,9 @@ class PackageRulesTest {
             "client/menu/SaveFolders.java", "client/menu/LocalAddresses.java", "client/PlayerActionGate.java",
             "client/HoldRelease.java", "client/TooltipLines.java", "client/LeaveStep.java", "inbox/InputOptions.java",
             "inbox/ScreenOptions.java", "inbox/StepExtras.java", "command/sub/ClientStepRoute.java",
-            "client/KeyLookup.java", "client/Aim.java", "client/PressTaken.java", "client/RouteState.java"};
+            "client/KeyLookup.java", "client/Aim.java", "client/PressTaken.java", "client/RouteState.java",
+            "client/screen/ScreenTargets.java", "client/menu/ConfirmScreens.java", "client/menu/ModListChoice.java",
+            "client/FrameHide.java", "inbox/HideSet.java", "client/menu/QuestionAnswers.java"};
 
     /**
      * The roots a source file may import from. Another loader's or mod's classes are reached by
@@ -88,8 +103,14 @@ class PackageRulesTest {
                 out.add(unixPath + ": client uses " + root.group(1));
             }
         }
-        if (Arrays.asList(PURE).contains(unixPath) && GAME_REFERENCE.matcher(text).find()) {
-            out.add(unixPath + ": a pure decision uses a game type");
+        if (Arrays.asList(PURE).contains(unixPath)) {
+            String code = STRING_LITERAL.matcher(text).replaceAll("\"\"");
+            if (GAME_REFERENCE.matcher(code).find()) {
+                out.add(unixPath + ": a pure decision uses a game type");
+            }
+            if (LOAD_BY_NAME.matcher(code).find()) {
+                out.add(unixPath + ": a pure decision loads a class by name");
+            }
         }
         Matcher imported = IMPORT.matcher(text);
         while (imported.find()) {
@@ -143,7 +164,7 @@ class PackageRulesTest {
         assertEquals(new ArrayList<String>(), found);
         // The paths were read as the rules name them, so the rules were applied at all.
         assertTrue(clientFiles >= 5, "client files reached: " + clientFiles);
-        assertTrue(pureFiles >= 18, "pure files reached: " + pureFiles);
+        assertTrue(pureFiles >= 26, "pure files reached: " + pureFiles);
         assertTrue(new File(MAIN, "inbox/PlayerActionOptions.java").isFile(), "a pure class the list names exists");
     }
 
@@ -177,6 +198,24 @@ class PackageRulesTest {
                 .isEmpty(), "the pure parsers of the newer steps");
         assertFalse(violations("client/LeaveStep.java", "import net.minecraft.client.Minecraft;").isEmpty(),
                 "the leave's decision stays pure");
+        assertTrue(violations("client/menu/ConfirmScreens.java",
+                "static final String YES_NO = \"net.minecraft.client.gui.GuiYesNo\";").isEmpty(),
+                "a class name compared as text loads nothing");
+        assertFalse(violations("client/menu/ConfirmScreens.java",
+                "String a = \"x\"; String b = net.minecraft.client.gui.GuiYesNo.class.getName();").isEmpty(),
+                "the type itself, outside the quotes, is still a use");
+        assertFalse(violations("client/menu/ConfirmScreens.java",
+                "String a = \"x\"; Object b = net.minecraft.client.gui.GuiYesNo.class; String c = \"y\";").isEmpty(),
+                "two quoted texts around a game type on one line: each quote ends at its own closing mark");
+        assertFalse(violations("client/menu/ConfirmScreens.java",
+                "Class<?> c = Class.forName(\"net.minecraft.client.gui.GuiYesNo\");").isEmpty(),
+                "a pure class does not load a class by its name");
+        assertFalse(violations("client/menu/ConfirmScreens.java",
+                "Object c = getClass().getClassLoader().loadClass(\"a.B\");").isEmpty(), "nor through a loader");
+        assertTrue(violations("client/menu/ConfirmScreens.java", "Charset utf8 = Charset.forName(\"UTF-8\");").isEmpty(),
+                "a charset by its name loads no class");
+        assertTrue(violations("client/menu/MenuRequest.java",
+                "import com.mahghuuuls.agenttesttoolkit.inbox.HideSet;").isEmpty(), "the pure hide set");
         assertFalse(violations("client/RawKeys.java", "import com.cleanroommc.client.sdl.Window;").isEmpty(),
                 "another loader's class is not compiled against");
         assertTrue(violations("client/RawKeys.java",

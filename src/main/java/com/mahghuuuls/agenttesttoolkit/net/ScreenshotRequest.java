@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.net;
 
+import com.mahghuuuls.agenttesttoolkit.inbox.HideSet;
 import io.netty.buffer.ByteBuf;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -17,12 +18,8 @@ import java.util.regex.Pattern;
 public final class ScreenshotRequest implements IMessage {
 
     public static final int MAX_DELAY_TICKS = 600;
-    /** No {@code hide}: the frame as the player sees it. */
+    /** No {@code hide}: the frame as the player sees it. What may be left out is {@link HideSet}'s. */
     public static final String HIDE_NONE = "";
-    /** {@code hide=chat}: the chat lines are left out of the captured frame. */
-    public static final String HIDE_CHAT = com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions.HIDE_CHAT;
-    /** {@code hide=hud}: the whole HUD, as F1 hides it, chat included, is left out of the captured frame. */
-    public static final String HIDE_HUD = com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions.HIDE_HUD;
     private static final Pattern LABEL = Pattern.compile("[A-Za-z0-9_-]{1,48}");
 
     private String label;
@@ -42,12 +39,9 @@ public final class ScreenshotRequest implements IMessage {
         this.label = label;
         this.delayTicks = delayTicks;
         this.requestTick = requestTick;
-        this.hide = hide == null ? HIDE_NONE : hide;
-    }
-
-    /** {@code chat}, {@code hud}, or empty for none. */
-    public static boolean isValidHide(String hide) {
-        return HIDE_NONE.equals(hide) || HIDE_CHAT.equals(hide) || HIDE_HUD.equals(hide);
+        String set = HideSet.canonical(hide == null ? HIDE_NONE : hide);
+        // Kept as given when it is no set, so isValid says no and the message is dropped.
+        this.hide = set == null ? hide : set;
     }
 
     public static boolean isValidLabel(String label) {
@@ -60,7 +54,8 @@ public final class ScreenshotRequest implements IMessage {
 
     /** True when both fields are acceptable; a message failing this is dropped by the client. */
     public boolean isValid() {
-        return isValidLabel(label) && isValidDelay(delayTicks) && isValidHide(hide);
+        // An older client reads only chat or hud alone, so the server sends no other set to it.
+        return isValidLabel(label) && isValidDelay(delayTicks) && HideSet.isValid(hide);
     }
 
     /** {@code <label>-<requestTick>.png}, the file under the client's {@code screenshots} folder. */
@@ -80,7 +75,7 @@ public final class ScreenshotRequest implements IMessage {
         return requestTick;
     }
 
-    /** What the captured frame leaves out; empty for nothing. */
+    /** What the captured frame leaves out, a set written in a fixed order; empty for nothing. */
     public String getHide() {
         return hide;
     }

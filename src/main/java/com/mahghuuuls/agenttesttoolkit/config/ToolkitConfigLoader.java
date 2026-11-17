@@ -228,6 +228,13 @@ public final class ToolkitConfigLoader {
                             + "by default. When true, it listens from game start, with no click. Use "
                             + "it in a development or test instance only.");
 
+            boolean dismissTutorial = cfg.getBoolean("dismissTutorial", CATEGORY_CLIENT,
+                    d.isClientDismissTutorial(),
+                    "Whether this client sets the tutorial to done at its first title screen, so its "
+                            + "hints (move, look, punch a tree) never show over a test or in a screenshot. "
+                            + "Off by default. It does not need applyOnJoin. Saved in options.txt, as the "
+                            + "game's own tutorial setting, and kept if you turn this off again.");
+
             boolean openOnLocalJoin = cfg.getBoolean("openOnLocalJoin", CATEGORY_INBOX,
                     d.isInboxOpenOnLocalJoin(),
                     "Whether the command inbox opens by itself, without 'devtool inbox open', when "
@@ -272,6 +279,7 @@ public final class ToolkitConfigLoader {
                     .inboxEnabled(inbox)
                     .inboxRejoinWindowSeconds(rejoinWindow)
                     .clientRequestChannel(requestChannel)
+                    .clientDismissTutorial(dismissTutorial)
                     .inboxOpenOnLocalJoin(openOnLocalJoin)
                     .inboxLocalJoinOperator(localJoinOperator);
             for (ToolkitConfig.Volume volume : ToolkitConfig.Volume.values()) {

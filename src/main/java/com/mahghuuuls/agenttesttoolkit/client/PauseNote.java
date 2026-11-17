@@ -73,6 +73,11 @@ public final class PauseNote {
         }
     }
 
+    /** Whether a single-player game is paused by an open screen, as the note says; client thread. */
+    public boolean isPaused() {
+        return state.isPaused();
+    }
+
     private static void remove() {
         File directory = InboxFiles.inboxDirectory(ToolkitConfigLoader.getConfigDirectory());
         if (directory == null) {

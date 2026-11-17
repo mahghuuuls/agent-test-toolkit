@@ -1,6 +1,7 @@
 package com.mahghuuuls.agenttesttoolkit.client;
 
 import com.mahghuuuls.agenttesttoolkit.inbox.InputOptions;
+import com.mahghuuuls.agenttesttoolkit.inbox.ScreenOptions;
 
 /**
  * Whether a held input must be released now, and why, from plain values, so every reason and
@@ -93,8 +94,8 @@ final class HoldRelease {
     }
 
     /**
-     * Which running inputs a step ends. Listing the bindings and setting the camera view press
-     * nothing; {@code focus lost} ends everything as a loss of focus; {@code key ... release} ends
+     * Which running inputs a step ends. Listing the bindings, setting the camera view and
+     * describing the open screen press nothing; {@code focus lost} ends everything as a loss of focus; {@code key ... release} ends
      * only its own binding's hold; any other step ends everything as the next action, unless it
      * asks to keep the holds. A step whose words did not parse ends nothing.
      *
@@ -104,7 +105,8 @@ final class HoldRelease {
      * @param parsed   the step's words parsed on this client
      */
     static Ending ending(String step, String mode, boolean keepHold, boolean parsed) {
-        if (!parsed || InputOptions.KEYS.equals(step) || InputOptions.VIEW.equals(step)) {
+        if (!parsed || InputOptions.KEYS.equals(step) || InputOptions.VIEW.equals(step)
+                || ScreenOptions.SCREEN.equals(step)) {
             return Ending.NONE;
         }
         if (InputOptions.FOCUS.equals(step)) {

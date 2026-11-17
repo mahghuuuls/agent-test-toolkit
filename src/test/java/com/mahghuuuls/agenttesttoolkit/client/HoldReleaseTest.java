@@ -58,6 +58,11 @@ class HoldReleaseTest {
     @DisplayName("which running inputs a step ends: one owner for every step, keepHold and focus included")
     void endings() {
         assertEquals(HoldRelease.Ending.ALL_NEXT_ACTION, HoldRelease.ending("attack", "", false, true));
+        assertEquals(HoldRelease.Ending.NONE, HoldRelease.ending("screen", "", false, true),
+                "describing the screen presses nothing");
+        assertEquals(HoldRelease.Ending.ALL_NEXT_ACTION, HoldRelease.ending("click", "", false, true),
+                "a click on a screen is an action");
+        assertEquals(HoldRelease.Ending.ALL_NEXT_ACTION, HoldRelease.ending("scroll", "", false, true));
         assertEquals(HoldRelease.Ending.NONE, HoldRelease.ending("attack", "", true, true), "keepHold keeps them");
         assertEquals(HoldRelease.Ending.NONE, HoldRelease.ending("hold", "use", true, true));
         assertEquals(HoldRelease.Ending.ALL_NEXT_ACTION, HoldRelease.ending("hold", "use", false, true));

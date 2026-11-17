@@ -54,6 +54,7 @@ public final class ToolkitConfig {
     private final boolean clientNoPauseOnLostFocus;
     private final boolean clientAllowActions;
     private final boolean clientRequestChannel;
+    private final boolean clientDismissTutorial;
     private final boolean inboxEnabled;
     private final boolean inboxOpenOnLocalJoin;
     private final boolean inboxLocalJoinOperator;
@@ -90,6 +91,7 @@ public final class ToolkitConfig {
         private boolean noPauseOnLostFocus;
         private boolean allowActions;
         private boolean requestChannel;
+        private boolean dismissTutorial;
         private boolean inbox;
         private boolean openOnLocalJoin;
         private boolean localJoinOperator;
@@ -184,6 +186,12 @@ public final class ToolkitConfig {
             return this;
         }
 
+        /** Whether the client sets the tutorial to done at its first title screen. Off by default. */
+        public Builder clientDismissTutorial(boolean value) {
+            this.dismissTutorial = value;
+            return this;
+        }
+
         public Builder inboxOpenOnLocalJoin(boolean value) {
             this.openOnLocalJoin = value;
             return this;
@@ -209,7 +217,7 @@ public final class ToolkitConfig {
             return new ToolkitConfig(width, height, length, block, ceiling, maxDimension,
                     nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle,
                     clientDefaults, brightness, musicVolume, volumes, noPauseOnLostFocus, allowActions,
-                    inbox, rejoinWindowSeconds, requestChannel, openOnLocalJoin, localJoinOperator);
+                    inbox, rejoinWindowSeconds, requestChannel, openOnLocalJoin, localJoinOperator, dismissTutorial);
         }
     }
 
@@ -238,7 +246,9 @@ public final class ToolkitConfig {
                   int inboxRejoinWindowSeconds,
                   boolean clientRequestChannel,
                   boolean inboxOpenOnLocalJoin,
-                  boolean inboxLocalJoinOperator) {
+                  boolean inboxLocalJoinOperator,
+                  boolean clientDismissTutorial) {
+        this.clientDismissTutorial = clientDismissTutorial;
         this.inboxLocalJoinOperator = inboxLocalJoinOperator;
         this.inboxEnabled = inboxEnabled;
         this.clientRequestChannel = clientRequestChannel;
@@ -487,6 +497,15 @@ public final class ToolkitConfig {
      */
     public boolean isClientRequestChannel() {
         return clientRequestChannel;
+    }
+
+    /**
+     * Whether the client sets the tutorial to done at its first title screen, so its toasts
+     * (move, look, punch a tree) never cover a test's screen or picture. Off by default: the
+     * tutorial step is the player's own setting, saved in {@code options.txt}.
+     */
+    public boolean isClientDismissTutorial() {
+        return clientDismissTutorial;
     }
 
     /**

@@ -77,7 +77,7 @@ final class ClientStepRoute {
             case INPUT:
                 return ClientRequestGate.Step.newStep(step);
             case PLAYER_ACTION:
-                return ClientRequestGate.Step.playerAction(step, !action.getScreenshotHide().isEmpty());
+                return ClientRequestGate.Step.playerAction(step, action.getScreenshotHide());
             default:
                 return ClientRequestGate.Step.lifecycle(step, logout);
         }

@@ -155,6 +155,19 @@ public enum EventType {
      */
     KEY_BINDING,
 
+    /**
+     * {@code client screen} and the client request channel's {@code screen}, {@code side=CLIENT}:
+     * the open screen's class, size, scale, whether it is a container, and how many buttons and
+     * slots it has, with {@code listed} naming what was read. From 1.9.0.
+     */
+    SCREEN_INFO,
+
+    /** After {@code SCREEN_INFO}: one button of the open screen, with its id, label, place, size and state. From 1.9.0. */
+    SCREEN_BUTTON,
+
+    /** After {@code SCREEN_INFO}: one slot of an open container, with its number, index, place and item. From 1.9.0. */
+    SCREEN_SLOT,
+
     /** {@code devtool baubles}: a slot set (or refused) or slots cleared, with the player and slot. */
     BAUBLES,
 

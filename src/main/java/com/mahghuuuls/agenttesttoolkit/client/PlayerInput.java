@@ -7,6 +7,7 @@ import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.net.ClientActionReport;
 import com.mahghuuuls.agenttesttoolkit.net.InputRequest;
 import com.mahghuuuls.agenttesttoolkit.net.PlayerActionRequest;
+import com.mahghuuuls.agenttesttoolkit.net.ScreenRequest;
 import com.mahghuuuls.agenttesttoolkit.net.ScreenshotRequest;
 import com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel;
 import net.minecraft.client.Minecraft;
@@ -18,6 +19,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
+import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -30,7 +32,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * Takes the player actions and the input steps a server asks for, on the client's main thread.
+ * Takes the player actions, the input steps and the steps on the open screen a server asks for,
+ * on the client's main thread.
  *
  * <p>A click is one press counted on the binding behind the key, which the game turns into its
  * own click on its next tick, through the code a mouse click reaches. So the game's and Forge's
@@ -45,7 +48,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * <p>Client-only: registered through {@code ClientProxy} and never referenced from shared code.
  */
 public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver, ToolkitChannel.InputReceiver,
-        HeldInputs.Records {
+        ToolkitChannel.ScreenReceiver, HeldInputs.Records {
 
     /** The reason a waiting action ends when a newer action arrives. */
     static final String REASON_REPLACED = "nextAction";
@@ -59,6 +62,7 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver, T
     private final ScreenshotTaker screenshots;
     private final HeldInputs held = new HeldInputs(this);
     private final InputSteps steps = new InputSteps(held, this);
+    private final ScreenSteps screens = new ScreenSteps(this);
 
     /** Client thread only. The one action waiting out its delay, and the ticks left. */
     private Asked waiting;
@@ -97,6 +101,12 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver, T
         incoming.add(new Asked(request));
     }
 
+    /** A step on the open screen: the same delay, release of holds and records as the other steps. */
+    @Override
+    public void receive(ScreenRequest request) {
+        incoming.add(new Asked(request));
+    }
+
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         Minecraft mc = Minecraft.getMinecraft();
@@ -118,6 +128,7 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver, T
         if (tooltip != null) {
             advanceTooltip(mc);
         }
+        screens.tick(mc);
         if (waiting != null && !worldOpen) {
             // A delayed action belongs to the world it was asked in; it never acts in another.
             Asked gone = waiting;
@@ -153,6 +164,12 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver, T
         if (event.phase == TickEvent.Phase.START) {
             held.renderStart();
         }
+    }
+
+    /** A container tooltip asked by a screen step is drawn after the container draws itself. */
+    @SubscribeEvent
+    public void onDrawScreen(GuiScreenEvent.DrawScreenEvent.Post event) {
+        screens.draw(event);
     }
 
     /** Before any other listener of an input event: whether one of them takes a watched press. */
@@ -257,6 +274,11 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver, T
         }
         if (executor.isOnReconnect()) {
             finish(mc, asked, "refused", "busy", screen, null, new LinkedHashMap<String, String>());
+            return;
+        }
+        if (asked.screen != null) {
+            // A step on the open screen: an open screen is what it needs, not a refusal.
+            screens.take(mc, asked);
             return;
         }
         // The inventory asked this tick opens on the next; until then it counts as open.

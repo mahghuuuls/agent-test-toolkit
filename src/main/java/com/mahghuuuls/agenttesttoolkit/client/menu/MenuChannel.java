@@ -3,16 +3,22 @@ package com.mahghuuuls.agenttesttoolkit.client.menu;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.mahghuuuls.agenttesttoolkit.client.ClientActionExecutor;
+import com.mahghuuuls.agenttesttoolkit.client.PauseNote;
+import com.mahghuuuls.agenttesttoolkit.client.ScreenshotTaker;
+import com.mahghuuuls.agenttesttoolkit.client.screen.ScreenClicker;
+import com.mahghuuuls.agenttesttoolkit.client.screen.ScreenReader;
 import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader;
 import com.mahghuuuls.agenttesttoolkit.inbox.InboxFiles;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
+import com.mahghuuuls.agenttesttoolkit.net.ScreenshotRequest;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiDisconnected;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiMultiplayer;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiWorldSelection;
 import net.minecraft.client.multiplayer.GuiConnecting;
 import net.minecraft.client.multiplayer.ServerData;
@@ -21,8 +27,10 @@ import net.minecraft.world.GameType;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.WorldType;
 import net.minecraft.world.storage.WorldSummary;
+import net.minecraftforge.client.event.GuiOpenEvent;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.client.FMLClientHandler;
+import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
@@ -34,32 +42,43 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 /**
- * The client request channel (D22, REQ-216 to REQ-221, ARC-028).
+ * The client request channel: a folder an agent drops request files into to drive the client
+ * where no world, and so no command inbox, is open.
  *
  * <p>Reads {@code config/devtool/client-inbox/} every 10 client ticks while
- * {@code client.requestChannel} is true and the client is at a menu, and takes one menu step at a
- * time on the client thread. A request while a world is open is answered {@code inWorld}, one
- * while a step or a toolkit reconnect is under way {@code busy}. The requests waiting at the
- * first read of a launch were placed before this launch and are refused. Client-only: registered
- * from {@code ClientProxy} (rule 12).
+ * {@code client.requestChannel} is true, and takes one step at a time on the client thread: at a
+ * menu, the menu steps, a description or a picture of the screen, and a mod's entry in the Mods
+ * list; in a world, only closing a screen that pauses single player. Any other request while a
+ * world is open is answered {@code inWorld}, one while a step or a toolkit reconnect is under way
+ * {@code busy}. The requests waiting at the first read of a launch were placed before this launch
+ * and are refused. Client-only: registered from {@code ClientProxy}, the one place the client
+ * classes are referenced, so a dedicated server never loads them.
  */
 public final class MenuChannel {
 
     static final int INTERVAL_TICKS = 10;
-    /** How long a create, open or connect may take to put the player in the world. */
+    /** How long a step may take: to put the player in the world, or to take its picture. */
     static final long STEP_DEADLINE_MS = 60000L;
     /** And how much longer while an integrated server is starting: a large world loads slowly. */
     static final long WORLD_LOAD_EXTRA_MS = 240000L;
     /** A create or open with no integrated server and no world this many ticks later was aborted. */
     static final int LOAD_ABORT_TICKS = 40;
     static final int DEFAULT_PORT = 25565;
+    /** A step not finished by its deadline. */
+    static final String REASON_TIMEOUT = "timeout";
     private static final Charset UTF8 = Charset.forName("UTF-8");
 
     private final ClientActionExecutor actions;
+    private final ScreenshotTaker screenshots;
+    private final PauseNote pause;
+    private final QuestionWatch questions = new QuestionWatch();
     private int ticks;
     private boolean started;
     /** The key as last seen, so turning it off and on again restarts the channel cleanly. */
@@ -76,17 +95,24 @@ public final class MenuChannel {
     private static final class Step {
         final MenuRequest request;
         final long startedAtMillis = System.currentTimeMillis();
+        /** A create, open or connect: done when the player joins. */
+        final boolean joins;
         String folder;
         ServerData server;
         int idleTicks;
+        /** For {@code mods}: the list being driven. */
+        ModListDriver driver;
 
-        Step(MenuRequest request) {
+        Step(MenuRequest request, boolean joins) {
             this.request = request;
+            this.joins = joins;
         }
     }
 
-    public MenuChannel(ClientActionExecutor actions) {
+    public MenuChannel(ClientActionExecutor actions, ScreenshotTaker screenshots, PauseNote pause) {
         this.actions = actions;
+        this.screenshots = screenshots;
+        this.pause = pause;
     }
 
     /** The folder, beside the command inbox's; null before configuration loads. */
@@ -101,6 +127,7 @@ public final class MenuChannel {
             return;
         }
         Minecraft mc = Minecraft.getMinecraft();
+        questions.tick(mc);
         if (step != null) {
             advance(mc);
         }
@@ -131,6 +158,20 @@ public final class MenuChannel {
         poll(mc, files);
     }
 
+    /** The Mods list's details settle over frames, so its picture waits on them. */
+    @SubscribeEvent
+    public void onRenderTick(TickEvent.RenderTickEvent event) {
+        if (event.phase == TickEvent.Phase.END && step != null && step.driver != null) {
+            step.driver.frame(Minecraft.getMinecraft());
+        }
+    }
+
+    /** Last of all listeners, so a question is seen as the screen that really opens. */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onGuiOpen(GuiOpenEvent event) {
+        questions.onGuiOpen(event);
+    }
+
     /** The first read of a launch: everything already waiting was placed before it. */
     private void start(InboxFiles files) {
         started = true;
@@ -143,7 +184,7 @@ public final class MenuChannel {
                 continue;
             }
             MenuRequest request = MenuRequest.parse(claim.getId(), claim.getContent());
-            record("claimed", request, null, null);
+            record("claimed", request, null, null, null);
             refuse(files, request, "placedBeforeStart");
         }
         writeStatus(files.getDirectory());
@@ -161,22 +202,45 @@ public final class MenuChannel {
                 continue;
             }
             MenuRequest request = MenuRequest.parse(claim.getId(), claim.getContent());
-            record("claimed", request, null, null);
+            record("claimed", request, null, null, null);
+            String kind = request.getStep();
             if (!request.isAccepted()) {
                 refuse(files, request, request.getRefusal(), request.getDetail());
             } else if (step != null || actions.isOnReconnect()) {
                 refuse(files, request, "busy");
             } else if (mc.world != null) {
-                // In a world the command inbox is the channel. The detail says whether a screen
-                // pauses the game, which is why a command-inbox request may get no answer.
-                refuse(files, request, "inWorld", "paused=" + mc.isGamePaused()
-                        + (mc.currentScreen == null ? "" : " screen=" + mc.currentScreen.getClass().getName()));
-            } else if (!isAtMenu(mc)) {
+                if (MenuRequest.CLOSE.equals(kind)) {
+                    // The one request taken in a world: a person's Esc on a screen that pauses
+                    // the game, which stops the command inbox's own reading.
+                    close(mc, files, request);
+                } else {
+                    // In a world the command inbox is the channel. The detail says whether a
+                    // screen pauses the game, which is why a command-inbox request may get no answer.
+                    refuse(files, request, "inWorld", pauseDetail(mc));
+                }
+            } else if (MenuRequest.CLOSE.equals(kind)) {
+                refuse(files, request, ConfirmScreens.REASON_NOT_PAUSED, pauseDetail(mc));
+            } else if (MenuRequest.MODS.equals(kind) && !ModListDriver.isLoaded(request.getArgs().get(0))) {
+                refuse(files, request, ModListDriver.REASON_NOT_FOUND);
+            } else if (isShown(kind) ? !canShow(mc) : !isAtMenu(mc)) {
                 refuse(files, request, "busy");
+            } else if (MenuRequest.MODS.equals(kind) && !(mc.currentScreen instanceof GuiMainMenu)) {
+                refuse(files, request, ModListDriver.REASON_NOT_TITLE_SCREEN, "screen=" + screenName(mc.currentScreen));
             } else {
                 begin(mc, files, request);
             }
         }
+    }
+
+    /** The steps that only read or picture the screen. */
+    private static boolean isShown(String kind) {
+        return MenuRequest.SCREEN.equals(kind) || MenuRequest.SCREENSHOT.equals(kind);
+    }
+
+    /** Whether the game is paused, and the screen open, for a refusal's detail. */
+    private String pauseDetail(Minecraft mc) {
+        return "paused=" + mc.isGamePaused()
+                + (mc.currentScreen == null ? "" : " screen=" + mc.currentScreen.getClass().getName());
     }
 
     /**
@@ -195,42 +259,155 @@ public final class MenuChannel {
 
     /**
      * No world, no integrated server, no connection, and a screen that is a menu: not one of
-     * connecting or loading, and not one of Forge's questions waiting for a person. Unlike the
-     * reconnect's rejoin, the screen of a lost connection counts as a menu here: it stays until
-     * someone clicks, and the channel must not wait on it.
+     * connecting or loading, and not one of the questions a world asks as it opens, which wait
+     * for a person. Unlike the reconnect's rejoin, the screen of a lost connection counts as a
+     * menu here: it stays until someone clicks, and the channel must not wait on it.
      */
     static boolean isAtMenu(Minecraft mc) {
-        if (mc.world != null || mc.getIntegratedServer() != null || mc.getConnection() != null
-                || mc.currentScreen == null) {
+        if (!isOutsideWorld(mc) || mc.currentScreen == null) {
             return false;
         }
         Class<?> screen = mc.currentScreen.getClass();
         if (GuiDisconnected.class.isAssignableFrom(screen)) {
             return true;
         }
-        return ClientActionExecutor.isMenuScreen(screen)
-                && !net.minecraftforge.fml.client.GuiOldSaveLoadConfirm.class.isAssignableFrom(screen)
-                && !net.minecraftforge.fml.client.GuiConfirmation.class.isAssignableFrom(screen)
-                && !net.minecraftforge.fml.client.GuiNotification.class.isAssignableFrom(screen);
+        return ClientActionExecutor.isMenuScreen(screen) && !ConfirmScreens.isQuestion(ScreenReader.hierarchy(screen));
+    }
+
+    /**
+     * Where a screen may be read or pictured: at a menu, and also on the old save's question,
+     * an ordinary screen where the game keeps ticking and drawing while it waits for a person.
+     */
+    private static boolean canShow(Minecraft mc) {
+        return isAtMenu(mc) || (isOutsideWorld(mc) && mc.currentScreen != null
+                && ConfirmScreens.isOldSave(ScreenReader.hierarchy(mc.currentScreen.getClass())));
+    }
+
+    /** No world, no integrated server and no connection. */
+    private static boolean isOutsideWorld(Minecraft mc) {
+        return mc.world == null && mc.getIntegratedServer() == null && mc.getConnection() == null;
     }
 
     private void begin(Minecraft mc, InboxFiles files, MenuRequest request) {
         String kind = request.getStep();
         if (MenuRequest.QUIT.equals(kind)) {
             quitting = true;
-            record("done", request, null, null);
+            record("done", request, null, null, null);
             MenuResult.done(request).writeTo(files.getDirectory());
             new File(files.getDirectory(), "status.json").delete();
             mc.shutdown();
             return;
         }
-        if (MenuRequest.CREATE.equals(kind)) {
+        if (MenuRequest.SCREEN.equals(kind)) {
+            describe(mc, files, request);
+        } else if (MenuRequest.SCREENSHOT.equals(kind)) {
+            picture(mc, request);
+        } else if (MenuRequest.MODS.equals(kind)) {
+            mods(mc, request);
+        } else if (MenuRequest.CREATE.equals(kind)) {
             create(mc, files, request);
         } else if (MenuRequest.OPEN.equals(kind)) {
             open(mc, files, request);
         } else {
             connect(mc, files, request);
         }
+    }
+
+    /** {@code SCREEN_INFO} and its buttons and slots, then the answer; changes nothing. */
+    private void describe(Minecraft mc, InboxFiles files, MenuRequest request) {
+        ScreenReader.Info info = ScreenReader.read(mc, mc.currentScreen);
+        ScreenReader.write(info, "id", request.getId());
+        Map<String, String> fields = new LinkedHashMap<String, String>();
+        fields.put("screen", info.screenName());
+        if (info.screen != null) {
+            fields.putAll(ScreenReader.summary(info));
+        }
+        record("done", request, null, null, fields);
+        MenuResult result = MenuResult.done(request);
+        for (Map.Entry<String, String> field : fields.entrySet()) {
+            result.with(field.getKey(), field.getValue());
+        }
+        result.writeTo(files.getDirectory());
+    }
+
+    /**
+     * A picture of the menu on screen, by the screenshot command's rules; its file is numbered
+     * by the wall clock, since no world tick runs here. The answer waits for the capture.
+     */
+    private void picture(Minecraft mc, MenuRequest request) {
+        final Step s = new Step(request, false);
+        step = s;
+        final Map<String, String> fields = new LinkedHashMap<String, String>();
+        fields.put("screen", screenName(mc.currentScreen));
+        record("started", request, null, null, fields);
+        ScreenshotRequest picture = new ScreenshotRequest(request.getArgs().get(0), 0, System.currentTimeMillis(),
+                request.getHide());
+        screenshots.takeLocal(picture, new ScreenshotTaker.Taken() {
+            @Override
+            public void taken(boolean saved, String file, String reason) {
+                if (step != s) {
+                    return;
+                }
+                if (file != null) {
+                    fields.put("file", file);
+                }
+                finish(s, saved ? "done" : "failed", saved ? null : reason, fields);
+            }
+        });
+    }
+
+    /** A mod's entry in the Mods list; the driver answers once it is back at the title screen. */
+    private void mods(Minecraft mc, MenuRequest request) {
+        final Step s = new Step(request, false);
+        step = s;
+        record("started", request, null, null, null);
+        s.driver = new ModListDriver(request, screenshots, new ModListDriver.Done() {
+            @Override
+            public void finished(String outcome, String reason, Map<String, String> fields) {
+                if (step == s) {
+                    finish(s, outcome, reason, fields);
+                }
+            }
+        });
+        s.driver.open(mc);
+    }
+
+    /**
+     * Esc on a screen that pauses single player, as a person's key: the screen's own key handler
+     * with Esc, so a screen that does something of its own on Esc does it. A screen that asks a
+     * person to decide is left for them.
+     */
+    private void close(Minecraft mc, InboxFiles files, MenuRequest request) {
+        GuiScreen screen = mc.currentScreen;
+        List<String> hierarchy = screen == null ? Collections.<String>emptyList()
+                : ScreenReader.hierarchy(screen.getClass());
+        String refusal = ConfirmScreens.closeRefusal(pause.isPaused(), hierarchy, request.getArgs().get(0));
+        if (refusal != null) {
+            refuse(files, request, refusal, pauseDetail(mc));
+            return;
+        }
+        if (!ScreenClicker.available()) {
+            // Said as the screen steps say it, rather than failing on a handler that is not there.
+            refuse(files, request, ConfirmScreens.REASON_ROUTE_UNAVAILABLE, String.valueOf(ScreenClicker.failure()));
+            return;
+        }
+        String before = screenName(screen);
+        Map<String, String> fields = new LinkedHashMap<String, String>();
+        fields.put("screen", before);
+        try {
+            ScreenClicker.type(screen, (char) 0, ScreenClicker.KEY_ESCAPE);
+        } catch (Exception failure) {
+            fields.put("showing", screenName(mc.currentScreen));
+            String reason = failure.getClass().getSimpleName();
+            record("failed", request, reason, null, fields);
+            MenuResult.failed(request, reason).with("screen", before).with("showing", fields.get("showing"))
+                    .writeTo(files.getDirectory());
+            return;
+        }
+        fields.put("showing", screenName(mc.currentScreen));
+        record("done", request, null, null, fields);
+        MenuResult.done(request).with("screen", before).with("showing", fields.get("showing"))
+                .writeTo(files.getDirectory());
     }
 
     private void create(Minecraft mc, InboxFiles files, MenuRequest request) {
@@ -267,9 +444,9 @@ public final class MenuChannel {
         if (options.isBonusChest()) {
             settings.enableBonusChest();
         }
-        step = new Step(request);
+        step = new Step(request, true);
         step.folder = folder;
-        record("started", request, null, folder);
+        record("started", request, null, folder, null);
         // As the Create button does: the world type's own hook, then the launch.
         try {
             type.onGUICreateWorldPress();
@@ -277,7 +454,7 @@ public final class MenuChannel {
         } catch (net.minecraftforge.fml.common.StartupQuery.AbortedException e) {
             // FML aborts a start this way; the open path catches the same inside FML. Anything
             // else is a real crash and goes on to the game's crash report.
-            finish(step, "failed", "loadAborted");
+            finish(step, "failed", "loadAborted", null);
         }
     }
 
@@ -304,9 +481,31 @@ public final class MenuChannel {
             refuse(files, request, "newerVersion", null);
             return;
         }
-        step = new Step(request);
-        step.folder = folder;
-        record("started", request, null, folder);
+        final Step s = new Step(request, true);
+        step = s;
+        s.folder = folder;
+        record("started", request, null, folder, null);
+        // Armed for this one open: a question it shows is reported or answered as it asks.
+        questions.arm(request, new QuestionWatch.Owner() {
+            @Override
+            public void reported(String kind, String text) {
+                if (step == s) {
+                    Map<String, String> fields = new LinkedHashMap<String, String>();
+                    fields.put("question", kind);
+                    fields.put("text", text);
+                    finish(s, "failed", QuestionWatch.REASON_QUESTION, fields);
+                }
+            }
+
+            @Override
+            public void cancelled(String kind) {
+                if (step == s) {
+                    Map<String, String> fields = new LinkedHashMap<String, String>();
+                    fields.put("question", kind);
+                    finish(s, "failed", QuestionWatch.REASON_CANCELLED, fields);
+                }
+            }
+        });
         FMLClientHandler.instance().tryLoadExistingWorld(new GuiWorldSelection(new GuiMainMenu()), summary);
     }
 
@@ -330,8 +529,8 @@ public final class MenuChannel {
         }
         int port = Integer.parseInt(hostPort[1]);
         String literal = addresses.get(0).getHostAddress();
-        step = new Step(request);
-        record("started", request, null, null);
+        step = new Step(request, true);
+        record("started", request, null, null, null);
         mc.displayGuiScreen(new GuiConnecting(new GuiMultiplayer(new GuiMainMenu()), mc, literal, port));
         // After the screen's own loadWorld(null), which clears it: a later reconnect needs it.
         String shown = literal.indexOf(':') >= 0 ? "[" + literal + "]" : literal;
@@ -387,7 +586,7 @@ public final class MenuChannel {
     @SubscribeEvent
     public void onJoinWorld(EntityJoinWorldEvent event) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (step == null || mc.player == null || event.getEntity() != mc.player) {
+        if (step == null || !step.joins || mc.player == null || event.getEntity() != mc.player) {
             return;
         }
         Step s = step;
@@ -397,31 +596,61 @@ public final class MenuChannel {
         } else {
             expected = mc.getIntegratedServer() == null && mc.getCurrentServerData() == s.server;
         }
-        finish(s, expected ? "done" : "failed", expected ? null : "joinedElsewhere");
+        finish(s, expected ? "done" : "failed", expected ? null : "joinedElsewhere", null);
     }
 
     private void advance(Minecraft mc) {
         Step s = step;
         long elapsed = System.currentTimeMillis() - s.startedAtMillis;
+        if (s.driver != null) {
+            s.driver.tick(mc);
+            if (step != s) {
+                return;
+            }
+        }
+        if (!s.joins) {
+            if (elapsed > STEP_DEADLINE_MS) {
+                if (s.driver != null) {
+                    // Through the driver, which puts the title screen back before it answers.
+                    s.driver.end(mc, REASON_TIMEOUT);
+                } else {
+                    finish(s, "failed", REASON_TIMEOUT, null);
+                }
+            }
+            return;
+        }
         boolean worldLoading = s.folder != null && mc.getIntegratedServer() != null;
         if (mc.currentScreen instanceof GuiDisconnected) {
-            finish(s, "failed", s.folder == null ? "connectFailed" : "loadFailed");
+            finish(s, "failed", s.folder == null ? "connectFailed" : "loadFailed", null);
         } else if (mc.world == null && isAtMenu(mc) && ++s.idleTicks >= LOAD_ABORT_TICKS) {
             // Back at a menu with nothing starting: the world never started, a Forge question
             // was answered with cancel, or the connection was cancelled.
-            finish(s, "failed", s.folder == null ? "connectAborted" : "loadAborted");
+            finish(s, "failed", s.folder == null ? "connectAborted" : "loadAborted", null);
         } else if (elapsed > STEP_DEADLINE_MS + (worldLoading ? WORLD_LOAD_EXTRA_MS : 0L)) {
             // Said; a world or a connection still under way may yet finish, so the agent reads
             // the client's state before the next step.
-            finish(s, "failed", "timeout");
+            finish(s, "failed", REASON_TIMEOUT, null);
         }
     }
 
-    private void finish(Step s, String outcome, String reason) {
+    /**
+     * The step's record and answer. Also called from a question's listener while the world's
+     * start holds the client thread, where no tick would come to write it.
+     */
+    private void finish(Step s, String outcome, String reason, Map<String, String> fields) {
         step = null;
-        record(outcome, s.request, reason, s.folder);
+        if (s.joins) {
+            questions.disarm();
+        }
+        record(outcome, s.request, reason, s.folder, fields);
         MenuResult result = "done".equals(outcome) ? MenuResult.done(s.request) : MenuResult.failed(s.request, reason);
-        result.with("folder", s.folder).writeTo(directory());
+        result.with("folder", s.folder);
+        if (fields != null) {
+            for (Map.Entry<String, String> field : fields.entrySet()) {
+                result.with(field.getKey(), field.getValue());
+            }
+        }
+        result.writeTo(directory());
     }
 
     private void refuse(InboxFiles files, MenuRequest request, String reason) {
@@ -441,15 +670,26 @@ public final class MenuChannel {
         MenuResult.refused(request, reason).with("detail", detail).writeTo(files.getDirectory());
     }
 
-    private static void record(String action, MenuRequest request, String reason, String folder) {
-        ToolkitLog.write(LogRecord.of(EventType.MENU_STEP)
+    private static void record(String action, MenuRequest request, String reason, String folder,
+                               Map<String, String> fields) {
+        LogRecord record = LogRecord.of(EventType.MENU_STEP)
                 .add("side", "CLIENT")
                 .add("action", action)
                 .add("id", request.getId())
                 .add("step", request.getStep())
                 .add("request", request.getLine())
                 .add("reason", reason)
-                .add("folder", folder));
+                .add("folder", folder);
+        if (fields != null) {
+            for (Map.Entry<String, String> field : fields.entrySet()) {
+                record.add(field.getKey(), field.getValue());
+            }
+        }
+        ToolkitLog.write(record);
+    }
+
+    private static String screenName(GuiScreen screen) {
+        return screen == null ? "none" : screen.getClass().getName();
     }
 
     /** Present while the channel listens, with the launch's start, so an agent knows when to write. */

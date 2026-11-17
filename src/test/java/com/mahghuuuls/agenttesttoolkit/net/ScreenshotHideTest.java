@@ -31,6 +31,15 @@ class ScreenshotHideTest {
     }
 
     @Test
+    @DisplayName("hide=toasts and comma lists survive the wire, written one way")
+    void hideSetRoundTrip() {
+        assertEquals("toasts", roundTrip(new ScreenshotRequest("a", 0, 1L, "toasts")).getHide());
+        assertEquals("chat,toasts", roundTrip(new ScreenshotRequest("a", 0, 1L, "toasts,chat")).getHide());
+        assertTrue(new ScreenshotRequest("a", 0, 1L, "chat,hud,toasts").isValid());
+        assertFalse(new ScreenshotRequest("a", 0, 1L, "chat,chat").isValid());
+    }
+
+    @Test
     @DisplayName("a request without hide has the 1.7.0 bytes, and 1.7.0 bytes read as no hide")
     void plainBytesUnchanged() {
         ByteBuf plain = Unpooled.buffer();

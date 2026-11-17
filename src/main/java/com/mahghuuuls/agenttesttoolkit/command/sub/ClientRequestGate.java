@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.inbox.HideSet;
 import com.mahghuuuls.agenttesttoolkit.inbox.InputOptions;
 import com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions;
 import com.mahghuuuls.agenttesttoolkit.inbox.ScreenOptions;
@@ -50,26 +51,32 @@ final class ClientRequestGate {
         final Kind kind;
         /** A reconnect's {@code logout}. */
         final boolean logout;
-        /** A player action's screenshot that leaves the chat or the HUD out. */
-        final boolean hideScreenshot;
+        /** What a player action's screenshot leaves out, as written; empty for nothing. */
+        final String hide;
 
-        private Step(String name, Kind kind, boolean logout, boolean hideScreenshot) {
+        private Step(String name, Kind kind, boolean logout, String hide) {
             this.name = name;
             this.kind = kind;
             this.logout = logout;
-            this.hideScreenshot = hideScreenshot;
+            this.hide = hide == null ? "" : hide;
         }
 
         static Step lifecycle(String name, boolean logout) {
-            return new Step(name, Kind.LIFECYCLE, logout, false);
+            return new Step(name, Kind.LIFECYCLE, logout, "");
         }
 
+        /** A player action whose screenshot leaves out this set ({@code screenshotHide}); empty for none. */
+        static Step playerAction(String name, String hide) {
+            return new Step(name, Kind.PLAYER_ACTION, false, hide);
+        }
+
+        /** A player action whose screenshot leaves the chat or the HUD out, or nothing: the 1.8.0 values. */
         static Step playerAction(String name, boolean hideScreenshot) {
-            return new Step(name, Kind.PLAYER_ACTION, false, hideScreenshot);
+            return playerAction(name, hideScreenshot ? HideSet.CHAT : "");
         }
 
         static Step newStep(String name) {
-            return new Step(name, Kind.NEW_STEP, false, false);
+            return new Step(name, Kind.NEW_STEP, false, "");
         }
 
         /** A lifecycle step or a player action, told apart by its name, as the command words are. */
@@ -106,21 +113,35 @@ final class ClientRequestGate {
 
     /**
      * The toolkit version a client needs for this step: the input and screen steps need the
-     * message only 1.9.0 reads; a player action needs 1.7.0, and 1.8.0 when its screenshot leaves
-     * something out; a reconnect's logout 1.7.0; a quit 1.5.0; any other step the first version.
+     * message only 1.9.0 reads; a player action needs 1.7.0, or what its screenshot's {@code hide}
+     * needs when that is more; a reconnect's logout 1.7.0; a quit 1.5.0; any other step the first
+     * version.
      */
     static int[] neededVersion(Step step) {
         switch (step.kind) {
             case NEW_STEP:
                 return ToolkitChannel.VERSION_1_9_0;
             case PLAYER_ACTION:
-                return step.hideScreenshot ? ToolkitChannel.VERSION_1_8_0 : ToolkitChannel.VERSION_1_7_0;
+                return step.hide.isEmpty() ? ToolkitChannel.VERSION_1_7_0 : hideVersion(step.hide);
             default:
                 if (step.logout) {
                     return ToolkitChannel.VERSION_1_7_0;
                 }
                 return ClientActionRequest.QUIT.equals(step.name) ? ToolkitChannel.VERSION_1_5_0 : FIRST_VERSION;
         }
+    }
+
+    /**
+     * The toolkit version a client needs to leave this set out of a screenshot, for the command
+     * and for an action's {@code screenshotHide}: {@code chat} or {@code hud} alone 1.8.0, which
+     * reads only those; {@code toasts}, or any comma list, 1.9.0. Null for nothing left out.
+     */
+    static int[] hideVersion(String hide) {
+        if (hide == null || hide.isEmpty()) {
+            return null;
+        }
+        return HideSet.CHAT.equals(hide) || HideSet.HUD.equals(hide)
+                ? ToolkitChannel.VERSION_1_8_0 : ToolkitChannel.VERSION_1_9_0;
     }
 
     /** The refusal of this step, or null when it may be sent. */
@@ -206,9 +227,19 @@ final class ClientRequestGate {
         if (refusal != Refusal.NO_CLIENT && refusal != Refusal.CLIENT_TOO_OLD) {
             return new Object[] {player};
         }
+        return versionArguments(player, helloVersion, neededVersion(step), "this step");
+    }
+
+    /**
+     * A version refusal's arguments, for a step or for the screenshot command: the client's
+     * version and the one needed, folded into the first argument for an older client's message.
+     *
+     * @param what what needs the version, as the text names it: {@code this step}, {@code this screenshot}
+     */
+    static Object[] versionArguments(String player, String helloVersion, int[] needed, String what) {
         String has = helloVersion == null || helloVersion.isEmpty() ? "none" : helloVersion;
-        String needs = ToolkitChannel.versionText(neededVersion(step));
-        return new Object[] {player + " (client toolkit " + has + ", this step needs " + needs + ")", has, needs};
+        String needs = ToolkitChannel.versionText(needed);
+        return new Object[] {player + " (client toolkit " + has + ", " + what + " needs " + needs + ")", has, needs};
     }
 
     private static boolean atLeast(String version, int[] minimum) {

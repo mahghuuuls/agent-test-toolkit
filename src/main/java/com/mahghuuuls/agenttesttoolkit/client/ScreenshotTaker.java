@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.client;
 
+import com.mahghuuuls.agenttesttoolkit.inbox.HideSet;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
@@ -18,7 +19,8 @@ import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * Takes the screenshots the server asks for, the way F2 does (ARC-017).
+ * Takes the screenshots the server asks for, the way F2 does, and the ones the client
+ * request channel asks for at a menu.
  *
  * <p>Requests arrive on the network thread and wait in a queue; the delay is counted in client
  * ticks; the capture happens at the end of a render tick, on the main thread with the frame
@@ -33,27 +35,51 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
      */
     static final int MAX_WAITING = 8;
 
-    private final ConcurrentLinkedQueue<ScreenshotRequest> incoming = new ConcurrentLinkedQueue<ScreenshotRequest>();
+    /** What became of a capture asked on this client; told to whoever asked, on the client thread. */
+    public interface Taken {
+        /**
+         * @param saved  the file was written by this capture
+         * @param file   the file, under the game folder ({@code screenshots/...}); null when none was tried
+         * @param reason why it was not saved; null when it was
+         */
+        void taken(boolean saved, String file, String reason);
+    }
+
+    private final ConcurrentLinkedQueue<Pending> incoming = new ConcurrentLinkedQueue<Pending>();
     /** Client thread only. */
     private final List<Pending> pending = new ArrayList<Pending>();
     /** The frame a capture with {@code hide} falls in; client thread only. */
     private final FrameHide frame = new FrameHide();
+    private final ToastHide toasts = new ToastHide();
     /** The capture that frame was armed for, taken at the frame's end. */
     private Pending armedFor;
+    /** Whether the toasts asked out of that frame could be reached; a record says when they could not. */
+    private boolean toastsHidden;
 
     private static final class Pending {
         final ScreenshotRequest request;
+        /** Asked on this client, at a menu: not tied to a world, so a leave does not end it. */
+        final Taken local;
         int remaining;
 
-        Pending(ScreenshotRequest request) {
+        Pending(ScreenshotRequest request, Taken local) {
             this.request = request;
+            this.local = local;
             this.remaining = request.getDelayTicks();
         }
     }
 
     @Override
     public void receive(ScreenshotRequest request) {
-        incoming.add(request);
+        incoming.add(new Pending(request, null));
+    }
+
+    /**
+     * A capture asked on this client itself, where no world need be open, such as at the title
+     * screen. Told to {@code taken} once it is saved or failed.
+     */
+    public void takeLocal(ScreenshotRequest request, Taken taken) {
+        incoming.add(new Pending(request, taken));
     }
 
     @SubscribeEvent
@@ -62,11 +88,16 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
             return;
         }
         if (Minecraft.getMinecraft().world == null) {
-            // Left the world: a request for it must not fire at the menu or in the next world.
-            for (Pending p : pending) {
-                failed(p.request, "disconnected");
+            // Left the world: a server's request for it must not fire at the menu or in the
+            // next world. A capture asked here at a menu belongs to no world.
+            Iterator<Pending> it = pending.iterator();
+            while (it.hasNext()) {
+                Pending p = it.next();
+                if (p.local == null) {
+                    it.remove();
+                    failed(p, "disconnected");
+                }
             }
-            pending.clear();
         }
         // Counted before the new arrivals join, so a delay of n waits n whole ticks.
         for (Pending p : pending) {
@@ -74,12 +105,12 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
                 p.remaining--;
             }
         }
-        ScreenshotRequest request;
-        while ((request = incoming.poll()) != null) {
+        Pending arrived;
+        while ((arrived = incoming.poll()) != null) {
             if (pending.size() >= MAX_WAITING) {
-                failed(request, "queueFull");
+                failed(arrived, "queueFull");
             } else {
-                pending.add(new Pending(request));
+                pending.add(arrived);
             }
         }
     }
@@ -96,11 +127,12 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
         // One capture per frame: each is a synchronous file write. The capture armed at this
         // frame's start is the one taken, so what the frame left out is what the picture shows.
         Pending due = armedFor != null ? armedFor : firstDue();
+        boolean hidOk = toastsHidden;
         try {
             // Only a capture still waiting is taken: one the world's end already failed is not
             // taken late, even if its frame was armed.
             if (due != null && pending.remove(due)) {
-                capture(due.request);
+                capture(due, hidOk);
             }
         } finally {
             disarmFrame();
@@ -142,28 +174,40 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
         }
         Minecraft mc = Minecraft.getMinecraft();
         mc.gameSettings.hideGUI = frame.arm(due.request.getHide(), mc.gameSettings.hideGUI);
+        if (frame.hidesToasts()) {
+            toastsHidden = toasts.hide(mc);
+        }
         armedFor = due;
     }
 
-    /** At the frame's end, after the capture: the player's own F1 state comes back. */
+    /** At the frame's end, after the capture: the player's own F1 state and the toasts come back. */
     private void disarmFrame() {
         if (frame.isArmed()) {
             Minecraft mc = Minecraft.getMinecraft();
-            mc.gameSettings.hideGUI = frame.disarm(mc.gameSettings.hideGUI);
+            try {
+                toasts.restore();
+            } finally {
+                mc.gameSettings.hideGUI = frame.disarm(mc.gameSettings.hideGUI);
+            }
         }
+        toastsHidden = false;
         armedFor = null;
     }
 
-    private static void failed(ScreenshotRequest request, String reason) {
+    private static void failed(Pending p, String reason) {
         ToolkitLog.write(LogRecord.of(EventType.SCREENSHOT)
                 .add("side", "CLIENT")
-                .add("label", request.getLabel())
-                .add("requestTick", request.getRequestTick())
+                .add("label", p.request.getLabel())
+                .add("requestTick", p.request.getRequestTick())
                 .add("action", "failed")
                 .add("reason", reason));
+        if (p.local != null) {
+            p.local.taken(false, null, reason);
+        }
     }
 
-    private void capture(ScreenshotRequest request) {
+    private void capture(Pending p, boolean toastsLeftOut) {
+        ScreenshotRequest request = p.request;
         Minecraft mc = Minecraft.getMinecraft();
         String name = request.fileName();
         LogRecord record = LogRecord.of(EventType.SCREENSHOT)
@@ -173,31 +217,45 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
         boolean hidden = !ScreenshotRequest.HIDE_NONE.equals(request.getHide());
         if (hidden) {
             record.add("hide", request.getHide());
-            if (mc.currentScreen != null) {
-                // An open screen is drawn whatever the frame leaves out.
-                record.add("screen", mc.currentScreen.getClass().getName());
+            if (HideSet.has(request.getHide(), HideSet.TOASTS) && !toastsLeftOut) {
+                // Said rather than claimed: the toasts could not be reached, so they may be in it.
+                record.add("hideFailed", HideSet.TOASTS);
             }
         }
+        if (mc.currentScreen != null && (hidden || p.local != null)) {
+            // An open screen is drawn whatever the frame leaves out; at a menu it is the picture.
+            record.add("screen", mc.currentScreen.getClass().getName());
+        }
+        boolean saved = false;
+        String file = null;
+        String reason = null;
         try {
-            File file = new File(new File(mc.gameDir, "screenshots"), name);
-            long before = file.isFile() ? file.lastModified() : -1L;
+            File target = new File(new File(mc.gameDir, "screenshots"), name);
+            long before = target.isFile() ? target.lastModified() : -1L;
             net.minecraft.util.text.ITextComponent said = ScreenShotHelper.saveScreenshot(
                     mc.gameDir, name, mc.displayWidth, mc.displayHeight, mc.getFramebuffer());
-            if (said != null && mc.ingameGUI != null && !hidden) {
+            if (said != null && mc.ingameGUI != null && !hidden && p.local == null) {
                 // The player is told, as F2 tells them; not for a picture meant to be clean,
-                // since the line would land in the next one.
+                // since the line would land in the next one, nor at a menu, where no one reads it.
                 mc.ingameGUI.getChatGUI().printChatMessage(said);
             }
+            file = "screenshots/" + name;
             // Checked rather than assumed: another mod's ScreenshotEvent can cancel or redirect
             // it, and a file left by an earlier run must not read as this capture.
-            if (file.isFile() && file.lastModified() != before) {
-                record.add("action", "saved").add("file", "screenshots/" + name);
+            if (target.isFile() && target.lastModified() != before) {
+                saved = true;
+                record.add("action", "saved").add("file", file);
             } else {
-                record.add("action", "failed").add("reason", "noFile").add("file", "screenshots/" + name);
+                reason = "noFile";
+                record.add("action", "failed").add("reason", reason).add("file", file);
             }
         } catch (RuntimeException e) {
-            record.add("action", "failed").add("reason", e.getClass().getSimpleName());
+            reason = e.getClass().getSimpleName();
+            record.add("action", "failed").add("reason", reason);
         }
         ToolkitLog.write(record);
+        if (p.local != null) {
+            p.local.taken(saved, file, reason);
+        }
     }
 }

@@ -36,6 +36,15 @@ interface MouseQueue {
     /** Puts one button event at the end of the queue. */
     void add(int button, boolean down);
 
+    /**
+     * Puts one wheel event at the end of the queue, at the mouse's position: {@code notches}
+     * positive turns away from the player, as the wheel's own sign.
+     */
+    void wheel(int notches);
+
+    /** LWJGL 2's wheel amount for one notch, as the operating system reports it. */
+    int WHEEL_PER_NOTCH = 120;
+
     /** The backend of this launch, found once the mouse exists. */
     final class Choice {
         private static boolean resolved;
@@ -123,8 +132,21 @@ interface MouseQueue {
             append(buffer, button, down, grabbed ? 0 : Mouse.getX(), grabbed ? 0 : Mouse.getY(), System.nanoTime());
         }
 
+        @Override
+        public void wheel(int notches) {
+            boolean grabbed = Mouse.isGrabbed();
+            // No button: the library's -1, and the wheel's amount where a button event has 0.
+            append(buffer, -1, false, grabbed ? 0 : Mouse.getX(), grabbed ? 0 : Mouse.getY(),
+                    notches * WHEEL_PER_NOTCH, System.nanoTime());
+        }
+
         /** Writes one event after the unread ones; kept apart so its layout is tested. */
         static void append(ByteBuffer buffer, int button, boolean down, int first, int second, long nanos) {
+            append(buffer, button, down, first, second, 0, nanos);
+        }
+
+        /** The same, with a wheel amount. */
+        static void append(ByteBuffer buffer, int button, boolean down, int first, int second, int wheel, long nanos) {
             if (buffer.limit() + EVENT_SIZE > buffer.capacity()) {
                 // Moves the unread events to the front, as the library does before it reads more.
                 buffer.compact();
@@ -139,7 +161,7 @@ interface MouseQueue {
             buffer.put(at + 1, (byte) (down ? 1 : 0));
             buffer.putInt(at + 2, first);
             buffer.putInt(at + 6, second);
-            buffer.putInt(at + 10, 0);
+            buffer.putInt(at + 10, wheel);
             buffer.putLong(at + 14, nanos);
         }
     }
@@ -154,16 +176,18 @@ interface MouseQueue {
         private final Object window;
         private final Object queues;
         private final Method button;
+        private final Method wheel;
         private final Method mouseX;
         private final Method mouseY;
         private final Method pixelX;
         private final Method pixelY;
 
-        private Cleanroom(Object window, Object queues, Method button, Method mouseX, Method mouseY, Method pixelX,
-                          Method pixelY) {
+        private Cleanroom(Object window, Object queues, Method button, Method wheel, Method mouseX, Method mouseY,
+                          Method pixelX, Method pixelY) {
             this.window = window;
             this.queues = queues;
             this.button = button;
+            this.wheel = wheel;
             this.mouseX = mouseX;
             this.mouseY = mouseY;
             this.pixelX = pixelX;
@@ -179,12 +203,16 @@ interface MouseQueue {
             Method button = queues.getClass().getDeclaredMethod("button", int.class, boolean.class, float.class,
                     float.class, long.class);
             button.setAccessible(true);
+            // The window's own wheel handler gives the position in pixels and one per notch.
+            Method wheel = queues.getClass().getDeclaredMethod("wheel", float.class, float.class, float.class,
+                    long.class);
+            wheel.setAccessible(true);
             Method pixelX = type.getDeclaredMethod("pixelX", float.class);
             pixelX.setAccessible(true);
             Method pixelY = type.getDeclaredMethod("pixelY", float.class);
             pixelY.setAccessible(true);
-            return new Cleanroom(window, queues, button, type.getMethod("mouseX"), type.getMethod("mouseY"), pixelX,
-                    pixelY);
+            return new Cleanroom(window, queues, button, wheel, type.getMethod("mouseX"), type.getMethod("mouseY"),
+                    pixelX, pixelY);
         }
 
         /** The game's button number in SDL's numbering: right and middle trade places, and SDL counts from 1. */
@@ -209,6 +237,17 @@ interface MouseQueue {
                 float x = ((Float) pixelX.invoke(window, mouseX.invoke(window))).floatValue();
                 float y = ((Float) pixelY.invoke(window, mouseY.invoke(window))).floatValue();
                 this.button.invoke(queues, sdlButton(button), down, x, y, System.nanoTime());
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure.getClass().getSimpleName(), failure);
+            }
+        }
+
+        @Override
+        public void wheel(int notches) {
+            try {
+                float x = ((Float) pixelX.invoke(window, mouseX.invoke(window))).floatValue();
+                float y = ((Float) pixelY.invoke(window, mouseY.invoke(window))).floatValue();
+                this.wheel.invoke(queues, x, y, (float) notches, System.nanoTime());
             } catch (ReflectiveOperationException failure) {
                 throw new IllegalStateException(failure.getClass().getSimpleName(), failure);
             }

@@ -62,19 +62,13 @@ final class TooltipScreen extends GuiContainer {
         super.drawScreen(x, y, partialTicks);
         final int tipX = x;
         final int tipY = y;
-        try {
-            ModifierKeys.during(keys, new java.util.concurrent.Callable<Void>() {
-                @Override
-                public Void call() {
-                    renderHoveredToolTip(tipX, tipY);
-                    return null;
-                }
-            });
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception unexpected) {
-            throw new IllegalStateException(unexpected);
-        }
+        ModifierKeys.holding(keys, new java.util.concurrent.Callable<Void>() {
+            @Override
+            public Void call() {
+                renderHoveredToolTip(tipX, tipY);
+                return null;
+            }
+        });
     }
 
     /** The tooltip lines, normal or advanced as asked, coloured as the game colours them. */
@@ -94,20 +88,14 @@ final class TooltipScreen extends GuiContainer {
 
     /** The lines the drawn tooltip shows, for the record, built with the same keys held. */
     List<String> lines(final ItemStack stack) {
-        try {
-            return ModifierKeys.during(keys, new java.util.concurrent.Callable<List<String>>() {
-                @Override
-                public List<String> call() {
-                    // Read the way mods read it, while the keys are held.
-                    keysSeen = ModifierKeys.seen();
-                    return getItemToolTip(stack);
-                }
-            });
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception unexpected) {
-            throw new IllegalStateException(unexpected);
-        }
+        return ModifierKeys.holding(keys, new java.util.concurrent.Callable<List<String>>() {
+            @Override
+            public List<String> call() {
+                // Read the way mods read it, while the keys are held.
+                keysSeen = ModifierKeys.seen();
+                return getItemToolTip(stack);
+            }
+        });
     }
 
     /** Which of shift, ctrl, alt the game read as held while {@link #lines} built the tooltip. */

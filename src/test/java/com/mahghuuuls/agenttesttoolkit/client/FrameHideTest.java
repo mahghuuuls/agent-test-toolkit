@@ -33,6 +33,28 @@ class FrameHideTest {
     }
 
     @Test
+    @DisplayName("toasts: only the toasts are left out; with chat both, F1 untouched")
+    void toasts() {
+        FrameHide frame = new FrameHide();
+        assertFalse(frame.arm("toasts", false));
+        assertTrue(frame.isArmed());
+        assertTrue(frame.hidesToasts());
+        assertFalse(frame.cancelsChat(), "the chat stays");
+        assertFalse(frame.disarm(false));
+        assertFalse(frame.hidesToasts(), "disarmed after the frame");
+
+        FrameHide both = new FrameHide();
+        assertFalse(both.arm("chat,toasts", false));
+        assertTrue(both.cancelsChat());
+        assertTrue(both.hidesToasts());
+
+        FrameHide all = new FrameHide();
+        assertTrue(all.arm("chat,hud,toasts", false), "hud in a list still turns F1 on");
+        assertFalse(all.disarm(true), "and gives the player's own state back");
+        assertFalse(new FrameHide().hidesToasts(), "not armed");
+    }
+
+    @Test
     @DisplayName("nothing to hide: not armed, and the disarm changes nothing")
     void none() {
         FrameHide frame = new FrameHide();

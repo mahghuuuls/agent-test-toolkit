@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.net;
 
+import com.mahghuuuls.agenttesttoolkit.inbox.HideSet;
 import com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions;
 import io.netty.buffer.ByteBuf;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
@@ -66,7 +67,7 @@ public final class PlayerActionRequest implements IMessage {
                 && PlayerActionOptions.isValidOptions(delay, screenshot, screenshotDelay)
                 && (!isTooltip() || PlayerActionOptions.screenshotFitsTooltip(ticks, screenshot, screenshotDelay))
                 && (screenshotHide.isEmpty() || (!screenshot.isEmpty()
-                        && ScreenshotRequest.isValidHide(screenshotHide)));
+                        && HideSet.isValid(screenshotHide)));
     }
 
     public int getDelay() {

@@ -65,6 +65,21 @@ class PressRoutesTest {
     }
 
     @Test
+    @DisplayName("a wheel event has no button and the wheel's amount where a button event has 0")
+    void lwjgl2WheelLayout() {
+        ByteBuffer buffer = ByteBuffer.allocate(MouseQueue.Lwjgl2.EVENT_SIZE * 2);
+        buffer.limit(0);
+        MouseQueue.Lwjgl2.append(buffer, -1, false, 10, 20, -2 * MouseQueue.WHEEL_PER_NOTCH, 5L);
+        assertEquals(MouseQueue.Lwjgl2.EVENT_SIZE, buffer.limit());
+        assertEquals(-1, buffer.get(), "no button");
+        assertEquals(0, buffer.get(), "no state");
+        assertEquals(10, buffer.getInt());
+        assertEquals(20, buffer.getInt());
+        assertEquals(-240, buffer.getInt(), "two notches toward the player");
+        assertEquals(5L, buffer.getLong());
+    }
+
+    @Test
     @DisplayName("a full buffer's read events are dropped to make room; one with no room left refuses")
     void lwjgl2Compacts() {
         int size = MouseQueue.Lwjgl2.EVENT_SIZE;

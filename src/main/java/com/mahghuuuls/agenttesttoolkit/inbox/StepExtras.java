@@ -18,15 +18,11 @@ final class StepExtras {
     static final String SCREENSHOT = "screenshot";
     /** {@code screenshotDelay=}: ticks from the step to that screenshot. */
     static final String SCREENSHOT_DELAY = "screenshotDelay";
-    /** {@code screenshotHide=}: {@code chat} or {@code hud}, left out of that screenshot. */
+    /** {@code screenshotHide=}: what is left out of that screenshot, a set as {@link HideSet} reads it. */
     static final String SCREENSHOT_HIDE = "screenshotHide";
     /** The keys above, in the order their words are written. */
     static final List<String> KEYS = Collections.unmodifiableList(
             Arrays.asList(DELAY, SCREENSHOT, SCREENSHOT_DELAY, SCREENSHOT_HIDE));
-
-    /** The values of {@code screenshotHide}, which are also the screenshot command's {@code hide} values. */
-    static final String HIDE_CHAT = "chat";
-    static final String HIDE_HUD = "hud";
 
     /** The longest wait before a step, in ticks: one minute. */
     static final int MAX_DELAY_TICKS = 1200;
@@ -78,10 +74,11 @@ final class StepExtras {
             return Take.TAKEN;
         }
         if (SCREENSHOT_HIDE.equals(key)) {
-            if (!(HIDE_CHAT.equals(value) || HIDE_HUD.equals(value))) {
+            String set = HideSet.canonical(value);
+            if (set == null || set.isEmpty()) {
                 return Take.BAD;
             }
-            screenshotHide = value;
+            screenshotHide = set;
             return Take.TAKEN;
         }
         return Take.NOT_MINE;

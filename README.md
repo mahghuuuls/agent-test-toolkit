@@ -16,7 +16,7 @@ You still do the parts of a test that need a person: aiming, walking, working in
 | Parsing the log | [docs/logging.md](docs/logging.md) |
 | Deciding whether to install it | [MOD-PAGE.md](MOD-PAGE.md) |
 
-`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 53 record types, and twelve worked examples of testing a freshly implemented feature, one of them run entirely through the command inbox, one with a reconnect in the middle, and one a whole launch from the title screen to the game closing, with nobody typing. The `docs/` pages are the same material written for a person.
+`AGENTS.md` is the one that matters most, and it is deliberately self-contained: an AI assistant pointed at that file alone has the whole command surface, the bundle format, all 56 record types, and twelve worked examples of testing a freshly implemented feature, one of them run entirely through the command inbox, one with a reconnect in the middle, and one a whole launch from the title screen to the game closing, with nobody typing. The `docs/` pages are the same material written for a person.
 
 It also covers the traps that waste a test run: why an absent record is ambiguous, why `entity_spawn` floods, and why `latest.log` may not be the file you think it is.
 
@@ -132,7 +132,7 @@ Inspection only observes. A position whose chunk is not loaded is refused, or fo
 /devtool screenshot inv_open 200
 ```
 
-`save` saves player data and every loaded world, in single player too, and leaves a `save-off` in place. `screenshot` asks a player's client to save a labelled screenshot after a delay, and with `hide=chat` or `hide=hud` leaves the chat or the whole HUD out of that one picture; that client needs the toolkit installed. With Gnetum installed, `hide=chat` leaves the chat in the picture; use `hide=hud` there.
+`save` saves player data and every loaded world, in single player too, and leaves a `save-off` in place. `screenshot` asks a player's client to save a labelled screenshot after a delay, and with `hide=chat`, `hide=hud` or `hide=toasts` (or a list such as `hide=chat,toasts`) leaves the chat, the whole HUD or the toasts out of that one picture; that client needs the toolkit installed. With Gnetum installed, `hide=chat` leaves the chat in the picture; use `hide=hud` there.
 
 NBT goes to the log, bounded by a configurable limit, and truncation is always reported along with the original length.
 

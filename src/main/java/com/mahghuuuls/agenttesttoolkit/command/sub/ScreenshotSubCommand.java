@@ -2,6 +2,7 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
+import com.mahghuuuls.agenttesttoolkit.inbox.HideSet;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
@@ -44,7 +45,7 @@ public final class ScreenshotSubCommand implements SubCommand {
 
     @Override
     public String getUsage() {
-        return "screenshot <label> [delayTicks] [player] [hide=chat|hud]";
+        return "screenshot <label> [delayTicks] [player] [hide=chat|hud|toasts[,...]]";
     }
 
     @Override
@@ -53,13 +54,30 @@ public final class ScreenshotSubCommand implements SubCommand {
         return false;
     }
 
+    /**
+     * The refusal's arguments when the client's hello is older than what this {@code hide} needs,
+     * by the version rule the client steps share; null when the picture may be asked. An older
+     * client would take the picture with what it was asked to leave out, or drop a set it cannot
+     * read. The message names both versions, in the one argument an older client's own language
+     * file shows.
+     *
+     * @param helloVersion the version the client said hello with; null before any hello
+     */
+    static Object[] tooOld(String player, String helloVersion, String hide) {
+        int[] needed = ClientRequestGate.hideVersion(hide);
+        if (needed == null || (helloVersion != null && ToolkitChannel.atLeast(helloVersion, needed))) {
+            return null;
+        }
+        return ClientRequestGate.versionArguments(player, helloVersion, needed, "this screenshot");
+    }
+
     @Override
     public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
         // hide= is the last word when given, so the positional words keep their places.
         String hide = ScreenshotRequest.HIDE_NONE;
         if (args.length > 1 && args[args.length - 1].startsWith(HIDE_PREFIX)) {
-            hide = args[args.length - 1].substring(HIDE_PREFIX.length());
-            if (ScreenshotRequest.HIDE_NONE.equals(hide) || !ScreenshotRequest.isValidHide(hide)) {
+            hide = HideSet.canonical(args[args.length - 1].substring(HIDE_PREFIX.length()));
+            if (hide == null || ScreenshotRequest.HIDE_NONE.equals(hide)) {
                 throw new WrongUsageException("/devtool " + getUsage());
             }
             args = java.util.Arrays.copyOf(args, args.length - 1);
@@ -89,11 +107,10 @@ public final class ScreenshotSubCommand implements SubCommand {
             ToolkitLog.error("Screenshot target has no toolkit", target.getName());
             throw new CommandException(KEY_NO_CLIENT, target.getName());
         }
-        if (!ScreenshotRequest.HIDE_NONE.equals(hide)
-                && !ClientCapabilities.saidHelloAtLeast(target, ToolkitChannel.VERSION_1_8_0)) {
-            // An older client would take the picture with what it was asked to leave out.
-            ToolkitLog.error("Screenshot hide needs a newer toolkit on the client", target.getName());
-            throw new CommandException(KEY_NO_CLIENT, target.getName());
+        Object[] arguments = tooOld(target.getName(), ClientCapabilities.helloVersion(target), hide);
+        if (arguments != null) {
+            ToolkitLog.error("Screenshot hide needs a newer toolkit on the client", String.valueOf(arguments[0]));
+            throw new CommandException(KEY_NO_CLIENT, arguments);
         }
 
         long requestTick = target.world.getTotalWorldTime();

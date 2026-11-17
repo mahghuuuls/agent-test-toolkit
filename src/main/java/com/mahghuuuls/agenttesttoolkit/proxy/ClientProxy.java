@@ -51,18 +51,22 @@ public class ClientProxy extends CommonProxy {
         com.mahghuuuls.agenttesttoolkit.client.PlayerInput input =
                 new com.mahghuuuls.agenttesttoolkit.client.PlayerInput(executor, taker);
         com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setPlayerActionReceiver(input);
-        // The input steps share the player actions' holds and delay, so the same object takes them.
+        // The input and screen steps share the player actions' holds and delay, so the same
+        // object takes them.
         com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setInputReceiver(input);
+        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setScreenReceiver(input);
         MinecraftForge.EVENT_BUS.register(input);
-        // And the screen steps, answered on the client tick.
-        com.mahghuuuls.agenttesttoolkit.client.NewStepExecutor steps =
-                new com.mahghuuuls.agenttesttoolkit.client.NewStepExecutor();
-        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setScreenReceiver(steps);
-        MinecraftForge.EVENT_BUS.register(steps);
-        // And the client request channel of ARC-028, which steps aside while a reconnect runs.
-        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.client.menu.MenuChannel(executor));
-        // And the note beside the command inbox while single player is paused.
-        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.client.PauseNote());
+        // And the note beside the command inbox while single player is paused. Registered before
+        // the request channel: listeners of one priority run in the order registered, and the
+        // channel's close reads the pause state this note updates in the same tick.
+        com.mahghuuuls.agenttesttoolkit.client.PauseNote pauseNote = new com.mahghuuuls.agenttesttoolkit.client.PauseNote();
+        MinecraftForge.EVENT_BUS.register(pauseNote);
+        // And the client request channel, which steps aside while a reconnect runs,
+        // pictures a menu through the same taker, and closes a screen only while the game is paused.
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.client.menu.MenuChannel(executor, taker,
+                pauseNote));
+        // And the tutorial's toasts set aside at the first title screen, when the key asks it.
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.client.TutorialDismiss());
     }
 
     @SubscribeEvent

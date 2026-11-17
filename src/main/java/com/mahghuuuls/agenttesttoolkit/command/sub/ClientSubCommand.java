@@ -91,7 +91,7 @@ public final class ClientSubCommand implements SubCommand {
                 + " | click <slot <n> [left|right|shift|key=<1-9>]|button <id|label=<text>>|at <x> <y> [left|right]>"
                 + " | scroll <amount> | tooltip container <slot> [advanced] [shift] [ctrl] [alt]>"
                 + " [expect=<screen class>] [delay=<ticks>] [screenshot=<label>]"
-                + " [screenshotDelay=<ticks>] [screenshotHide=chat|hud]";
+                + " [screenshotDelay=<ticks>] [screenshotHide=chat|hud|toasts[,...]]";
     }
 
     @Override
