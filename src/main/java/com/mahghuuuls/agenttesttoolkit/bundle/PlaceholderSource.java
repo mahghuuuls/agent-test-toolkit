@@ -23,6 +23,17 @@ public interface PlaceholderSource {
     /** The UUID of a fixture claimed under this handle in the current session, or null. */
     String fixtureUuid(String handle);
 
+    /**
+     * The command that would give this placeholder a value, for the message of a placeholder
+     * that has none, or null when the source cannot tell. Asked only after a lookup came back
+     * empty, so it may read the same state.
+     *
+     * @param name the placeholder's name without the braces, such as {@code operator.name}
+     */
+    default String unboundHint(String name) {
+        return null;
+    }
+
     /** A source with nothing bound. Every lookup fails, which is the honest resting state. */
     PlaceholderSource EMPTY = new PlaceholderSource() {
         @Override

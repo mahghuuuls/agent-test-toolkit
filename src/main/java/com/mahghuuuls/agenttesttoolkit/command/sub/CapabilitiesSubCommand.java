@@ -1,6 +1,7 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
 import com.mahghuuuls.agenttesttoolkit.Tags;
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.env.Capabilities;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
@@ -10,7 +11,6 @@ import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.state.SessionStamp;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -69,7 +69,7 @@ public final class CapabilitiesSubCommand implements SubCommand {
         Capabilities.record(record, Tags.VERSION, commandNames, InspectSubCommand.TARGETS);
         ToolkitLog.write(record);
 
-        sender.sendMessage(new TextComponentString("[DevToolkit] " + Tags.MOD_NAME + " "
-                + Tags.VERSION + ", " + commandNames.size() + " commands. Written to log."));
+        Replies.send(sender, "[DevToolkit] " + Tags.MOD_NAME + " "
+                + Tags.VERSION + ", " + commandNames.size() + " commands. Written to log.");
     }
 }

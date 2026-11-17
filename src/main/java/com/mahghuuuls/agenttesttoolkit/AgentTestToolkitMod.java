@@ -144,6 +144,17 @@ public class AgentTestToolkitMod {
                 com.mahghuuuls.agenttesttoolkit.wait.OperatorCheckpoints.reset();
             }
         });
+        // The prompt panels' owner is free of game types; it reaches a player's screen through
+        // the checkpoint command, and forgets a panel whose player leaves.
+        com.mahghuuuls.agenttesttoolkit.wait.PromptPanels.setHider(
+                new com.mahghuuuls.agenttesttoolkit.wait.PromptPanels.Hider() {
+                    @Override
+                    public void hide(java.util.UUID player, String token) {
+                        com.mahghuuuls.agenttesttoolkit.command.sub.CheckpointSubCommand.sendHide(player, token);
+                    }
+                });
+        MinecraftForge.EVENT_BUS.register(
+                new com.mahghuuuls.agenttesttoolkit.command.sub.CheckpointSubCommand.PanelLogoutListener());
 
         // No-op on a server. The client implementation registers its own handler.
         proxy.applyClientDefaults();
@@ -243,6 +254,9 @@ public class AgentTestToolkitMod {
         }
         com.mahghuuuls.agenttesttoolkit.fixture.FixtureRemovals.discardPending();
         com.mahghuuuls.agenttesttoolkit.inbox.LocalJoinListener.removeSecret();
+        // Every player has left with the server, and each client dropped its panel as it
+        // disconnected; a panel remembered here would be hidden on someone in the next world.
+        com.mahghuuuls.agenttesttoolkit.wait.PromptPanels.forgetAll();
 
         // Same rule, same reason: an in-flight bundle holds a sender from the world that is
         // unloading, and the scheduler is registered permanently, so an execution left here

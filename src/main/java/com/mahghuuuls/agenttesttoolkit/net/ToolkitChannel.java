@@ -275,7 +275,7 @@ public final class ToolkitChannel {
     }
 
     /** Whether a client that said hello with this version reads the 1.9.0 messages; null is no hello. */
-    static boolean readsNewMessages(String helloVersion) {
+    public static boolean readsNewMessages(String helloVersion) {
         return helloVersion != null && atLeast(helloVersion, VERSION_1_9_0);
     }
 

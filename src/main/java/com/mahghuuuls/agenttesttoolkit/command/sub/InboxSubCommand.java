@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader;
@@ -14,7 +15,6 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -60,16 +60,16 @@ public final class InboxSubCommand implements SubCommand {
             open(server, sender);
         } else if ("close".equals(action)) {
             if (InboxGate.close("closed", RecordContext.snapshot(sender))) {
-                sender.sendMessage(new TextComponentString("[DevToolkit] Inbox closed."));
+                Replies.send(sender, "[DevToolkit] Inbox closed.");
             } else {
-                sender.sendMessage(new TextComponentString("[DevToolkit] Inbox was not open."));
+                Replies.send(sender, "[DevToolkit] Inbox was not open.");
             }
         } else if ("status".equals(action)) {
             InboxOpening opening = InboxGate.current();
-            sender.sendMessage(new TextComponentString(opening == null
+            Replies.send(sender, opening == null
                     ? "[DevToolkit] Inbox closed."
                     : "[DevToolkit] Inbox open for " + opening.getOperatorName()
-                    + (opening.isSuspended() ? ", suspended until they are back from a reconnect." : ".")));
+                    + (opening.isSuspended() ? ", suspended until they are back from a reconnect." : "."));
         } else {
             throw new WrongUsageException("/devtool " + getUsage());
         }
@@ -102,7 +102,7 @@ public final class InboxSubCommand implements SubCommand {
                 throw new CommandException("[DevToolkit] The inbox is already open for "
                         + InboxGate.current().getOperatorName() + ".");
             case ALREADY_OPEN:
-                sender.sendMessage(new TextComponentString("[DevToolkit] Inbox already open for you."));
+                Replies.send(sender, "[DevToolkit] Inbox already open for you.");
                 return;
             default:
                 InboxFiles files = new InboxFiles(InboxPoller.directory());
@@ -111,11 +111,11 @@ public final class InboxSubCommand implements SubCommand {
                 com.mahghuuuls.agenttesttoolkit.inbox.InboxStatus.write(files.getDirectory(),
                         InboxGate.current(), server == null ? null : server.getFolderName());
                 if (leftovers > 0) {
-                    sender.sendMessage(new TextComponentString("[DevToolkit] " + leftovers
-                            + " request(s) written before opening were refused, not run."));
+                    Replies.send(sender, "[DevToolkit] " + leftovers
+                            + " request(s) written before opening were refused, not run.");
                 }
-                sender.sendMessage(new TextComponentString("[DevToolkit] Inbox open. Requests run as "
-                        + player.getName() + " until you close it, leave, or the game restarts."));
+                Replies.send(sender, "[DevToolkit] Inbox open. Requests run as "
+                        + player.getName() + " until you close it, leave, or the game restarts.");
         }
     }
 

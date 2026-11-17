@@ -64,6 +64,27 @@ final class ToastHide {
         }
     }
 
+    /**
+     * The toast overlay's slots as they are now, one per row, null where a row is empty; null
+     * when they cannot be read. Read only, for the prompt panel to stay below the toasts.
+     */
+    static Object[] visibleSlots(Minecraft mc) {
+        if (!resolve()) {
+            return null;
+        }
+        GuiToast overlay = mc.getToastGui();
+        if (overlay == null) {
+            // No overlay draws no toasts.
+            return new Object[0];
+        }
+        try {
+            Object array = visibleField.get(overlay);
+            return array instanceof Object[] ? (Object[]) array : null;
+        } catch (IllegalAccessException | RuntimeException unreadable) {
+            return null;
+        }
+    }
+
     /** Empties the slots and the queue, keeping what they held for {@link #restore}; the objects themselves stay. */
     void take(Object[] visible, Deque<Object> waiting) {
         restore();

@@ -4,6 +4,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.mahghuuuls.agenttesttoolkit.bundle.CommandOutcome;
+import com.mahghuuuls.agenttesttoolkit.bundle.QuietListener;
+import com.mahghuuuls.agenttesttoolkit.bundle.QuietScope;
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 
 import net.minecraft.command.CommandException;
@@ -52,7 +55,8 @@ import net.minecraftforge.event.CommandEvent;
  *   <li>{@link CommandEvent} is posted, and its cancellation and rewritten parameters honoured,
  *       so mods that hook commands still see commands a bundle runs.</li>
  *   <li>The sender still receives the same red message vanilla would have sent. A failure that
- *       is recorded but invisible in chat is worse than the defect this replaced.</li>
+ *       is recorded but invisible in chat is worse than the defect this replaced. A quiet bundle
+ *       run is the one exception: it says each failure in one short line of its own instead.</li>
  *   <li>A username-index argument is expanded the same way, including that matching nothing
  *       raises {@code commands.generic.selector.notFound}, which the tolerated-key rule needs.</li>
  *   <li>A {@link Throwable} that is not a command error is contained, so a misbehaving command
@@ -180,10 +184,22 @@ public final class CommandRunner {
      *
      * @return null when it succeeded, otherwise the translation key describing the failure
      */
-    private String tryExecute(ICommandSender sender, ICommand command, String[] args,
+    private String tryExecute(final ICommandSender sender, final ICommand command, final String[] args,
                               String input) {
         try {
-            command.execute(server, sender, args);
+            if (QuietScope.isQuiet()) {
+                // A quiet run keeps vanilla feedback out of every chat for this one command and
+                // keeps its log line; the game's listener is back before the next command runs.
+                QuietListener.during(server, new QuietListener.Action<Void>() {
+                    @Override
+                    public Void run() throws CommandException {
+                        command.execute(server, sender, args);
+                        return null;
+                    }
+                });
+            } else {
+                command.execute(server, sender, args);
+            }
             return null;
         } catch (WrongUsageException e) {
             // Vanilla nests the usage message inside a generic wrapper. Reproduced so the
@@ -211,11 +227,15 @@ public final class CommandRunner {
         return CommandOutcomes.classify(0, key, tolerated);
     }
 
-    /** Reproduces vanilla's red translated message so a failure is still visible in chat. */
+    /**
+     * Reproduces vanilla's red translated message so a failure is still visible in chat. Inside a
+     * quiet bundle run it is counted and dropped like any reply; the run then says the failure in
+     * one short line of its own.
+     */
     private void send(ICommandSender sender, String key, Object[] errorObjects) {
         TextComponentTranslation message = new TextComponentTranslation(key, errorObjects);
         message.getStyle().setColor(TextFormatting.RED);
-        sender.sendMessage(message);
+        Replies.send(sender, message);
     }
 
     private static String describeThrowable(Throwable t) {

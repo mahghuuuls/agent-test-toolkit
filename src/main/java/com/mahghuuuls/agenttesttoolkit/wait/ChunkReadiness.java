@@ -138,6 +138,18 @@ public final class ChunkReadiness implements WaitCondition {
         }
     }
 
+    /**
+     * The server's view distance, in chunks: chunks beyond it from every player are never loaded
+     * by them, so a timeout on a far region is often explained here. In single player it follows
+     * the client's render distance.
+     */
+    @Override
+    public void describeTimeout(LogRecord record) {
+        if (server.getPlayerList() != null) {
+            record.add("viewDistance", server.getPlayerList().getViewDistance());
+        }
+    }
+
     /** Chunks found loaded on the most recent poll. */
     public long getLoadedCount() {
         return loadedCount;

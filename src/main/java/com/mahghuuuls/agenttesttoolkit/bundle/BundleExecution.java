@@ -22,7 +22,7 @@ import java.util.List;
  * accuracy are all checkable without a running game. Those are the rules that would otherwise
  * only be observable by reading a log after a manual test.
  */
-public final class BundleExecution {
+public final class BundleExecution implements QuietScope.Run {
 
     /** How a wait ended. */
     public enum WaitOutcome {
@@ -154,6 +154,10 @@ public final class BundleExecution {
     private boolean stoppedEarly;
     private boolean finished;
     private boolean senderLost;
+    /** Whether this run keeps its chat to itself; decided by the submitter before the start record. */
+    private boolean quiet;
+    /** Chat lines kept out of the chat on this run's behalf, for the end record. */
+    private int chatSuppressed;
 
     public BundleExecution(BundleDefinition definition, CommandDispatcher dispatcher,
                            ContextSource contextSource) {
@@ -191,7 +195,17 @@ public final class BundleExecution {
         if (finished) {
             return;
         }
+        // Entered for the whole advance, so every command, reply and wait report of a quiet run
+        // is judged by this run, and left however the advance ends.
+        QuietScope.enter(this);
+        try {
+            advanceDue(listener);
+        } finally {
+            QuietScope.exit();
+        }
+    }
 
+    private void advanceDue(Listener listener) {
         // Checked before any command runs, so a bundle whose caller disconnected stops rather
         // than executing the remainder against nobody. This falls out of the normal path
         // because the dispatcher re-resolves the sender each time instead of holding a
@@ -223,6 +237,9 @@ public final class BundleExecution {
             boolean childFailed = child.getFailed() > 0 || child.isSenderLost();
             String childName = child.getBundleName();
             String childFailure = child.getFirstFailure();
+            // A quiet child has already shown its own failure line; a second one here would say
+            // the same failure twice.
+            boolean childSaidIt = child.isQuiet();
             child = null;
 
             if (childFailed) {
@@ -230,6 +247,9 @@ public final class BundleExecution {
                 noteFailure(childFailure != null ? childFailure : "nested bundle reported failures");
                 listener.onCommandFailed(this, position - 1,
                         "devtool run " + childName, "nested bundle reported failures");
+                if (!childSaidIt) {
+                    announceFailure(position - 1, "nested bundle reported failures");
+                }
                 if (stopOnFailure) {
                     stoppedEarly = true;
                     finished = true;
@@ -292,6 +312,7 @@ public final class BundleExecution {
                     failed++;
                     noteFailure(key);
                     listener.onCommandFailed(this, waitIndex, command, key);
+                    announceFailure(waitIndex, key);
                     if (stopOnFailure) {
                         stoppedEarly = true;
                         finished = true;
@@ -335,6 +356,7 @@ public final class BundleExecution {
                 failed++;
                 noteFailure(e.getKey());
                 listener.onCommandFailed(this, index, command.getCommand(), e.getKey());
+                announceFailure(index, e.getKey());
                 if (stopOnFailure) {
                     stoppedEarly = true;
                     break;
@@ -379,6 +401,7 @@ public final class BundleExecution {
             failed++;
             noteFailure(outcome.getDetail());
             listener.onCommandFailed(this, index, text, outcome.getDetail());
+            announceFailure(index, outcome.getDetail());
 
             if (stopOnFailure) {
                 stoppedEarly = true;
@@ -397,6 +420,28 @@ public final class BundleExecution {
             sink.finished(this);
         }
         notifyCompletion(false);
+    }
+
+    /** The longest failure detail a failure line shows; a toolkit message can be a sentence. */
+    static final int MAX_FAILURE_DETAIL = 120;
+
+    /**
+     * In a quiet run, says one failure in one short line the caller sees: every other line of
+     * the run was kept out of the chat, and a failure must not be.
+     */
+    private void announceFailure(int index, String detail) {
+        if (quiet) {
+            dispatcher.announce(failureLine(bundleName, index, detail));
+        }
+    }
+
+    /** The failure line: the bundle, the command's index as its records give it, and the key. */
+    static String failureLine(String bundle, int index, String detail) {
+        String shown = detail == null ? "failed" : detail;
+        if (shown.length() > MAX_FAILURE_DETAIL) {
+            shown = shown.substring(0, MAX_FAILURE_DETAIL) + "...";
+        }
+        return "[DevToolkit] Bundle '" + bundle + "' command " + index + " failed: " + shown;
     }
 
     private void noteFailure(String detail) {
@@ -548,6 +593,27 @@ public final class BundleExecution {
 
     public void setOrigin(RunOrigin origin) {
         this.origin = origin;
+    }
+
+    /** Set by the submitter, before the start record, from {@link QuietScope#decide}. */
+    public void setQuiet(boolean quiet) {
+        this.quiet = quiet;
+    }
+
+    /** Whether this run keeps vanilla feedback and the toolkit's replies out of the chat. */
+    @Override
+    public boolean isQuiet() {
+        return quiet;
+    }
+
+    @Override
+    public void noteSuppressed(int lines) {
+        chatSuppressed += lines;
+    }
+
+    /** Chat lines kept out of the chat on this run's behalf so far. */
+    public int getChatSuppressed() {
+        return chatSuppressed;
     }
 
     /** Set by the result sink once it has written the run's result file; the file name only. */

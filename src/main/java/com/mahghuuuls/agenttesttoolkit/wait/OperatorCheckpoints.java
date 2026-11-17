@@ -189,6 +189,10 @@ public final class OperatorCheckpoints {
      * <p>A checkpoint armed for a session must not outlive it: the bundle waiting on it is
      * told, through the condition, that the wait is cancelled, rather than left to time out
      * fifty ticks after the session it belonged to has gone.
+     *
+     * <p>The prompt panels go with it: with nothing armed or cued there is nothing left to answer,
+     * and the session stop hook, which runs for a stop, a replacing start and a world change
+     * alike, comes through here, so a panel cannot outlive the state it asked about.
      */
     public static void reset() {
         Armed current = armed;
@@ -198,5 +202,6 @@ public final class OperatorCheckpoints {
         armed = null;
         lastCueLabel = null;
         lastCueTick = -1L;
+        PromptPanels.hideAll();
     }
 }

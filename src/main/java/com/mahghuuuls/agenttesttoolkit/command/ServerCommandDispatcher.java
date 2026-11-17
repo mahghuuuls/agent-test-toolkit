@@ -4,6 +4,7 @@ import com.mahghuuuls.agenttesttoolkit.bundle.CommandDispatcher;
 import com.mahghuuuls.agenttesttoolkit.bundle.CommandOutcome;
 import com.mahghuuuls.agenttesttoolkit.bundle.PlaceholderException;
 import com.mahghuuuls.agenttesttoolkit.bundle.Placeholders;
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
 
@@ -90,6 +91,19 @@ public final class ServerCommandDispatcher implements CommandDispatcher {
         if (failure) {
             text.getStyle().setColor(net.minecraft.util.text.TextFormatting.RED);
         }
+        Replies.send(current, text);
+    }
+
+    @Override
+    public void announce(String line) {
+        ICommandSender current = resolve();
+        if (current == null) {
+            return;
+        }
+        net.minecraft.util.text.TextComponentString text =
+                new net.minecraft.util.text.TextComponentString(line);
+        text.getStyle().setColor(net.minecraft.util.text.TextFormatting.RED);
+        // Sent directly, not through Replies: a quiet run still shows its failures.
         current.sendMessage(text);
     }
 

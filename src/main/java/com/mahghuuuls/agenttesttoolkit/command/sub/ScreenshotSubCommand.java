@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inbox.HideSet;
@@ -18,7 +19,6 @@ import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 /**
  * Asks a player's client to save a screenshot after a delay (REQ-187).
@@ -129,7 +129,7 @@ public final class ScreenshotSubCommand implements SubCommand {
             record.add("hide", hide);
         }
         ToolkitLog.write(record);
-        sender.sendMessage(new TextComponentString("[DevToolkit] Screenshot '" + label + "' requested from "
-                + target.getName() + (delay > 0 ? " in " + delay + " ticks." : ".")));
+        Replies.send(sender, "[DevToolkit] Screenshot '" + label + "' requested from "
+                + target.getName() + (delay > 0 ? " in " + delay + " ticks." : "."));
     }
 }

@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
@@ -10,7 +11,6 @@ import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 /**
  * Emits a labelled marker record.
@@ -72,7 +72,7 @@ public final class MarkSubCommand implements SubCommand {
         record.add("label", label.toString());
 
         ToolkitLog.write(record);
-        sender.sendMessage(new TextComponentString(confirmation(label.toString())));
+        Replies.send(sender, confirmation(label.toString()));
     }
 
     /**

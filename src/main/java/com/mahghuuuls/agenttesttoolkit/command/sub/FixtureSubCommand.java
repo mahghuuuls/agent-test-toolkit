@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.fixture.FixtureLookup;
 import com.mahghuuuls.agenttesttoolkit.fixture.FixtureOwnership;
@@ -22,7 +23,6 @@ import net.minecraft.entity.EntityList;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,7 +63,7 @@ public final class FixtureSubCommand implements SubCommand {
 
     @Override
     public String getUsage() {
-        return "fixture <claim <handle> <selector|uuid|entityId> | list | clear <handle|all> | release <handle|all>>";
+        return "fixture <claim <handle> <selector|uuid|entityId> | list | clear <handle|all> [strict] | release <handle|all>>";
     }
 
     @Override
@@ -79,7 +79,8 @@ public final class FixtureSubCommand implements SubCommand {
         }
         DiagnosticSession session = ToolkitState.getActiveSession();
         if (session == null) {
-            throw new CommandException("[DevToolkit] No active session. Fixtures belong to a session.");
+            throw new CommandException("[DevToolkit] No active session. Fixtures belong to a session: run "
+                    + com.mahghuuuls.agenttesttoolkit.command.StatePlaceholderSource.SESSION_START + " first.");
         }
         String action = args[0].toLowerCase(Locale.ROOT);
         if ("claim".equals(action)) {
@@ -159,9 +160,9 @@ public final class FixtureSubCommand implements SubCommand {
         record.addEntityPos("pos", entity.posX, entity.posY, entity.posZ);
         ToolkitLog.write(record);
 
-        sender.sendMessage(new TextComponentString("[DevToolkit] " + (adopted ? "Adopted '" : "Claimed '")
+        Replies.send(sender, "[DevToolkit] " + (adopted ? "Adopted '" : "Claimed '")
                 + handle + "' = " + uuid + " (" + (type == null ? "unknown" : type.toString()) + "), tag "
-                + tag + "."));
+                + tag + ".");
     }
 
     private void list(MinecraftServer server, ICommandSender sender, DiagnosticSession session) {
@@ -171,7 +172,7 @@ public final class FixtureSubCommand implements SubCommand {
             LogRecord record = begin(sender, "list", null);
             record.add("fixtures", 0);
             ToolkitLog.write(record);
-            sender.sendMessage(new TextComponentString("[DevToolkit] No fixtures claimed in this session."));
+            Replies.send(sender, "[DevToolkit] No fixtures claimed in this session.");
             return;
         }
         List<String> summary = new ArrayList<String>();
@@ -193,14 +194,15 @@ public final class FixtureSubCommand implements SubCommand {
             ToolkitLog.write(record);
             summary.add(handle + "=" + found.state.recordName());
         }
-        sender.sendMessage(new TextComponentString("[DevToolkit] " + summary.size()
-                + " fixture(s): " + String.join(", ", summary) + "."));
+        Replies.send(sender, "[DevToolkit] " + summary.size()
+                + " fixture(s): " + String.join(", ", summary) + ".");
     }
 
     private void clear(MinecraftServer server, ICommandSender sender, DiagnosticSession session,
                        String[] args) throws CommandException {
-        if (args.length < 2) {
-            throw new WrongUsageException("/devtool fixture clear <handle|all>");
+        boolean strict = args.length == 3 && STRICT.equals(args[2].toLowerCase(Locale.ROOT));
+        if (args.length < 2 || (args.length > 2 && !strict)) {
+            throw new WrongUsageException("/devtool fixture clear <handle|all> [strict]");
         }
         FixtureLookup lookup = new FixtureLookup(server, session.getName());
         List<String> handles = handlesFor(lookup, args[1]);
@@ -264,8 +266,34 @@ public final class FixtureSubCommand implements SubCommand {
             FixtureRemovals.remove(server, entity, handle, record);
             removed++;
         }
-        sender.sendMessage(new TextComponentString("[DevToolkit] Fixtures: " + removed + " removal(s) scheduled, "
-                + refused + " refused, " + missing + " not loaded."));
+        Replies.send(sender, "[DevToolkit] Fixtures: " + removed + " removal(s) scheduled, "
+                + refused + " refused, " + missing + " not loaded.");
+        // After the records this command writes now, its not-loaded ones among them, so the log
+        // says which fixture was out of reach; a removal's own record follows a tick later, once
+        // the removal is confirmed, as without strict.
+        failIfStrict(strict, missing, handles.size());
+    }
+
+    /** {@code fixture clear}'s last word that makes a fixture it cannot reach a failure. */
+    static final String STRICT = "strict";
+    /** A strict clear found a fixture not loaded; its handle is kept. */
+    public static final String KEY_NOT_LOADED = "devtool.fixture.notLoaded";
+
+    /** The failure key of a clear: a strict one that left any fixture not loaded fails; else none. */
+    static String strictFailure(boolean strict, int notLoaded) {
+        return strict && notLoaded > 0 ? KEY_NOT_LOADED : null;
+    }
+
+    /**
+     * Fails a strict clear that left any fixture not loaded, as a key, so a bundle with
+     * {@code stopOnFailure} stops before it acts on a world that may still hold the fixture.
+     */
+    static void failIfStrict(boolean strict, int notLoaded, int total) throws CommandException {
+        String failure = strictFailure(strict, notLoaded);
+        if (failure != null) {
+            ToolkitLog.error("Strict fixture clear left fixtures not loaded", notLoaded + " of " + total);
+            throw new CommandException(failure, notLoaded);
+        }
     }
 
     private void release(MinecraftServer server, ICommandSender sender, DiagnosticSession session,
@@ -320,8 +348,8 @@ public final class FixtureSubCommand implements SubCommand {
             ToolkitLog.write(record);
             released++;
         }
-        sender.sendMessage(new TextComponentString("[DevToolkit] Fixtures: " + released
-                + " released, " + refused + " refused, " + missing + " not loaded."));
+        Replies.send(sender, "[DevToolkit] Fixtures: " + released
+                + " released, " + refused + " refused, " + missing + " not loaded.");
     }
 
     /** One handle, or every handle the cache or a loaded entity knows; an unknown handle fails. */
@@ -348,6 +376,9 @@ public final class FixtureSubCommand implements SubCommand {
                                           String[] args) {
         if (args.length <= 1) {
             return CommandBase.getListOfStringsMatchingLastWord(args, ACTIONS);
+        }
+        if (args.length == 3 && "clear".equalsIgnoreCase(args[0])) {
+            return CommandBase.getListOfStringsMatchingLastWord(args, STRICT);
         }
         if (args.length == 2 && ("clear".equalsIgnoreCase(args[0]) || "release".equalsIgnoreCase(args[0]))) {
             List<String> options = new ArrayList<String>(ToolkitState.getFixtures().keySet());

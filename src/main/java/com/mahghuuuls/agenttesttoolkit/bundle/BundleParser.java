@@ -30,6 +30,7 @@ public final class BundleParser {
     private static final String KEY_STOP_ON_FAILURE = "stopOnFailure";
     private static final String KEY_TRACE = "trace";
     private static final String KEY_RESULT = "result";
+    private static final String KEY_QUIET = "quiet";
     private static final String KEY_COMMANDS = "commands";
     private static final String KEY_COMMAND = "command";
     private static final String KEY_DELAY_TICKS = "delayTicks";
@@ -142,6 +143,16 @@ public final class BundleParser {
             resultRequested = value.getAsBoolean();
         }
 
+        Boolean quiet = null;
+        if (object.has(KEY_QUIET) && !object.get(KEY_QUIET).isJsonNull()) {
+            JsonElement value = object.get(KEY_QUIET);
+            if (!isBoolean(value)) {
+                throw new BundleParseException(
+                        "bundle '" + name + "': " + KEY_QUIET + " must be true or false");
+            }
+            quiet = Boolean.valueOf(value.getAsBoolean());
+        }
+
         if (!object.has(KEY_COMMANDS)) {
             throw new BundleParseException("bundle '" + name + "': missing " + KEY_COMMANDS);
         }
@@ -157,7 +168,7 @@ public final class BundleParser {
             commands.add(parseCommand(name, i, array.get(i)));
         }
 
-        return new BundleDefinition(name, description, stopOnFailure, traced, resultRequested, commands);
+        return new BundleDefinition(name, description, stopOnFailure, traced, resultRequested, quiet, commands);
     }
 
     /**

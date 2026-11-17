@@ -56,12 +56,21 @@ public interface CommandDispatcher {
      * Tells the caller something that happened between commands, such as a wait ending.
      *
      * <p>A command that fails sends its own red message through the normal path; a wait ends
-     * on a later tick with no command running, so nothing would reach chat without this. A
-     * default no-op, because a test dispatcher has nobody to tell.
+     * on a later tick with no command running, so nothing would reach chat without this. Inside a
+     * quiet run it is counted and dropped like any other reply. A default no-op, because a test
+     * dispatcher has nobody to tell.
      *
      * @param failure whether to style the message as an error
      */
     default void report(String message, boolean failure) {
+    }
+
+    /**
+     * Tells the caller one line they must see even in a quiet run: a quiet run's failure. The
+     * real dispatcher sends it past the quiet rule that drops every other reply; a default no-op,
+     * like {@link #report}, because a test dispatcher has nobody to tell.
+     */
+    default void announce(String line) {
     }
 
     /**

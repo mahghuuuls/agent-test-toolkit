@@ -2,6 +2,7 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleDefinition;
 import com.mahghuuuls.agenttesttoolkit.bundle.Bundles;
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
@@ -12,7 +13,6 @@ import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -93,28 +93,28 @@ public final class ScenarioSubCommand implements SubCommand {
             }
         }
         ScenarioCheckpoint written = Scenarios.checkpoint(server, id, next, fatal, context);
-        sender.sendMessage(new TextComponentString("[DevToolkit] Scenario '" + id
+        Replies.send(sender, "[DevToolkit] Scenario '" + id
                 + "' expects '" + written.getNextBundle() + "' next after a "
                 + (fatal ? "fatal" : "clean") + " stop, with " + written.getFixtures().size()
-                + " fixture(s). Any other bundle is refused until it runs, or the scenario is completed or abandoned."));
+                + " fixture(s). Any other bundle is refused until it runs, or the scenario is completed or abandoned.");
     }
 
     private void status(MinecraftServer server, ICommandSender sender) {
         if (Scenarios.isCorrupt(server)) {
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] The stored scenario checkpoint is corrupt and enforces nothing. Abandon it to clear."));
+            Replies.send(sender,
+                    "[DevToolkit] The stored scenario checkpoint is corrupt and enforces nothing. Abandon it to clear.");
             return;
         }
         ScenarioCheckpoint current = Scenarios.current(server);
         if (current == null) {
-            sender.sendMessage(new TextComponentString("[DevToolkit] No scenario checkpoint."));
+            Replies.send(sender, "[DevToolkit] No scenario checkpoint.");
             return;
         }
-        sender.sendMessage(new TextComponentString("[DevToolkit] Scenario '" + current.getScenarioId()
+        Replies.send(sender, "[DevToolkit] Scenario '" + current.getScenarioId()
                 + "' expects '" + current.getNextBundle() + "' (hash " + Scenarios.abbrev(current.getNextHash())
                 + "...), " + current.getFixtures().size() + " fixture(s), operator "
                 + (current.getOperatorName() == null ? "none" : current.getOperatorName())
-                + ", stop " + (current.isExpectFatalStop() ? "fatal" : "clean") + "."));
+                + ", stop " + (current.isExpectFatalStop() ? "fatal" : "clean") + ".");
     }
 
     private void clear(MinecraftServer server, ICommandSender sender, String[] args, String action,
@@ -130,10 +130,10 @@ public final class ScenarioSubCommand implements SubCommand {
         }
         ScenarioCheckpoint cleared = Scenarios.clear(server, args[1], action, context);
         if (cleared == null && !Scenarios.isCorrupt(server)) {
-            sender.sendMessage(new TextComponentString("[DevToolkit] No scenario checkpoint to clear."));
+            Replies.send(sender, "[DevToolkit] No scenario checkpoint to clear.");
             return;
         }
-        sender.sendMessage(new TextComponentString("[DevToolkit] Scenario '" + args[1] + "' " + action + "."));
+        Replies.send(sender, "[DevToolkit] Scenario '" + args[1] + "' " + action + ".");
     }
 
     @Override

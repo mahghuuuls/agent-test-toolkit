@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
@@ -14,7 +15,6 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -95,35 +95,36 @@ public final class SessionSubCommand implements SubCommand {
 
         String replaced = SessionManager.start(name.toString(), RecordContext.snapshot(sender));
         if (replaced != null) {
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Replaced active session '" + replaced + "'."));
+            Replies.send(sender,
+                    "[DevToolkit] Replaced active session '" + replaced + "'.");
         }
-        sender.sendMessage(new TextComponentString("[DevToolkit] Session started: " + name));
+        Replies.send(sender, "[DevToolkit] Session started: " + name);
     }
 
     private void stop(ICommandSender sender) {
         String stopped = SessionManager.stop(RecordContext.snapshot(sender));
         // Checkpoints belong to the session in spirit, but the session package may not
-        // depend on the wait package, so the command layer forgets them here.
+        // depend on the wait package, so the command layer forgets them here, with the prompt
+        // panels they left on screen. Also when no session was active, so a stop always clears.
         com.mahghuuuls.agenttesttoolkit.wait.OperatorCheckpoints.reset();
         if (stopped == null) {
-            sender.sendMessage(new TextComponentString("[DevToolkit] No active session."));
+            Replies.send(sender, "[DevToolkit] No active session.");
             return;
         }
-        sender.sendMessage(new TextComponentString("[DevToolkit] Session stopped: " + stopped));
+        Replies.send(sender, "[DevToolkit] Session stopped: " + stopped);
     }
 
     private void status(ICommandSender sender) {
         DiagnosticSession session = ToolkitState.getActiveSession();
         if (session == null) {
-            sender.sendMessage(new TextComponentString("[DevToolkit] No active session."));
+            Replies.send(sender, "[DevToolkit] No active session.");
             return;
         }
         OperatorBinding operator = ToolkitState.getOperator();
-        sender.sendMessage(new TextComponentString(
+        Replies.send(sender,
                 "[DevToolkit] Active session: " + session.getName() + " (tick " + session.getTick()
                         + ")" + (operator == null ? ", no operator bound"
-                        : ", operator " + operator.getName())));
+                        : ", operator " + operator.getName()));
     }
 
     /**
@@ -155,8 +156,8 @@ public final class SessionSubCommand implements SubCommand {
         EntityPlayerMP player = matched.get(0);
         SessionManager.bindOperator(player.getUniqueID(), player.getName(),
                 RecordContext.snapshot(sender));
-        sender.sendMessage(new TextComponentString("[DevToolkit] Operator bound: "
-                + player.getName() + " (" + player.getUniqueID() + ")."));
+        Replies.send(sender, "[DevToolkit] Operator bound: "
+                + player.getName() + " (" + player.getUniqueID() + ").");
     }
 
     /** A selector is matched by the vanilla engine, restricted to players; anything else is a name. */

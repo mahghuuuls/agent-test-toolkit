@@ -2,6 +2,7 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleRegistry;
 import com.mahghuuuls.agenttesttoolkit.bundle.Bundles;
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
@@ -13,7 +14,6 @@ import com.mahghuuuls.agenttesttoolkit.state.DiagnosticSession;
 import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 /**
  * Reloads bundle files and toolkit configuration from disk.
@@ -120,18 +120,18 @@ public final class ReloadSubCommand implements SubCommand {
         int categoriesBefore = ToolkitState.getEnabledCategories().size();
 
         Outcome outcome = reloadFromDisk(RecordContext.snapshot(sender), TRIGGER_COMMAND);
-        sender.sendMessage(new TextComponentString("[DevToolkit] Reloaded. bundles="
-                + outcome.getBundles() + " problems=" + outcome.getProblems()));
+        Replies.send(sender, "[DevToolkit] Reloaded. bundles="
+                + outcome.getBundles() + " problems=" + outcome.getProblems());
 
         if (outcome.hasBundleProblems()) {
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Load problems are recorded in the log."));
+            Replies.send(sender,
+                    "[DevToolkit] Load problems are recorded in the log.");
         }
 
         // State the preservation explicitly. An agent should not have to run a second
         // command to find out whether reloading cost it its session.
-        sender.sendMessage(new TextComponentString("[DevToolkit] Session "
+        Replies.send(sender, "[DevToolkit] Session "
                 + (sessionBefore == null ? "none" : "'" + sessionBefore.getName() + "' preserved")
-                + ", logging categories preserved (" + categoriesBefore + ")."));
+                + ", logging categories preserved (" + categoriesBefore + ").");
     }
 }

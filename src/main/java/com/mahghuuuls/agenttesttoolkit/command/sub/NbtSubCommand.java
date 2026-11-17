@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader;
@@ -22,7 +23,6 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -125,8 +125,8 @@ public final class NbtSubCommand implements SubCommand {
             record.add("hasTileEntity", false);
             SessionStamp.apply(record);
             ToolkitLog.write(record);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] No tile entity at that position. Recorded."));
+            Replies.send(sender,
+                    "[DevToolkit] No tile entity at that position. Recorded.");
             return;
         }
 
@@ -150,8 +150,8 @@ public final class NbtSubCommand implements SubCommand {
             record.add("empty", true);
             SessionStamp.apply(record);
             ToolkitLog.write(record);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Main hand is empty. Recorded."));
+            Replies.send(sender,
+                    "[DevToolkit] Main hand is empty. Recorded.");
             return;
         }
 
@@ -191,7 +191,7 @@ public final class NbtSubCommand implements SubCommand {
         String message = "[DevToolkit] NBT written to log (" + bounded.getOriginalLength()
                 + " chars" + (bounded.isTruncated()
                 ? ", truncated to " + bounded.getOutputLength() : "") + ").";
-        sender.sendMessage(new TextComponentString(message));
+        Replies.send(sender, message);
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inspect.Assertions;
@@ -25,7 +26,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.WorldServer;
 
 import java.util.Arrays;
@@ -119,7 +119,7 @@ public final class AssertSubCommand implements SubCommand {
 
         String summary = "expected " + result.getExpected() + ", observed " + result.getObserved();
         if (result.passed()) {
-            sender.sendMessage(new TextComponentString("[DevToolkit] Assertion passed: " + summary + "."));
+            Replies.send(sender, "[DevToolkit] Assertion passed: " + summary + ".");
             return;
         }
         // The key is the message, so the dispatcher classifies it and a bundle can tolerate

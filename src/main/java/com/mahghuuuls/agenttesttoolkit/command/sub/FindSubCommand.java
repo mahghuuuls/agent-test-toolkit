@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inspect.BlockMatch;
 import com.mahghuuuls.agenttesttoolkit.inspect.BlockScan;
@@ -18,7 +19,6 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.WorldServer;
 
 import java.util.Collections;
@@ -147,9 +147,9 @@ public final class FindSubCommand implements SubCommand {
                 .add("chunksNotRead", result.chunksNotRead)
                 .add("elapsedMillis", elapsed);
         write(record, sender);
-        sender.sendMessage(new TextComponentString("[DevToolkit] Found " + result.found
+        Replies.send(sender, "[DevToolkit] Found " + result.found
                 + (result.truncated ? "+" : "") + " " + find.block + "; " + result.chunksSkipped
-                + " chunks not loaded and not searched."));
+                + " chunks not loaded and not searched.");
     }
 
     private static void write(LogRecord record, ICommandSender sender) {

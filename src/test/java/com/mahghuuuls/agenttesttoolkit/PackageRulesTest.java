@@ -67,7 +67,8 @@ class PackageRulesTest {
             "inbox/ScreenOptions.java", "inbox/StepExtras.java", "command/sub/ClientStepRoute.java",
             "client/KeyLookup.java", "client/Aim.java", "client/PressTaken.java", "client/RouteState.java",
             "client/screen/ScreenTargets.java", "client/menu/ConfirmScreens.java", "client/menu/ModListChoice.java",
-            "client/FrameHide.java", "inbox/HideSet.java", "client/menu/QuestionAnswers.java"};
+            "client/FrameHide.java", "inbox/HideSet.java", "client/menu/QuestionAnswers.java",
+            "client/PanelLayout.java", "wait/PromptPanels.java"};
 
     /**
      * The roots a source file may import from. Another loader's or mod's classes are reached by
@@ -164,7 +165,7 @@ class PackageRulesTest {
         assertEquals(new ArrayList<String>(), found);
         // The paths were read as the rules name them, so the rules were applied at all.
         assertTrue(clientFiles >= 5, "client files reached: " + clientFiles);
-        assertTrue(pureFiles >= 26, "pure files reached: " + pureFiles);
+        assertTrue(pureFiles >= 28, "pure files reached: " + pureFiles);
         assertTrue(new File(MAIN, "inbox/PlayerActionOptions.java").isFile(), "a pure class the list names exists");
     }
 

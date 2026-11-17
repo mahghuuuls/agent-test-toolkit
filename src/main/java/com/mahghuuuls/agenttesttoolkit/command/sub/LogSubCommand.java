@@ -1,6 +1,7 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
 import com.mahghuuuls.agenttesttoolkit.arena.ArenaBoundsSource;
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.logging.filter.ArenaFilter;
 import com.mahghuuuls.agenttesttoolkit.logging.filter.Filter;
@@ -17,7 +18,6 @@ import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -85,8 +85,8 @@ public final class LogSubCommand implements SubCommand {
             }
             int disabled = ToolkitState.disableAll();
             recordState(sender, "disableAll", null);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Disabled " + disabled + " logging categor" + (disabled == 1 ? "y" : "ies") + "."));
+            Replies.send(sender,
+                    "[DevToolkit] Disabled " + disabled + " logging categor" + (disabled == 1 ? "y" : "ies") + ".");
             return;
         }
 
@@ -125,14 +125,14 @@ public final class LogSubCommand implements SubCommand {
             }
             Filter active = ToolkitState.getFilter(category);
             recordState(sender, "enable", category);
-            sender.sendMessage(new TextComponentString("[DevToolkit] " + category.getCategoryName()
+            Replies.send(sender, "[DevToolkit] " + category.getCategoryName()
                     + (changed ? " enabled." : " was already enabled.")
-                    + "  filter=" + (active == null ? "none" : active.describe())));
+                    + "  filter=" + (active == null ? "none" : active.describe()));
         } else if (ACTION_OFF.equals(action)) {
             boolean changed = ToolkitState.disable(category);
             recordState(sender, "disable", category);
-            sender.sendMessage(new TextComponentString("[DevToolkit] " + category.getCategoryName()
-                    + (changed ? " disabled." : " was already disabled.")));
+            Replies.send(sender, "[DevToolkit] " + category.getCategoryName()
+                    + (changed ? " disabled." : " was already disabled."));
         } else {
             // Thrown for the same reason as an unknown category: nothing was changed.
             ToolkitLog.error("Unknown logging action", action);
@@ -265,12 +265,12 @@ public final class LogSubCommand implements SubCommand {
     private void status(ICommandSender sender) {
         java.util.Set<LoggingCategory> enabled = ToolkitState.getEnabledCategories();
         if (enabled.isEmpty()) {
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] No logging categories enabled."));
+            Replies.send(sender,
+                    "[DevToolkit] No logging categories enabled.");
             return;
         }
-        sender.sendMessage(new TextComponentString(
-                "[DevToolkit] Enabled categories (" + enabled.size() + "):"));
+        Replies.send(sender,
+                "[DevToolkit] Enabled categories (" + enabled.size() + "):");
         for (LoggingCategory category : enabled) {
             // "filter=none" is stated rather than omitted. An agent must be able to tell an
             // unfiltered category from one whose filter it forgot about, and an absent field
@@ -278,8 +278,8 @@ public final class LogSubCommand implements SubCommand {
             // happened look identical in the log, so this line is the only thing that can
             // distinguish them.
             Filter filter = ToolkitState.getFilter(category);
-            sender.sendMessage(new TextComponentString("  " + category.getCategoryName()
-                    + "  filter=" + (filter == null ? "none" : filter.describe())));
+            Replies.send(sender, "  " + category.getCategoryName()
+                    + "  filter=" + (filter == null ? "none" : filter.describe()));
         }
     }
 

@@ -83,4 +83,11 @@ public interface WaitCondition {
      * which chunk was still missing and a success can say how large the region was.
      */
     void describe(LogRecord record);
+
+    /**
+     * Adds what only a timeout record needs: what may explain why the condition never held. Called
+     * after {@link #describe} on that record only. The default adds nothing.
+     */
+    default void describeTimeout(LogRecord record) {
+    }
 }

@@ -78,8 +78,12 @@ public final class Placeholders {
             String token = "${" + name + "}";
             String value = lookup(name, source);
             if (value == null) {
+                // The key stays the same with or without a hint, so a tolerated-failure list
+                // written for it still matches; the hint only says what to run first.
+                String hint = source.unboundHint(name);
                 throw new PlaceholderException(PlaceholderException.KEY_UNBOUND, token,
-                        "Placeholder " + token + " has no value: nothing is bound for it.");
+                        "Placeholder " + token + " has no value: nothing is bound for it."
+                                + (hint == null ? "" : " Run " + hint + " first."));
             }
             if (!isSafe(value)) {
                 throw new PlaceholderException(PlaceholderException.KEY_UNSAFE, token,
@@ -103,7 +107,7 @@ public final class Placeholders {
     }
 
     /** The handle in {@code fixture.<handle>.uuid}, or null when the name is not that form. */
-    static String fixtureHandle(String name) {
+    public static String fixtureHandle(String name) {
         if (name == null || !name.startsWith("fixture.") || !name.endsWith(".uuid")) {
             return null;
         }

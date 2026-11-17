@@ -103,10 +103,13 @@ public final class InboxRequest {
         String[] args = Arrays.copyOfRange(words, 1, words.length);
 
         if ("run".equals(verb)) {
-            if (args.length != 1 || !BUNDLE_NAME.matcher(args[0]).matches()) {
+            // run <bundle> [quiet=true|false]: a run from here is quiet unless it says otherwise.
+            boolean quietWord = args.length == 2
+                    && ("quiet=true".equals(args[1]) || "quiet=false".equals(args[1]));
+            if ((args.length != 1 && !quietWord) || !BUNDLE_NAME.matcher(args[0]).matches()) {
                 return refused(id, line, verb, REASON_BAD_ARGUMENTS);
             }
-            return accepted(id, line, verb, "devtool run " + args[0]);
+            return accepted(id, line, verb, "devtool run " + join(args));
         }
         if ("screenshot".equals(verb)) {
             // screenshot <label> [delayTicks] [hide=<set>], to the operator only: no player

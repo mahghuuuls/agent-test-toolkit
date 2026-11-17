@@ -33,6 +33,8 @@ public final class BundleDefinition {
     private final boolean stopOnFailure;
     private final boolean traced;
     private final boolean resultRequested;
+    /** The file's {@code quiet}, or null when it says nothing. */
+    private final Boolean quiet;
     private final List<BundleCommand> commands;
 
     /** Relative source identifier, or null before the registry attaches it. */
@@ -53,7 +55,7 @@ public final class BundleDefinition {
      */
     public BundleDefinition(String name, String description, boolean stopOnFailure,
                             boolean traced, List<BundleCommand> commands) {
-        this(name, description, stopOnFailure, traced, false, commands, null, null);
+        this(name, description, stopOnFailure, traced, false, null, commands, null, null);
     }
 
     /**
@@ -62,12 +64,22 @@ public final class BundleDefinition {
      */
     public BundleDefinition(String name, String description, boolean stopOnFailure,
                             boolean traced, boolean resultRequested, List<BundleCommand> commands) {
-        this(name, description, stopOnFailure, traced, resultRequested, commands, null, null);
+        this(name, description, stopOnFailure, traced, resultRequested, null, commands, null, null);
+    }
+
+    /**
+     * @param quiet whether a run keeps its chat to itself, overriding where it was started from;
+     *              null when the file says nothing
+     */
+    public BundleDefinition(String name, String description, boolean stopOnFailure,
+                            boolean traced, boolean resultRequested, Boolean quiet,
+                            List<BundleCommand> commands) {
+        this(name, description, stopOnFailure, traced, resultRequested, quiet, commands, null, null);
     }
 
     private BundleDefinition(String name, String description, boolean stopOnFailure,
-                             boolean traced, boolean resultRequested, List<BundleCommand> commands,
-                             String sourceName, String sourceHash) {
+                             boolean traced, boolean resultRequested, Boolean quiet,
+                             List<BundleCommand> commands, String sourceName, String sourceHash) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("bundle name must not be null or blank");
         }
@@ -79,6 +91,7 @@ public final class BundleDefinition {
         this.stopOnFailure = stopOnFailure;
         this.traced = traced;
         this.resultRequested = resultRequested;
+        this.quiet = quiet;
         this.commands = Collections.unmodifiableList(commands);
         this.sourceName = sourceName;
         this.sourceHash = sourceHash;
@@ -87,7 +100,7 @@ public final class BundleDefinition {
     /** A copy that knows its file. The registry calls this once per parsed definition. */
     public BundleDefinition withSource(String sourceName, String sourceHash) {
         return new BundleDefinition(name, description, stopOnFailure, traced, resultRequested,
-                commands, sourceName, sourceHash);
+                quiet, commands, sourceName, sourceHash);
     }
 
     public String getName() {
@@ -124,6 +137,15 @@ public final class BundleDefinition {
     /** Whether a run of this bundle leaves a result file beside the configuration. */
     public boolean isResultRequested() {
         return resultRequested;
+    }
+
+    /**
+     * The file's {@code quiet}: true or false to decide a run's quietness itself, null to leave it
+     * to where the run was started. Not part of the hash: it changes what the chat shows, not
+     * what the bundle does.
+     */
+    public Boolean getQuiet() {
+        return quiet;
     }
 
     /** The relative file this came from, or null for a definition built in code. */

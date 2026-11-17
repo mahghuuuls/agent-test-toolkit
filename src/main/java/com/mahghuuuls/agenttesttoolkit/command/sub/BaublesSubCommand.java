@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.integration.BaublesBridge;
@@ -18,7 +19,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.Locale;
 
@@ -120,7 +120,7 @@ public final class BaublesSubCommand implements SubCommand {
         baubles.set(player, slot, stack);
         record.add("outcome", "set");
         ToolkitLog.write(record);
-        sender.sendMessage(new TextComponentString("[DevToolkit] Bauble slot " + slot + " set to " + id(item) + "."));
+        Replies.send(sender, "[DevToolkit] Bauble slot " + slot + " set to " + id(item) + ".");
     }
 
     private void clear(MinecraftServer server, ICommandSender sender, String[] args, BaublesBridge baubles)
@@ -152,7 +152,7 @@ public final class BaublesSubCommand implements SubCommand {
                 .add("slots", "all".equalsIgnoreCase(args[1]) ? "all" : Integer.toString(from))
                 .add("cleared", cleared).add("outcome", "cleared");
         ToolkitLog.write(record);
-        sender.sendMessage(new TextComponentString("[DevToolkit] Bauble slots cleared: " + cleared + "."));
+        Replies.send(sender, "[DevToolkit] Bauble slots cleared: " + cleared + ".");
     }
 
     private static LogRecord begin(ICommandSender sender, String action, EntityPlayer player, int slot,

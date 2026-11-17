@@ -28,3 +28,4 @@ devtool.baubles.rejected=[DevToolkit] Baubles refused %s
 devtool.find.unknownBlock=[DevToolkit] No such block to find: %s
 devtool.find.badState=[DevToolkit] That block cannot have that state: %s
 devtool.find.tooLarge=[DevToolkit] The search box covers %s chunks; the most is 1024
+devtool.fixture.notLoaded=[DevToolkit] Strict clear failed: %s fixture(s) not loaded; their handles are kept

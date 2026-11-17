@@ -1,6 +1,7 @@
 package com.mahghuuuls.agenttesttoolkit.command;
 
 import com.mahghuuuls.agenttesttoolkit.bundle.PlaceholderSource;
+import com.mahghuuuls.agenttesttoolkit.bundle.Placeholders;
 import com.mahghuuuls.agenttesttoolkit.state.OperatorBinding;
 import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
 
@@ -39,4 +40,20 @@ public final class StatePlaceholderSource implements PlaceholderSource {
         String claimed = ToolkitState.getFixtureUuid(handle);
         return claimed != null ? claimed : ToolkitState.getClearedFixtureUuid(handle);
     }
+
+    /** No session comes first: neither an operator nor a fixture can be bound without one. */
+    @Override
+    public String unboundHint(String name) {
+        if (!ToolkitState.hasActiveSession()) {
+            return SESSION_START;
+        }
+        if (name != null && name.startsWith("operator.")) {
+            return "devtool session operator <player>";
+        }
+        String handle = Placeholders.fixtureHandle(name);
+        return handle == null ? null : "devtool fixture claim " + handle + " <selector|uuid|entityId>";
+    }
+
+    /** The step that starts a session, as the placeholder and fixture messages name it. */
+    public static final String SESSION_START = "devtool session start <name>";
 }

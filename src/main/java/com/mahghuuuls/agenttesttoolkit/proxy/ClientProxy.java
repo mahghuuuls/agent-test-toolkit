@@ -67,6 +67,10 @@ public class ClientProxy extends CommonProxy {
                 pauseNote));
         // And the tutorial's toasts set aside at the first title screen, when the key asks it.
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.client.TutorialDismiss());
+        // And the checkpoint prompt panel, drawn on the HUD while the server keeps it shown.
+        com.mahghuuuls.agenttesttoolkit.client.PromptPanel panel = new com.mahghuuuls.agenttesttoolkit.client.PromptPanel();
+        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setPanelReceiver(panel);
+        MinecraftForge.EVENT_BUS.register(panel);
     }
 
     @SubscribeEvent

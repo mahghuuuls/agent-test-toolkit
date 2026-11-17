@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
@@ -10,7 +11,6 @@ import com.mahghuuuls.agenttesttoolkit.world.WorldSave;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.MinecraftException;
 
 /**
@@ -72,8 +72,8 @@ public final class SaveSubCommand implements SubCommand {
             addPlayerFile(server, (net.minecraft.entity.player.EntityPlayerMP) sender, record);
         }
         ToolkitLog.write(record);
-        sender.sendMessage(new TextComponentString(
-                "[DevToolkit] Saved " + worlds + " world" + (worlds == 1 ? "" : "s") + "."));
+        Replies.send(sender,
+                "[DevToolkit] Saved " + worlds + " world" + (worlds == 1 ? "" : "s") + ".");
     }
 
     /**

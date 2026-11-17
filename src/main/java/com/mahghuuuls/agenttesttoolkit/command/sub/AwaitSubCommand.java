@@ -3,6 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleExecution;
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleRecorder;
 import com.mahghuuuls.agenttesttoolkit.bundle.Bundles;
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.bundle.WaitCondition;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
@@ -16,7 +17,6 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -114,9 +114,9 @@ public final class AwaitSubCommand implements SubCommand {
                     execution == null ? null : execution.getHash(),
                     execution == null ? -1 : execution.getLastDispatchedIndex(),
                     command, condition, "satisfied", null, 0, timeout);
-            sender.sendMessage(new TextComponentString("[DevToolkit] All "
+            Replies.send(sender, "[DevToolkit] All "
                     + region.chunkCount() + " chunks in dimension " + dimension
-                    + (populated ? " are loaded and decorated." : " are loaded.")));
+                    + (populated ? " are loaded and decorated." : " are loaded."));
             return;
         }
 
@@ -125,16 +125,16 @@ public final class AwaitSubCommand implements SubCommand {
             // very server the chunks are supposed to load on.
             BundleRecorder.recordAwait(context, null, null, -1, command, condition,
                     "pending", null, 0, timeout);
-            sender.sendMessage(new TextComponentString("[DevToolkit] Not ready: "
+            Replies.send(sender, "[DevToolkit] Not ready: "
                     + describeShortfall(condition, region)
-                    + ". Outside a bundle this command checks once and does not wait."));
+                    + ". Outside a bundle this command checks once and does not wait.");
             return;
         }
 
         execution.await(condition, timeout);
-        sender.sendMessage(new TextComponentString("[DevToolkit] Waiting up to " + timeout
+        Replies.send(sender, "[DevToolkit] Waiting up to " + timeout
                 + " ticks for " + region.chunkCount() + " chunks in dimension " + dimension
-                + "; " + describeShortfall(condition, region) + "."));
+                + "; " + describeShortfall(condition, region) + ".");
     }
 
     private static String describeShortfall(ChunkReadiness condition, ChunkRegion region) {

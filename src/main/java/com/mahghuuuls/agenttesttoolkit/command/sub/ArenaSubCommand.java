@@ -4,6 +4,7 @@ import com.mahghuuuls.agenttesttoolkit.arena.ArenaBuilder;
 import com.mahghuuuls.agenttesttoolkit.arena.ArenaGeometry;
 import com.mahghuuuls.agenttesttoolkit.arena.ArenaRecord;
 import com.mahghuuuls.agenttesttoolkit.arena.ArenaStorage;
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfig;
@@ -22,7 +23,6 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 
 import java.util.Arrays;
@@ -121,8 +121,8 @@ public final class ArenaSubCommand implements SubCommand {
             // block than asked for, without saying so, is the kind of quiet difference that
             // wastes a whole test run.
             ToolkitLog.error("Unknown arena construction block, using stone", blockId);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Unknown block '" + blockId + "', using minecraft:stone."));
+            Replies.send(sender,
+                    "[DevToolkit] Unknown block '" + blockId + "', using minecraft:stone.");
             blockId = "minecraft:stone";
         }
 
@@ -150,8 +150,8 @@ public final class ArenaSubCommand implements SubCommand {
         log.add("respawnSet", respawnMoved);
         ToolkitLog.write(log);
 
-        sender.sendMessage(new TextComponentString("[DevToolkit] Arena created: "
-                + record.getSizeText() + ", " + changed + " blocks changed."));
+        Replies.send(sender, "[DevToolkit] Arena created: "
+                + record.getSizeText() + ", " + changed + " blocks changed.");
     }
 
     // --- info ------------------------------------------------------------------------
@@ -160,22 +160,22 @@ public final class ArenaSubCommand implements SubCommand {
         World world = sender.getEntityWorld();
         ArenaRecord record = ArenaStorage.get(world).getArena();
         if (record == null) {
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] No arena in dimension " + world.provider.getDimension() + "."));
+            Replies.send(sender,
+                    "[DevToolkit] No arena in dimension " + world.provider.getDimension() + ".");
             return;
         }
 
         ArenaGeometry geometry = record.geometry();
-        sender.sendMessage(new TextComponentString("[DevToolkit] Arena in dimension "
+        Replies.send(sender, "[DevToolkit] Arena in dimension "
                 + world.provider.getDimension() + ": " + record.getSizeText()
-                + " of " + record.getBlockId() + (record.hasCeiling() ? ", ceiling" : ", open top")));
-        sender.sendMessage(new TextComponentString("  origin " + record.getOriginX() + " "
+                + " of " + record.getBlockId() + (record.hasCeiling() ? ", ceiling" : ", open top"));
+        Replies.send(sender, "  origin " + record.getOriginX() + " "
                 + record.getOriginY() + " " + record.getOriginZ()
                 + "   start " + geometry.getStartX() + " " + geometry.getStartY() + " "
-                + geometry.getStartZ()));
-        sender.sendMessage(new TextComponentString("  interior x " + geometry.getMinX() + ".."
+                + geometry.getStartZ());
+        Replies.send(sender, "  interior x " + geometry.getMinX() + ".."
                 + geometry.getMaxX() + "  y " + geometry.getMinY() + ".." + geometry.getMaxY()
-                + "  z " + geometry.getMinZ() + ".." + geometry.getMaxZ()));
+                + "  z " + geometry.getMinZ() + ".." + geometry.getMaxZ());
     }
 
     // --- reset and clear -------------------------------------------------------------
@@ -224,10 +224,10 @@ public final class ArenaSubCommand implements SubCommand {
         }
         ToolkitLog.write(log);
 
-        sender.sendMessage(new TextComponentString("[DevToolkit] Arena "
+        Replies.send(sender, "[DevToolkit] Arena "
                 + (rebuild ? "reset" : "cleared") + ": " + changed + " blocks, "
                 + removed + " entities removed."
-                + (otherPlayers > 0 ? " " + otherPlayers + " other player(s) inside." : "")));
+                + (otherPlayers > 0 ? " " + otherPlayers + " other player(s) inside." : ""));
     }
 
     /**
@@ -323,8 +323,8 @@ public final class ArenaSubCommand implements SubCommand {
         // Fail explicitly. The arena is positioned relative to the caller, and
         // defaulting to the world origin would build it somewhere nobody asked for.
         ToolkitLog.error("arena " + action + " requires a player sender");
-        sender.sendMessage(new TextComponentString(
-                "[DevToolkit] /devtool arena " + action + " requires a player sender."));
+        Replies.send(sender,
+                "[DevToolkit] /devtool arena " + action + " requires a player sender.");
         return null;
     }
 

@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inbox.InboxGate;
 import com.mahghuuuls.agenttesttoolkit.inbox.InputOptions;
@@ -29,7 +30,6 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
 
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -171,7 +171,7 @@ public final class ClientSubCommand implements SubCommand {
                     System.currentTimeMillis()));
         }
         ToolkitChannel.send(new ClientActionRequest(step, away, token, requestTick, logout), player);
-        sender.sendMessage(new TextComponentString("[DevToolkit] Asked your client to " + step + "."));
+        Replies.send(sender, "[DevToolkit] Asked your client to " + step + ".");
     }
 
     /**
@@ -221,7 +221,7 @@ public final class ClientSubCommand implements SubCommand {
 
         ClientCapabilities.expectAction(player, step, requestTick, token);
         ToolkitChannel.send(new PlayerActionRequest(action, token, requestTick), player);
-        sender.sendMessage(new TextComponentString("[DevToolkit] Asked your client to " + step + "."));
+        Replies.send(sender, "[DevToolkit] Asked your client to " + step + ".");
     }
 
     /**
@@ -363,7 +363,7 @@ public final class ClientSubCommand implements SubCommand {
         }
         ToolkitLog.write(record);
         ClientCapabilities.expectAction(player, step, requestTick, token);
-        sender.sendMessage(new TextComponentString("[DevToolkit] Asked your client to " + step + "."));
+        Replies.send(sender, "[DevToolkit] Asked your client to " + step + ".");
     }
 
     /**

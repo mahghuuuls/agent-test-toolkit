@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inspect.RadiusFilter;
@@ -18,7 +19,6 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -103,8 +103,8 @@ public final class EntitiesSubCommand implements SubCommand {
             record.addDecimal("radius", radius);
             record.add("matched", 0);
             ToolkitLog.write(record);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] No entities within " + radius + " blocks."));
+            Replies.send(sender,
+                    "[DevToolkit] No entities within " + radius + " blocks.");
             return;
         }
 
@@ -126,9 +126,9 @@ public final class EntitiesSubCommand implements SubCommand {
             ToolkitLog.write(record);
         }
 
-        sender.sendMessage(new TextComponentString("[DevToolkit] " + matched.size()
+        Replies.send(sender, "[DevToolkit] " + matched.size()
                 + (matched.size() == 1 ? " entity" : " entities") + " within " + radius
-                + " blocks, written to log."));
+                + " blocks, written to log.");
     }
 
     @Override

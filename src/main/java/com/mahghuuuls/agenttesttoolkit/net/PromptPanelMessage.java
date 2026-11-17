@@ -20,7 +20,7 @@ import java.util.List;
 public final class PromptPanelMessage implements IMessage {
 
     /** The longest label drawn. */
-    static final int MAX_LABEL = 128;
+    public static final int MAX_LABEL = 128;
     /** The most lines under the label. */
     static final int MAX_LINES = 8;
     /** The longest line. */
@@ -90,6 +90,15 @@ public final class PromptPanelMessage implements IMessage {
 
     public boolean isShow() {
         return show;
+    }
+
+    /**
+     * Whether this message takes away the panel shown with this token. Only a hide for that very
+     * panel does: a hide sent for an older panel arrives after the newer one replaced it and must
+     * leave the newer one up.
+     */
+    public boolean hides(String shownToken) {
+        return !show && token != null && token.equals(shownToken);
     }
 
     public String getToken() {

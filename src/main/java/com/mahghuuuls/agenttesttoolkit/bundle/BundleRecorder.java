@@ -27,6 +27,8 @@ public final class BundleRecorder implements BundleExecution.Listener {
         record.add("bundle", execution.getBundleName());
         record.add("hash", execution.getHash());
         record.add("commands", execution.getTotal());
+        // Said on both boundaries, so a reader knows whether to look for the run's chat at all.
+        record.add("quiet", execution.isQuiet());
         RunOrigin origin = execution.getOrigin();
         if (origin != null) {
             // Who started it and how, so a run's authority is in the evidence rather than
@@ -106,6 +108,9 @@ public final class BundleRecorder implements BundleExecution.Listener {
         record.add("waitedTicks", waitedTicks);
         record.add("timeoutTicks", timeoutTicks);
         condition.describe(record);
+        if ("timedOut".equals(outcome)) {
+            condition.describeTimeout(record);
+        }
         ToolkitLog.write(record);
     }
 
@@ -185,6 +190,8 @@ public final class BundleRecorder implements BundleExecution.Listener {
             record.add("stoppedEarly", true);
             record.add("discardedOnServerStop", true);
             record.add("durationTicks", execution.getDurationTicks());
+            record.add("quiet", execution.isQuiet());
+            record.add("chatSuppressed", execution.getChatSuppressed());
             ToolkitLog.write(record);
             ToolkitLog.error("Bundle abandoned, server stopping", execution.getBundleName());
         } finally {
@@ -224,6 +231,10 @@ public final class BundleRecorder implements BundleExecution.Listener {
         record.add("total", execution.getTotal());
         record.add("stoppedEarly", execution.isStoppedEarly());
         record.add("durationTicks", execution.getDurationTicks());
+        // How many lines the run kept out of the chat: vanilla feedback, for the sender and the
+        // other operators, and the toolkit's replies. Zero for a run that was not quiet.
+        record.add("quiet", execution.isQuiet());
+        record.add("chatSuppressed", execution.getChatSuppressed());
         if (execution.isSenderLost()) {
             // Stated, not inferred. A bundle that stops with no
             // failure record and no remaining commands would otherwise look like a clean run

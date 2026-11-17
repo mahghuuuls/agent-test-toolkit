@@ -68,6 +68,7 @@ The toolkit's own failure keys are tolerated the same way, by declaring them:
 | `devtool.assert.ambiguous` | A modifier name matches several modifiers |
 | `devtool.scenario.mismatch` | A scenario checkpoint expects a different bundle, or different text |
 | `devtool.inspect.notLoaded` | An inspection names a position whose chunk is not loaded |
+| `devtool.fixture.notLoaded` | A `fixture clear ... strict` found a fixture not loaded (from 1.9.0); its handle is kept |
 | `devtool.save.failed` | `devtool save` could not save a world |
 | `devtool.screenshot.noClient` | The screenshot target's client does not have the toolkit; from 1.8.0, for a screenshot with `hide`, also one older than 1.8.0 |
 | `devtool.client.noClient` | Your own client does not have the toolkit, or has one older than 1.4.0, for a `devtool client` step. For `quit`, also a client that allows actions but is older than 1.5.0; for a player action or a reconnect's `logout`, a client older than 1.7.0, whatever it allows; from 1.8.0, for a player action with `screenshotHide`, a client older than 1.8.0; from 1.9.0, for an input or screen step, a client older than 1.9.0, and the message names the client's version and the one needed |
@@ -150,6 +151,9 @@ A command may name a value the toolkit fills in when the command runs. Exactly f
 | `${operator.selector}` | `@p[name=<their name>]` |
 | `${fixture.<handle>.uuid}` | The UUID of the fixture claimed under that handle in this session; from 1.8.0 also of the fixture `devtool fixture clear` removed under it, until the session ends |
 
+From 1.9.0 the message of `devtool.placeholder.unbound` names what to run first: `devtool session start <name>`, `devtool session operator <player>`, or `devtool fixture claim <handle> ...`. The key does not change, so `toleratedFailures` written for it still match.
+
+
 Bind the operator first, inside the session:
 
 ```json
@@ -202,6 +206,14 @@ A bundle command may be `devtool run other_bundle`. The parent waits for the chi
 `stopOnFailure` is per bundle and never inherited. A parent that continues past failures can invoke a child that stops on them.
 
 Cycles are refused before the child starts, and the error names the whole route, for example `a -> b -> a`. Nesting deeper than 10 is refused the same way. Nothing recurses and nothing hangs.
+
+## Quiet runs
+
+From 1.9.0 a run can keep its chat to itself, so a person watching the screen while an agent drives the game is not buried in "Teleported ..." lines. A run started through the command inbox is quiet; a run typed in chat, at the console, by a command block or by join automation is not. `devtool run <name> quiet=true` or `quiet=false` (also `devtool bundle run`), or `"quiet": true` / `false` in the bundle file, decide it instead, the command's word first. A nested run follows its parent unless its own `quiet=` word or its file says otherwise.
+
+In a quiet run, vanilla command feedback goes to no chat: not the sender's, not the grey copy other operators see. The server log keeps it when the `logAdminCommands` rule is on. The toolkit's own replies are dropped as well. A failed command still shows one line, `[DevToolkit] Bundle '<name>' command <index> failed: <key>`. `BUNDLE_START` and `BUNDLE_END` say `quiet`, and `BUNDLE_END` counts the lines kept back in `chatSuppressed`.
+
+Not stopped: chat a command sends by itself rather than as feedback, such as `list`, `help`, `say`, `tellraw`, `msg` or a `gamerule` query, messages from other mods, the failure message of a command run inside `/execute`, which vanilla sends to the sender directly (with the `commandBlockOutput` rule on), titles and the action bar, and a checkpoint cue asked for in `chat`. `quiet` does not change the bundle's `hash`.
 
 ## What bundles deliberately are not
 

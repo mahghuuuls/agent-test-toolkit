@@ -1,11 +1,11 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.env.Environment;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 /**
  * Reports what the toolkit is running inside.
@@ -40,6 +40,6 @@ public final class EnvironmentSubCommand implements SubCommand {
     @Override
     public void execute(MinecraftServer server, ICommandSender sender, String[] args) {
         ToolkitLog.write(Environment.environment(server, sender));
-        sender.sendMessage(new TextComponentString("[DevToolkit] Environment written to log."));
+        Replies.send(sender, "[DevToolkit] Environment written to log.");
     }
 }

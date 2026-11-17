@@ -5,6 +5,8 @@ import com.mahghuuuls.agenttesttoolkit.bundle.BundleDefinition;
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleExecution;
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleRecorder;
 import com.mahghuuuls.agenttesttoolkit.bundle.Bundles;
+import com.mahghuuuls.agenttesttoolkit.bundle.QuietScope;
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SenderContextSource;
 import com.mahghuuuls.agenttesttoolkit.command.ServerCommandDispatcher;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
@@ -14,7 +16,6 @@ import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,7 +46,7 @@ public final class RunSubCommand implements SubCommand {
 
     @Override
     public String getUsage() {
-        return "run <bundle>";
+        return "run <bundle> [quiet=true|false]";
     }
 
     @Override
@@ -58,9 +59,10 @@ public final class RunSubCommand implements SubCommand {
     @Override
     public void execute(MinecraftServer server, ICommandSender sender, String[] args)
             throws CommandException {
-        if (args.length == 0) {
+        if (args.length == 0 || args.length > 2) {
             throw new WrongUsageException("/devtool " + getUsage());
         }
+        Boolean quietWord = quietWord(args);
         if (server != null && !server.isCallingFromMinecraftThread()) {
             // RCON runs commands on its own thread. The scheduler and the run channel are
             // server-thread state, so a bundle started from there could be taken for a nested
@@ -131,10 +133,12 @@ public final class RunSubCommand implements SubCommand {
         String requestId = com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin.requestIdFor(parent != null,
                 parent == null ? null : parent.getOrigin(),
                 com.mahghuuuls.agenttesttoolkit.command.RunChannel.requestId());
+        String channel = parent == null ? com.mahghuuuls.agenttesttoolkit.command.RunChannel.of(sender)
+                : com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin.NESTED;
         execution.setOrigin(new com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin(sender.getName(),
-                parent == null ? com.mahghuuuls.agenttesttoolkit.command.RunChannel.of(sender)
-                        : com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin.NESTED,
-                com.mahghuuuls.agenttesttoolkit.command.DevToolCommand.PERMISSION_LEVEL, requestId));
+                channel, com.mahghuuuls.agenttesttoolkit.command.DevToolCommand.PERMISSION_LEVEL, requestId));
+        // Decided before the start record, which says it.
+        execution.setQuiet(quietFor(quietWord, bundle.getQuiet(), parent, channel));
 
         if (bundle.isResultRequested()) {
             // Attached before the start record, so the file covers the whole run. The
@@ -169,9 +173,52 @@ public final class RunSubCommand implements SubCommand {
             parent.awaitChild(execution);
         }
 
-        sender.sendMessage(new TextComponentString("[DevToolkit] Running bundle '"
-                + bundle.getName() + "' (" + bundle.size()
-                + (bundle.size() == 1 ? " command" : " commands") + ")."));
+        // Judged by the new run, not by whatever started it: a quiet run started by a person
+        // keeps even this line out of the chat, and counts it.
+        QuietScope.enter(execution);
+        try {
+            Replies.send(sender, "[DevToolkit] Running bundle '"
+                    + bundle.getName() + "' (" + bundle.size()
+                    + (bundle.size() == 1 ? " command" : " commands") + ").");
+        } finally {
+            QuietScope.exit();
+        }
+    }
+
+    /**
+     * Whether a run started here is quiet. The word on this command is the run's own wish and
+     * outranks the bundle file's; either outranks the parent, and a nested run with neither
+     * follows its parent; a top-level run with neither is quiet when the inbox started it.
+     *
+     * @param word     the command's {@code quiet=} word, or null
+     * @param file     the bundle file's {@code quiet}, or null
+     * @param parent   the run that started this one, or null for a top-level run
+     * @param channel  the channel the run is recorded with
+     */
+    static boolean quietFor(Boolean word, Boolean file, BundleExecution parent, String channel) {
+        return QuietScope.decide(word != null ? word : file,
+                parent == null ? null : Boolean.valueOf(parent.isQuiet()), channel);
+    }
+
+    private static final String QUIET_PREFIX = "quiet=";
+
+    /**
+     * The run's own {@code quiet=true|false}, the word after the bundle name; null when not given.
+     *
+     * @throws WrongUsageException for any other second word
+     */
+    static Boolean quietWord(String[] args) throws WrongUsageException {
+        if (args.length < 2) {
+            return null;
+        }
+        String word = args[1].toLowerCase(java.util.Locale.ROOT);
+        if ((QUIET_PREFIX + "true").equals(word)) {
+            return Boolean.TRUE;
+        }
+        if ((QUIET_PREFIX + "false").equals(word)) {
+            return Boolean.FALSE;
+        }
+        throw new WrongUsageException("/devtool run <bundle> [quiet=true|false]");
     }
 
     @Override
@@ -180,6 +227,9 @@ public final class RunSubCommand implements SubCommand {
         if (args.length <= 1) {
             return CommandBase.getListOfStringsMatchingLastWord(
                     args, new ArrayList<String>(Bundles.registry().names()));
+        }
+        if (args.length == 2) {
+            return CommandBase.getListOfStringsMatchingLastWord(args, "quiet=true", "quiet=false");
         }
         return Collections.emptyList();
     }

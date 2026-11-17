@@ -1,12 +1,12 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.env.Environment;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.List;
 
@@ -48,7 +48,7 @@ public final class ModsSubCommand implements SubCommand {
         for (LogRecord record : records) {
             ToolkitLog.write(record);
         }
-        sender.sendMessage(new TextComponentString(
-                "[DevToolkit] " + records.size() + " mod records written to log."));
+        Replies.send(sender,
+                "[DevToolkit] " + records.size() + " mod records written to log.");
     }
 }

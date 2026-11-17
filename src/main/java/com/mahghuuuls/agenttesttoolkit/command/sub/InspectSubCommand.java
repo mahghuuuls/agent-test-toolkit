@@ -1,5 +1,6 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inspect.Attributes;
@@ -22,7 +23,6 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -164,8 +164,8 @@ public final class InspectSubCommand implements SubCommand {
         for (LogRecord record : records) {
             write(record, sender);
         }
-        sender.sendMessage(new TextComponentString("[DevToolkit] Inventory written to log ("
-                + records.size() + " record" + (records.size() == 1 ? "" : "s") + ")."));
+        Replies.send(sender, "[DevToolkit] Inventory written to log ("
+                + records.size() + " record" + (records.size() == 1 ? "" : "s") + ").");
     }
 
     /** Every attribute and modifier of one living entity: the sender, or the one named. */
@@ -195,8 +195,8 @@ public final class InspectSubCommand implements SubCommand {
         for (LogRecord record : records) {
             write(record, sender);
         }
-        sender.sendMessage(new TextComponentString("[DevToolkit] Attributes written to log ("
-                + records.size() + " record" + (records.size() == 1 ? "" : "s") + ")."));
+        Replies.send(sender, "[DevToolkit] Attributes written to log ("
+                + records.size() + " record" + (records.size() == 1 ? "" : "s") + ").");
     }
 
     private void inspectEntity(MinecraftServer server, ICommandSender sender, String[] args)
@@ -300,8 +300,8 @@ public final class InspectSubCommand implements SubCommand {
             // Checked before any slot is read: the first slot access rolls the loot, which
             // would turn an observation into a change to the world.
             write(Inventories.unrolledLoot(blockId, pos, pendingLoot), sender);
-            sender.sendMessage(new TextComponentString(
-                    "[DevToolkit] Loot not rolled yet. Container left untouched; written to log."));
+            Replies.send(sender,
+                    "[DevToolkit] Loot not rolled yet. Container left untouched; written to log.");
             return;
         }
         List<Inventories.Slot> slots = collectSlots(tile);
@@ -321,8 +321,8 @@ public final class InspectSubCommand implements SubCommand {
         for (LogRecord record : records) {
             write(record, sender);
         }
-        sender.sendMessage(new TextComponentString("[DevToolkit] Container written to log ("
-                + records.size() + " record" + (records.size() == 1 ? "" : "s") + ")."));
+        Replies.send(sender, "[DevToolkit] Container written to log ("
+                + records.size() + " record" + (records.size() == 1 ? "" : "s") + ").");
     }
 
     /**
@@ -394,7 +394,7 @@ public final class InspectSubCommand implements SubCommand {
         // holds either way, and building the identity first keeps the inspector free of
         // command-layer types. Noted so the difference reads as deliberate rather than sloppy.
         write(record, sender);
-        sender.sendMessage(new TextComponentString("[DevToolkit] " + chatConfirmation));
+        Replies.send(sender, "[DevToolkit] " + chatConfirmation);
     }
 
     /** Stamps and writes one record without sending chat, for multi-record inspections. */
