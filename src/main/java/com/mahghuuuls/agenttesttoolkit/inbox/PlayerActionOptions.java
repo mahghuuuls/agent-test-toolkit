@@ -59,19 +59,12 @@ public final class PlayerActionOptions {
     public static final String ALL = "all";
 
     /** The longest wait before an action, in ticks: one minute. */
-    public static final int MAX_DELAY_TICKS = 1200;
+    public static final int MAX_DELAY_TICKS = StepExtras.MAX_DELAY_TICKS;
     /** The longest wait from an action to its screenshot, in ticks: ten seconds. */
-    public static final int MAX_SCREENSHOT_DELAY_TICKS = 200;
+    public static final int MAX_SCREENSHOT_DELAY_TICKS = StepExtras.MAX_SCREENSHOT_DELAY_TICKS;
 
     private static final Pattern HOTBAR_SLOT = Pattern.compile("[0-8]");
     private static final Pattern INVENTORY_SLOT = Pattern.compile("(?:[0-9]|[1-3][0-9]|40)");
-    /**
-     * A screenshot label: the screenshot command's rule, letters, digits, {@code _} and {@code -},
-     * since it becomes a file name on the player's computer.
-     */
-    private static final Pattern SCREENSHOT_LABEL = Pattern.compile("[A-Za-z0-9_-]{1,48}");
-    /** 0 to 1200 for a delay, 0 to 200 for a screenshot delay; no leading zeros. */
-    private static final Pattern TICKS = Pattern.compile("(?:0|[1-9][0-9]{0,3})");
     /** 1 to 1200, without leading zeros. */
     private static final Pattern HOLD_TICKS = Pattern.compile("(?:[1-9][0-9]{0,2}|1[01][0-9]{2}|1200)");
 
@@ -81,10 +74,8 @@ public final class PlayerActionOptions {
     private final String argument;
     /** For a hold, the ticks held; for a tooltip, the ticks the view stays open. */
     private int ticks;
-    private int delay;
-    private String screenshot = "";
-    private int screenshotDelay;
-    private String screenshotHide = "";
+    /** The wait before the action and the screenshot after it. */
+    private final StepExtras extras = new StepExtras();
 
     private PlayerActionOptions(String step, int slot, String argument, int ticks) {
         this.step = step;
@@ -127,53 +118,40 @@ public final class PlayerActionOptions {
             if (!seen.add(key)) {
                 return null;
             }
-            if (OPTION_DELAY.equals(key) && TICKS.matcher(value).matches()) {
-                action.delay = Integer.parseInt(value);
-            } else if (OPTION_SCREENSHOT.equals(key) && SCREENSHOT_LABEL.matcher(value).matches()) {
-                action.screenshot = value;
-            } else if (OPTION_SCREENSHOT_DELAY.equals(key) && TICKS.matcher(value).matches()) {
-                action.screenshotDelay = Integer.parseInt(value);
-            } else if (OPTION_SCREENSHOT_HIDE.equals(key) && (HIDE_CHAT.equals(value) || HIDE_HUD.equals(value))) {
-                action.screenshotHide = value;
-            } else if (OPTION_SHOW_TICKS.equals(key) && TOOLTIP.equals(action.step) && HOLD_TICKS.matcher(value).matches()) {
+            if (OPTION_SHOW_TICKS.equals(key) && TOOLTIP.equals(action.step) && HOLD_TICKS.matcher(value).matches()) {
                 action.ticks = Integer.parseInt(value);
-            } else {
+            } else if (action.extras.take(key, value) != StepExtras.Take.TAKEN) {
                 return null;
             }
         }
-        if (TOOLTIP.equals(action.step) && !screenshotFitsTooltip(action.ticks, action.screenshot, action.screenshotDelay)) {
+        if (TOOLTIP.equals(action.step)
+                && !screenshotFitsTooltip(action.ticks, action.extras.screenshot, action.extras.screenshotDelay)) {
             return null;
         }
-        if (!action.screenshotHide.isEmpty() && action.screenshot.isEmpty()) {
-            // What to leave out of a picture means nothing without one.
-            return null;
-        }
-        return isValidOptions(action.delay, action.screenshot, action.screenshotDelay) ? action : null;
+        // In bounds, and what to leave out of a picture only together with a picture.
+        return action.extras.isValid() ? action : null;
     }
 
     /** {@code delay=}: ticks the client waits before it acts. */
-    public static final String OPTION_DELAY = "delay";
+    public static final String OPTION_DELAY = StepExtras.DELAY;
     /** {@code screenshot=}: the label of a screenshot taken after the action. */
-    public static final String OPTION_SCREENSHOT = "screenshot";
+    public static final String OPTION_SCREENSHOT = StepExtras.SCREENSHOT;
     /** {@code screenshotDelay=}: ticks from the action to that screenshot. */
-    public static final String OPTION_SCREENSHOT_DELAY = "screenshotDelay";
+    public static final String OPTION_SCREENSHOT_DELAY = StepExtras.SCREENSHOT_DELAY;
     /** {@code screenshotHide=}: {@code chat} or {@code hud}, left out of that screenshot. */
-    public static final String OPTION_SCREENSHOT_HIDE = "screenshotHide";
+    public static final String OPTION_SCREENSHOT_HIDE = StepExtras.SCREENSHOT_HIDE;
     /**
      * The values of {@code screenshotHide}, which are also the screenshot command's {@code hide}
      * values; the one list both read.
      */
-    public static final String HIDE_CHAT = "chat";
-    public static final String HIDE_HUD = "hud";
+    public static final String HIDE_CHAT = StepExtras.HIDE_CHAT;
+    public static final String HIDE_HUD = StepExtras.HIDE_HUD;
     /** {@code showTicks=}: for a tooltip, the ticks the view stays open (1 to 1200). */
     public static final String OPTION_SHOW_TICKS = "showTicks";
 
     /** Whether the options are in bounds; a screenshot delay needs a screenshot. */
     public static boolean isValidOptions(int delay, String screenshot, int screenshotDelay) {
-        return delay >= 0 && delay <= MAX_DELAY_TICKS && screenshot != null
-                && (screenshot.isEmpty() || SCREENSHOT_LABEL.matcher(screenshot).matches())
-                && screenshotDelay >= 0 && screenshotDelay <= MAX_SCREENSHOT_DELAY_TICKS
-                && (!screenshot.isEmpty() || screenshotDelay == 0);
+        return StepExtras.isValid(delay, screenshot, screenshotDelay);
     }
 
     private static PlayerActionOptions parseStep(String[] words) {
@@ -319,21 +297,21 @@ public final class PlayerActionOptions {
 
     /** Ticks the client waits before it acts; 0 acts at once. */
     public int getDelay() {
-        return delay;
+        return extras.delay;
     }
 
     /** The label of the screenshot taken after the action; empty for none. */
     public String getScreenshot() {
-        return screenshot;
+        return extras.screenshot;
     }
 
     /** Ticks from the action to its screenshot. */
     public int getScreenshotDelay() {
-        return screenshotDelay;
+        return extras.screenshotDelay;
     }
 
     /** What that screenshot leaves out, {@code chat} or {@code hud}; empty for nothing. */
     public String getScreenshotHide() {
-        return screenshotHide;
+        return extras.screenshotHide;
     }
 }

@@ -40,10 +40,28 @@ public final class ToolkitChannel {
         void receive(PlayerActionRequest request);
     }
 
+    /** What the client does with an input step. Installed only on a client. Network thread. */
+    public interface InputReceiver {
+        void receive(InputRequest request);
+    }
+
+    /** What the client does with a step on the open screen. Installed only on a client. Network thread. */
+    public interface ScreenReceiver {
+        void receive(ScreenRequest request);
+    }
+
+    /** What the client does with the prompt panel. Installed only on a client. Network thread. */
+    public interface PanelReceiver {
+        void receive(PromptPanelMessage message);
+    }
+
     private static volatile SimpleNetworkWrapper channel;
     private static volatile ClientReceiver receiver;
     private static volatile ActionReceiver actionReceiver;
     private static volatile PlayerActionReceiver playerActionReceiver;
+    private static volatile InputReceiver inputReceiver;
+    private static volatile ScreenReceiver screenReceiver;
+    private static volatile PanelReceiver panelReceiver;
 
     private ToolkitChannel() {
     }
@@ -58,6 +76,9 @@ public final class ToolkitChannel {
         wrapper.registerMessage(new ServerHello.Handler(), ServerHello.class, 4, Side.CLIENT);
         wrapper.registerMessage(new LocalJoinProof.Handler(), LocalJoinProof.class, 5, Side.SERVER);
         wrapper.registerMessage(new PlayerActionRequest.Handler(), PlayerActionRequest.class, 6, Side.CLIENT);
+        wrapper.registerMessage(new PromptPanelMessage.Handler(), PromptPanelMessage.class, 7, Side.CLIENT);
+        wrapper.registerMessage(new InputRequest.Handler(), InputRequest.class, 8, Side.CLIENT);
+        wrapper.registerMessage(new ScreenRequest.Handler(), ScreenRequest.class, 9, Side.CLIENT);
         channel = wrapper;
     }
 
@@ -67,6 +88,30 @@ public final class ToolkitChannel {
 
     static PlayerActionReceiver playerActionReceiver() {
         return playerActionReceiver;
+    }
+
+    public static void setInputReceiver(InputReceiver receiver) {
+        inputReceiver = receiver;
+    }
+
+    static InputReceiver inputReceiver() {
+        return inputReceiver;
+    }
+
+    public static void setScreenReceiver(ScreenReceiver receiver) {
+        screenReceiver = receiver;
+    }
+
+    static ScreenReceiver screenReceiver() {
+        return screenReceiver;
+    }
+
+    public static void setPanelReceiver(PanelReceiver receiver) {
+        panelReceiver = receiver;
+    }
+
+    static PanelReceiver panelReceiver() {
+        return panelReceiver;
     }
 
     public static void setClientReceiver(ClientReceiver clientReceiver) {
@@ -142,6 +187,21 @@ public final class ToolkitChannel {
      */
     public static final int[] VERSION_1_8_0 = {1, 8, 0};
 
+    /**
+     * 1.9.0: a client that reads the input, screen and prompt-panel messages. An older client has
+     * no handler for them and would drop the connection on one, so it is refused instead.
+     */
+    public static final int[] VERSION_1_9_0 = {1, 9, 0};
+
+    /** A version as a person reads it, such as {@code 1.9.0}. */
+    public static String versionText(int[] version) {
+        StringBuilder out = new StringBuilder();
+        for (int part : version) {
+            out.append(out.length() == 0 ? "" : ".").append(part);
+        }
+        return out.toString();
+    }
+
     /** Numeric parts compared in order; anything unreadable counts as older. */
     public static boolean atLeast(String version, int[] minimum) {
         String[] parts = version.split("[.-]");
@@ -184,6 +244,39 @@ public final class ToolkitChannel {
     /** Sends a player action. The caller has checked the client said hello at 1.7.0 or later. */
     public static void send(PlayerActionRequest request, EntityPlayerMP player) {
         channel.sendTo(request, player);
+    }
+
+    /**
+     * Sends an input step, only to a client that said hello with 1.9.0 or later: an older one has
+     * no handler for it and would drop the connection. False when it was not sent; the command
+     * has refused such a client earlier, with the versions in its message.
+     */
+    public static boolean send(InputRequest request, EntityPlayerMP player) {
+        return sendTo19(request, player);
+    }
+
+    /** Sends a step on the open screen, under the same rule as {@link #send(InputRequest, EntityPlayerMP)}. */
+    public static boolean send(ScreenRequest request, EntityPlayerMP player) {
+        return sendTo19(request, player);
+    }
+
+    /** Sends the prompt panel, under the same rule as {@link #send(InputRequest, EntityPlayerMP)}. */
+    public static boolean send(PromptPanelMessage message, EntityPlayerMP player) {
+        return sendTo19(message, player);
+    }
+
+    private static boolean sendTo19(net.minecraftforge.fml.common.network.simpleimpl.IMessage message,
+                                    EntityPlayerMP player) {
+        if (!readsNewMessages(ClientCapabilities.helloVersion(player))) {
+            return false;
+        }
+        channel.sendTo(message, player);
+        return true;
+    }
+
+    /** Whether a client that said hello with this version reads the 1.9.0 messages; null is no hello. */
+    static boolean readsNewMessages(String helloVersion) {
+        return helloVersion != null && atLeast(helloVersion, VERSION_1_9_0);
     }
 
     /** Server to client: the server's hello. The caller has checked {@link #clientSpeaksActions}. */

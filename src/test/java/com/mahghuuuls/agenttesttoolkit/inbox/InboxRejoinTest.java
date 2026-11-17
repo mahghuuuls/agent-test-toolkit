@@ -47,6 +47,18 @@ class InboxRejoinTest {
     }
 
     @Test
+    @DisplayName("a slow logout leave, which may spend ten seconds proving the pause, still suspends and holds the poll")
+    void slowLeaveStillSuspends() {
+        assertTrue(InboxRejoin.LEAVE_GRACE_MILLIS >= 15000L + 10000L, "covers the old grace plus the pause deadline");
+        for (long late : new long[] {15001L, 20000L, 25000L, InboxRejoin.LEAVE_GRACE_MILLIS}) {
+            assertTrue(InboxRejoin.suspendsOnLogout(open(), OPERATOR, leaving(OPERATOR, NOW - late), NOW),
+                    "logout " + late + " ms after the client said it leaves");
+            assertTrue(InboxRejoin.holdsPoll(open(), new PendingRejoin(OPERATOR, "t0k", 7L, NOW - late), NOW),
+                    "poll held " + late + " ms after the request");
+        }
+    }
+
+    @Test
     @DisplayName("a reconnect asked but not confirmed, another player, a stale leave or a suspended opening do not")
     void doesNotSuspend() {
         assertFalse(InboxRejoin.suspendsOnLogout(open(), OPERATOR, null, NOW), "no reconnect asked");

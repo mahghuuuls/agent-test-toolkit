@@ -39,8 +39,9 @@ class PackageRulesTest {
 
     private static final Set<String> CLIENT_MAY_USE =
             new HashSet<String>(Arrays.asList("client", "net", "logging", "config"));
-    /** From the inbox, the client uses only the request-file protocol. */
-    private static final Set<String> CLIENT_MAY_USE_FROM_INBOX = new HashSet<String>(Arrays.asList("InboxFiles"));
+    /** From the inbox, the client uses only the request-file protocol and the pure parsers of the newer steps. */
+    private static final Set<String> CLIENT_MAY_USE_FROM_INBOX = new HashSet<String>(Arrays.asList(
+            "InboxFiles", "InputOptions", "ScreenOptions"));
     /** From the inbox, the session code uses only the pure name check. */
     private static final Set<String> SESSION_MAY_USE_FROM_INBOX = new HashSet<String>(Arrays.asList("LocalJoin"));
 
@@ -49,7 +50,17 @@ class PackageRulesTest {
             "fixture/FixtureOwnership.java", "inbox/InboxRequest.java", "inbox/LocalJoin.java",
             "inbox/PlayerActionOptions.java", "client/menu/MenuRequest.java", "client/menu/WorldOptions.java",
             "client/menu/SaveFolders.java", "client/menu/LocalAddresses.java", "client/PlayerActionGate.java",
-            "client/HoldRelease.java", "client/TooltipLines.java"};
+            "client/HoldRelease.java", "client/TooltipLines.java", "client/LeaveStep.java", "inbox/InputOptions.java",
+            "inbox/ScreenOptions.java", "inbox/StepExtras.java", "command/sub/ClientStepRoute.java"};
+
+    /**
+     * The roots a source file may import from. Another loader's or mod's classes are reached by
+     * reflection by name, so the build never needs them; Baubles is the one integration compiled
+     * against, and only its bridge may import it.
+     */
+    private static final String[] IMPORT_ROOTS = {"java.", "javax.", "net.minecraft.", "net.minecraftforge.",
+            "com.mahghuuuls.agenttesttoolkit.", "com.google.", "com.mojang.", "io.netty.", "org.apache.", "org.lwjgl."};
+    private static final Pattern IMPORT = Pattern.compile("(?m)^import\\s+(?:static\\s+)?([\\w.]+)");
 
     /** The rule broken by a file at this path, relative to the toolkit's package, with this text. */
     static List<String> violations(String path, String text) {
@@ -78,6 +89,17 @@ class PackageRulesTest {
         }
         if (Arrays.asList(PURE).contains(unixPath) && GAME_REFERENCE.matcher(text).find()) {
             out.add(unixPath + ": a pure decision uses a game type");
+        }
+        Matcher imported = IMPORT.matcher(text);
+        while (imported.find()) {
+            String name = imported.group(1);
+            boolean allowed = unixPath.startsWith("integration/baubles/") && name.startsWith("baubles.");
+            for (String importRoot : IMPORT_ROOTS) {
+                allowed |= name.startsWith(importRoot);
+            }
+            if (!allowed) {
+                out.add(unixPath + ": imports " + name);
+            }
         }
         return out;
     }
@@ -149,5 +171,16 @@ class PackageRulesTest {
                 "boolean x = net.minecraftforge.fml.common.Loader.isModLoaded(\"a\");").isEmpty());
         assertTrue(violations("client/PlayerInput.java", "import net.minecraft.client.Minecraft;").isEmpty(),
                 "not a pure class");
+        assertTrue(violations("client/PlayerInput.java",
+                "import com.mahghuuuls.agenttesttoolkit.inbox.InputOptions;\nimport com.mahghuuuls.agenttesttoolkit.inbox.ScreenOptions;")
+                .isEmpty(), "the pure parsers of the newer steps");
+        assertFalse(violations("client/LeaveStep.java", "import net.minecraft.client.Minecraft;").isEmpty(),
+                "the leave's decision stays pure");
+        assertFalse(violations("client/RawKeys.java", "import com.cleanroommc.client.sdl.Window;").isEmpty(),
+                "another loader's class is not compiled against");
+        assertTrue(violations("client/RawKeys.java",
+                "Class<?> window = Class.forName(\"com.cleanroommc.client.sdl.Window\");").isEmpty(), "but reached by name");
+        assertFalse(violations("command/sub/BaublesSubCommand.java", "import baubles.api.BaublesApi;").isEmpty());
+        assertTrue(violations("integration/baubles/BaublesBridgeImpl.java", "import baubles.api.BaublesApi;").isEmpty());
     }
 }

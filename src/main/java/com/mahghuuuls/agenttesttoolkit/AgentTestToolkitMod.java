@@ -106,7 +106,8 @@ public class AgentTestToolkitMod {
                         if ("left".equals(report.getResult())) {
                             com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.onReconnectLeaving(
                                     player.getUniqueID(), report.getRequestTick(), System.currentTimeMillis());
-                        } else if ("refused".equals(report.getResult())) {
+                        } else if ("refused".equals(report.getResult()) || "failed".equals(report.getResult())) {
+                            // A failed leave keeps the player in the world, so no leave is coming.
                             com.mahghuuuls.agenttesttoolkit.inbox.InboxGate.onReconnectRefused(
                                     player.getUniqueID(), report.getRequestTick());
                         } else if ("done".equals(report.getResult())) {

@@ -233,6 +233,8 @@ In single player a reconnect does not log you out unless asked: its leave stops 
 
 **`save`** names, from 1.7.0, the player file it wrote for whoever ran it: `playerFile`, its size and time, and `hostDataInLevel=true` for the single-player host whose name equals the owner's exactly, with case.
 
+From 1.9.0, in single player with `logout`, the client first opens its own "Leaving..." screen, which pauses the game, and proves the pause with two tasks on the integrated server before it leaves as Save and Quit does, in one tick; the leave can no longer stop the server under the client and freeze it. The records add `leave=paused` and `leaveWaitMs`. A pause not proven within 10 seconds ends the reconnect `failed` with `leaveTimeout`, and the player stays in the world; another screen in its place, or a leave by the player, ends it `failed` with `leaveInterrupted` before anything is sent. `leave` says `paused`, or `notPaused` when the game never read as paused. After a leave by the player the client cannot report the failure: the server sees an ordinary logout, and the inbox's rejoin window decides when the suspension ends.
+
 ### A reconnect, step by step
 
 1. The client writes `result=left` and reports it.
@@ -275,6 +277,10 @@ From 1.7.0, small player actions on your own client. Same rules as the client ac
 - A `tooltip` writes one record when the view closes: `slot`, `item`, `count`, `lines` (the count), `line1` and on (up to 200 in the client's own record, the first 20 in the server's), `keys` and `keysSeen` with modifier keys, and `closed` (`done`, `person`, `replaced`, `died`, `left`).
 - Every client record says whether the game window had focus (`focus`). See `AGENTS.md`, Player actions, for every field.
 
+### Input and screen steps (1.9.0)
+
+`devtool client key <binding> press|hold <ticks>|release`, `keys [prefix]`, `use|attack route=event|queue` or `keepHold=true`, `look <yaw> <pitch> [over=<ticks>]`, `face <selector|uuid>` or `face block <x> <y> <z> [face]`, `view first|back|front`, `focus lost|gained`, `screen`, `click slot|button|at ...`, `scroll <amount>` and `tooltip container <slot>` are accepted and checked, here and through the inbox, and sent only to a client whose toolkit is 1.9.0 or later; an older one is refused at once with `devtool.client.noClient`, and the message names its version and 1.9.0. In this build the client answers them `refused` with `notImplemented`.
+
 ## Command inbox
 
 | Command | Effect |
@@ -313,7 +319,7 @@ A reconnect the toolkit started suspends the inbox instead of closing it. In sin
 
 From 1.8.0 the inbox takes the name you come back with, which can differ in case from the one it opened with (the same UUID): `status.json` and the `INBOX` records from `resumed` on show that current name, and every `INBOX` record carries `operatorUuid`.
 
-Between the reconnect request and the leave, the inbox already holds further requests, for at most 15 seconds, so a batch's next line runs after the return.
+Between the reconnect request and the leave, the inbox already holds further requests, for at most 30 seconds (a single-player logout leave may spend up to 10 of them proving the pause), so a batch's next line runs after the return.
 
 Every other path closes it, with a reason:
 

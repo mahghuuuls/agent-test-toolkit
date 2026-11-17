@@ -2,6 +2,7 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 
 import com.mahghuuuls.agenttesttoolkit.command.sub.ClientRequestGate.Facts;
 import com.mahghuuuls.agenttesttoolkit.command.sub.ClientRequestGate.Refusal;
+import com.mahghuuuls.agenttesttoolkit.command.sub.ClientRequestGate.Step;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -18,9 +19,8 @@ class ClientRequestGateHideTest {
     @Test
     @DisplayName("hide needs 1.8.0; without it a 1.7.0 client still gets the action")
     void hideNeedsTheNewClient() {
-        assertEquals(Refusal.CLIENT_TOO_OLD, ClientRequestGate.refusal("use", false, true, client("1.7.0")));
-        assertNull(ClientRequestGate.refusal("use", false, true, client("1.8.0")));
-        assertNull(ClientRequestGate.refusal("use", false, false, client("1.7.0")));
-        assertNull(ClientRequestGate.refusal("use", false, client("1.7.0")), "the old form means no hide");
+        assertEquals(Refusal.CLIENT_TOO_OLD, ClientRequestGate.refusal(Step.of("use", false, true), client("1.7.0")));
+        assertNull(ClientRequestGate.refusal(Step.of("use", false, true), client("1.8.0")));
+        assertNull(ClientRequestGate.refusal(Step.of("use", false, false), client("1.7.0")));
     }
 }

@@ -180,7 +180,7 @@ public final class ClientCapabilities {
      * leaving, does not.
      */
     static boolean accept(UUID player, ClientActionReport report) {
-        if (com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions.isStep(report.getStep())) {
+        if (isTokenStep(report.getStep())) {
             java.util.LinkedHashSet<String> waiting = ACTIONS.get(player);
             if (waiting == null || report.getToken().isEmpty()) {
                 return false;
@@ -213,6 +213,16 @@ public final class ClientCapabilities {
             }
         }
         return true;
+    }
+
+    /**
+     * A step answered by its token: the player actions and every step of the newer input and
+     * screen messages, several of which may be asked in quick succession.
+     */
+    static boolean isTokenStep(String step) {
+        return com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions.isStep(step)
+                || com.mahghuuuls.agenttesttoolkit.inbox.InputOptions.isStep(step)
+                || com.mahghuuuls.agenttesttoolkit.inbox.ScreenOptions.isStep(step);
     }
 
     /** The leave happened; an outstanding reconnect now waits for the return. */
@@ -307,6 +317,9 @@ public final class ClientCapabilities {
         String away = report.getFields().get("awayMs");
         record.add("awayMs", away != null ? away : String.valueOf(nowMillis - expected.askedAtMillis));
         record.add("logout", expected.logout);
+        // How the single-player logout leave went, when the client paused the game before it.
+        record.add("leave", report.getFields().get("leave"));
+        record.add("leaveWaitMs", report.getFields().get("leaveWaitMs"));
         record.add("remote", remote);
         if (connection != null) {
             record.add("connection", connection.intValue());

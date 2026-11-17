@@ -2,8 +2,12 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inbox.InboxGate;
+import com.mahghuuuls.agenttesttoolkit.inbox.InputOptions;
 import com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions;
+import com.mahghuuuls.agenttesttoolkit.inbox.ScreenOptions;
+import com.mahghuuuls.agenttesttoolkit.net.InputRequest;
 import com.mahghuuuls.agenttesttoolkit.net.PlayerActionRequest;
+import com.mahghuuuls.agenttesttoolkit.net.ScreenRequest;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
@@ -25,7 +29,6 @@ import net.minecraft.util.text.TextComponentString;
 import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Asks the sender's own client for one lifecycle step (D18, ARC-022, REQ-202).
@@ -68,9 +71,16 @@ public final class ClientSubCommand implements SubCommand {
 
     @Override
     public String getUsage() {
-        return "client <reconnect [awaySeconds] [logout] | respawn | close | quit | select <0-8> | use | attack"
-                + " | hold <use|attack> <ticks> | drop [all] | inventory | tooltip <0-40> [advanced] [shift] [ctrl] [alt] [showTicks=<ticks>]>"
-                + " [delay=<ticks>] [screenshot=<label>]"
+        return "client <reconnect [awaySeconds] [logout] | respawn | close | quit | select <0-8>"
+                + " | use|attack [route=binding|event|queue] [keepHold=true]"
+                + " | hold <use|attack> <ticks> | drop [all] | inventory"
+                + " | tooltip <0-40> [advanced] [shift] [ctrl] [alt] [showTicks=<ticks>]"
+                + " | key <binding> <press|hold <ticks>|release> [raw=true] [keepHold=true] | keys [prefix]"
+                + " | look <yaw> <pitch> [over=<ticks>] | face <selector|uuid|block <x> <y> <z> [face]>"
+                + " | view <first|back|front> | focus <lost|gained> | screen"
+                + " | click <slot <n> [left|right|shift|key=<1-9>]|button <id|label=<text>>|at <x> <y> [left|right]>"
+                + " | scroll <amount> | tooltip container <slot> [advanced] [shift] [ctrl] [alt]>"
+                + " [expect=<screen class>] [delay=<ticks>] [screenshot=<label>]"
                 + " [screenshotDelay=<ticks>] [screenshotHide=chat|hud]";
     }
 
@@ -84,20 +94,23 @@ public final class ClientSubCommand implements SubCommand {
         if (args.length < 1) {
             throw new WrongUsageException("/devtool " + getUsage());
         }
-        String step = args[0].toLowerCase(Locale.ROOT);
-        if (PlayerActionOptions.isStep(step)) {
-            String[] words = args.clone();
-            words[0] = step;
-            PlayerActionOptions action = PlayerActionOptions.parse(words);
-            if (action == null) {
-                throw new WrongUsageException("/devtool " + getUsage());
-            }
-            executePlayerAction(sender, action);
-            return;
-        }
-        if (!ClientActionRequest.isValidStep(step)) {
+        ClientStepRoute route = ClientStepRoute.of(args);
+        if (route == null) {
             throw new WrongUsageException("/devtool " + getUsage());
         }
+        if (route.message == ClientStepRoute.Message.SCREEN) {
+            executeNewStep(sender, route, route.screen.toWords(), new ScreenRequestFactory(route.screen));
+            return;
+        }
+        if (route.message == ClientStepRoute.Message.INPUT) {
+            executeNewStep(sender, route, route.input.toWords(), new InputRequestFactory(route.input));
+            return;
+        }
+        if (route.message == ClientStepRoute.Message.PLAYER_ACTION) {
+            executePlayerAction(sender, route);
+            return;
+        }
+        String step = route.step;
         int away = 0;
         boolean logout = false;
         if (ClientActionRequest.RECONNECT.equals(step)) {
@@ -118,7 +131,7 @@ public final class ClientSubCommand implements SubCommand {
         }
 
         EntityPlayerMP player = requireOwnPlayer(sender);
-        refuseIfNeeded(player, step, logout);
+        refuseIfNeeded(player, route.gateStep(logout));
 
         long requestTick = player.world.getTotalWorldTime();
         // A remote client's leave always logs it out; only the single-player host can leave
@@ -155,10 +168,11 @@ public final class ClientSubCommand implements SubCommand {
      * A small player action on the sender's own client, under the same sender rule and the same
      * server checks as the lifecycle steps.
      */
-    private static void executePlayerAction(ICommandSender sender, PlayerActionOptions action) throws CommandException {
+    private static void executePlayerAction(ICommandSender sender, ClientStepRoute route) throws CommandException {
         EntityPlayerMP player = requireOwnPlayer(sender);
+        PlayerActionOptions action = route.action;
         String step = action.getStep();
-        refuseIfNeeded(player, step, false, !action.getScreenshotHide().isEmpty());
+        refuseIfNeeded(player, route.gateStep(false));
 
         long requestTick = player.world.getTotalWorldTime();
         // Tells this request's answer from another of the same step asked in the same tick.
@@ -201,6 +215,73 @@ public final class ClientSubCommand implements SubCommand {
     }
 
     /**
+     * Builds and sends the message of a step that only a 1.9.0 client reads, once its token is
+     * chosen; false when the channel would not send it to this client.
+     */
+    private interface NewStepMessage {
+        boolean send(EntityPlayerMP player, String token, long requestTick);
+    }
+
+    private static final class InputRequestFactory implements NewStepMessage {
+        private final InputOptions options;
+
+        InputRequestFactory(InputOptions options) {
+            this.options = options;
+        }
+
+        @Override
+        public boolean send(EntityPlayerMP player, String token, long requestTick) {
+            return ToolkitChannel.send(new InputRequest(options, token, requestTick), player);
+        }
+    }
+
+    private static final class ScreenRequestFactory implements NewStepMessage {
+        private final ScreenOptions options;
+
+        ScreenRequestFactory(ScreenOptions options) {
+            this.options = options;
+        }
+
+        @Override
+        public boolean send(EntityPlayerMP player, String token, long requestTick) {
+            return ToolkitChannel.send(new ScreenRequest(options, token, requestTick), player);
+        }
+    }
+
+    /**
+     * A step of the input or screen message, under the same sender rule and server checks as the
+     * player actions, sent only to a client that said hello with 1.9.0 or later. The server's
+     * record names the step and its words, as the client will read them.
+     */
+    private static void executeNewStep(ICommandSender sender, ClientStepRoute route, List<String> words,
+                                       NewStepMessage message) throws CommandException {
+        EntityPlayerMP player = requireOwnPlayer(sender);
+        String step = route.step;
+        ClientRequestGate.Step gateStep = route.gateStep(false);
+        refuseIfNeeded(player, gateStep);
+
+        long requestTick = player.world.getTotalWorldTime();
+        String token = newToken();
+        LogRecord record = requested(sender, player, step);
+        StringBuilder options = new StringBuilder();
+        for (int i = 1; i < words.size(); i++) {
+            options.append(options.length() == 0 ? "" : " ").append(words.get(i));
+        }
+        record.add("options", options.toString());
+        record.add("requestTick", requestTick);
+
+        if (!message.send(player, token, requestTick)) {
+            // The gate let through a client the channel will not send to; refused the same way,
+            // before any request record, so the log never shows a request that was not sent.
+            refuse(player, gateStep, ClientRequestGate.Refusal.CLIENT_TOO_OLD, ClientCapabilities.helloVersion(player),
+                    ClientCapabilities.allowsActions(player));
+        }
+        ToolkitLog.write(record);
+        ClientCapabilities.expectAction(player, step, requestTick, token);
+        sender.sendMessage(new TextComponentString("[DevToolkit] Asked your client to " + step + "."));
+    }
+
+    /**
      * The sender itself, not the entity behind it: /execute wraps a sender with another entity,
      * and following that would act on someone else's client. Bundles and the inbox run as the
      * player object itself.
@@ -213,26 +294,29 @@ public final class ClientSubCommand implements SubCommand {
     }
 
     /** Refuses at once, with a key, what the server already knows would fail. */
-    private static void refuseIfNeeded(EntityPlayerMP player, String step, boolean logout) throws CommandException {
-        refuseIfNeeded(player, step, logout, false);
-    }
-
-    private static void refuseIfNeeded(EntityPlayerMP player, String step, boolean logout, boolean hideScreenshot)
-            throws CommandException {
+    private static void refuseIfNeeded(EntityPlayerMP player, ClientRequestGate.Step step) throws CommandException {
         Boolean allowed = ClientCapabilities.allowsActions(player);
-        ClientRequestGate.Refusal refusal = ClientRequestGate.refusal(step, logout, hideScreenshot, new ClientRequestGate.Facts(
+        String helloVersion = ClientCapabilities.helloVersion(player);
+        ClientRequestGate.Refusal refusal = ClientRequestGate.refusal(step, new ClientRequestGate.Facts(
                 player.getHealth() <= 0.0F,
                 ClientCapabilities.isBusy(player, com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader.get()
                         .getInboxRejoinWindowSeconds() * 1000L),
                 ToolkitChannel.clientSpeaksActions(player),
                 allowed,
-                ClientCapabilities.helloVersion(player)));
+                helloVersion));
         if (refusal != null) {
-            ToolkitLog.error(refusal.message + " (" + step + ")",
-                    player.getName() + (refusal == ClientRequestGate.Refusal.NOT_ALLOWED && allowed == null
-                            ? " (no hello yet)" : ""));
-            throw new CommandException(refusal.key, player.getName());
+            refuse(player, step, refusal, helloVersion, allowed);
         }
+    }
+
+    /** Logs the refusal and fails the command with its key and the arguments its message shows. */
+    private static void refuse(EntityPlayerMP player, ClientRequestGate.Step step, ClientRequestGate.Refusal refusal,
+                               String helloVersion, Boolean allowed) throws CommandException {
+        Object[] arguments = ClientRequestGate.arguments(refusal, player.getName(), helloVersion, step);
+        ToolkitLog.error(refusal.message + " (" + step.name + ")",
+                arguments[0] + (refusal == ClientRequestGate.Refusal.NOT_ALLOWED && allowed == null
+                        ? " (no hello yet)" : ""));
+        throw new CommandException(refusal.key, arguments);
     }
 
     /** The server's record of a request, before anything is sent. */
@@ -258,6 +342,16 @@ public final class ClientSubCommand implements SubCommand {
         if (args.length <= 1) {
             java.util.List<String> steps = new java.util.ArrayList<String>(ClientActionRequest.STEPS);
             steps.addAll(PlayerActionOptions.STEPS);
+            for (String step : InputOptions.STEPS) {
+                if (!steps.contains(step)) {
+                    steps.add(step);
+                }
+            }
+            for (String step : ScreenOptions.STEPS) {
+                if (!steps.contains(step)) {
+                    steps.add(step);
+                }
+            }
             return CommandBase.getListOfStringsMatchingLastWord(args, steps);
         }
         return Collections.emptyList();

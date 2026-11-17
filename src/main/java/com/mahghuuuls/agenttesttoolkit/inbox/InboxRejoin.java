@@ -16,8 +16,14 @@ import java.util.UUID;
  */
 public final class InboxRejoin {
 
-    /** How soon after the client said it is leaving the logout must come to count as that leave. */
-    static final long LEAVE_GRACE_MILLIS = 15000L;
+    /**
+     * How soon after the client said it is leaving the logout must come to count as that leave.
+     * It covers the slowest leave that still succeeds: a single-player logout waits a second for
+     * the run that asked to be answered, up to two more for the packets already received, and then
+     * up to ten seconds for the game's pause to be proven before it sends the logout. Thirty
+     * seconds leaves room above that for a slow modpack's frames.
+     */
+    static final long LEAVE_GRACE_MILLIS = 30000L;
     /** How long after logging in again the token may take to arrive. */
     static final long TOKEN_GRACE_MILLIS = 10000L;
 

@@ -52,6 +52,12 @@ public class ClientProxy extends CommonProxy {
                 new com.mahghuuuls.agenttesttoolkit.client.PlayerInput(executor, taker);
         com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setPlayerActionReceiver(input);
         MinecraftForge.EVENT_BUS.register(input);
+        // And the input and screen steps, answered on the client tick.
+        com.mahghuuuls.agenttesttoolkit.client.NewStepExecutor steps =
+                new com.mahghuuuls.agenttesttoolkit.client.NewStepExecutor();
+        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setInputReceiver(steps);
+        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setScreenReceiver(steps);
+        MinecraftForge.EVENT_BUS.register(steps);
         // And the client request channel of ARC-028, which steps aside while a reconnect runs.
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.client.menu.MenuChannel(executor));
         // And the note beside the command inbox while single player is paused.

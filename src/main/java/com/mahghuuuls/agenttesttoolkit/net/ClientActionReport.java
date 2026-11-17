@@ -56,7 +56,8 @@ public final class ClientActionReport implements IMessage {
                     "slot", "target", "targetX", "targetY", "targetZ", "face", "targetBlock",
                     "entityId", "entityType", "entityUuid", "held", "heldCount", "logout", "awayMs",
                     "focus", "input", "ticks", "heldTicks", "released", "all", "delay", "screenshot",
-                    "item", "count", "advanced", "keys", "keysSeen", "lines", "closed", "showTicks"));
+                    "item", "count", "advanced", "keys", "keysSeen", "lines", "closed", "showTicks",
+                    "leave", "leaveWaitMs"));
         // A tooltip's lines, as many as the client reports; its own record has more.
         for (int i = 1; i <= 20; i++) {
             names.add("line" + i);
@@ -98,8 +99,7 @@ public final class ClientActionReport implements IMessage {
 
     /** Lengths bounded and the step a known one, so a report cannot flood the log. */
     boolean isValid() {
-        return (ClientActionRequest.isValidStep(step)
-                || com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions.isStep(step))
+        return (ClientActionRequest.isValidStep(step) || ClientCapabilities.isTokenStep(step))
                 && RESULTS.contains(result)
                 && reason.length() <= MAX_TEXT && screen.length() <= MAX_TEXT
                 && showing.length() <= MAX_TEXT && ClientActionRequest.isValidToken(token)

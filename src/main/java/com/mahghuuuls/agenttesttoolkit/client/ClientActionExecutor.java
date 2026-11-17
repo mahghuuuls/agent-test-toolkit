@@ -104,7 +104,12 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
     /** Client thread only. The one reconnect in progress, which outlives the leave. */
     private Reconnect reconnect;
 
-    private enum Stage { LEAVING, AWAY, JOINING }
+    /**
+     * Where a reconnect is. A single-player logout leave passes PAUSING (the pause screen is open,
+     * the game does not read as paused yet) and PROVING (paused, the server's marker tasks not
+     * both run) between LEAVING and AWAY; every other leave goes from LEAVING to AWAY.
+     */
+    private enum Stage { LEAVING, PAUSING, PROVING, AWAY, JOINING }
 
     private static final class Reconnect {
         final ClientActionRequest request;
@@ -131,10 +136,21 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
         /** LEAVING: the connection is no longer read, since then. */
         boolean readStopped;
         long readStoppedAtMillis;
-        /** LEAVING: the marker is queued behind the handlers, since then; it has run. */
-        boolean markerQueued;
-        long markerQueuedAtMillis;
+        /** LEAVING: the drain marker is queued behind the packet handlers, since then; it has run. */
+        boolean drainMarkerQueued;
+        long drainMarkerQueuedAtMillis;
         boolean drained;
+        /**
+         * PAUSING and PROVING: the pause screen opened for the leave, when, and the marker tasks
+         * queued on the integrated server and run there (counted on the server thread).
+         */
+        GuiScreen pauseScreen;
+        long pauseStartedAtMillis;
+        int serverMarkersQueued;
+        final java.util.concurrent.atomic.AtomicInteger serverMarkersDone = new java.util.concurrent.atomic.AtomicInteger();
+        /** The leave went out after a proven pause, this many milliseconds after the pause screen opened. */
+        boolean pausedLeave;
+        long leaveWaitMs;
 
         Reconnect(ClientActionRequest request, String folder, String worldName, ServerData server) {
             this.request = request;
@@ -249,10 +265,16 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
                     .add("result", "done")
                     .add("awayMs", away)
                     .add("logout", done.logsOut)
+                    .add("leave", done.pausedLeave ? LEAVE_PAUSED : null)
+                    .add("leaveWaitMs", done.pausedLeave ? String.valueOf(done.leaveWaitMs) : null)
                     .add("requestTick", done.request.getRequestTick()));
             java.util.Map<String, String> fields = new java.util.LinkedHashMap<String, String>();
             fields.put("awayMs", String.valueOf(away));
             fields.put("logout", String.valueOf(done.logsOut));
+            if (done.pausedLeave) {
+                fields.put("leave", LEAVE_PAUSED);
+                fields.put("leaveWaitMs", String.valueOf(done.leaveWaitMs));
+            }
             ToolkitChannel.sendToServer(new ClientActionReport(ClientActionRequest.RECONNECT, "done", null,
                     null, null, done.request.getToken(), done.request.getRequestTick())
                     .withFields(serverReadsFields() ? fields : null));
@@ -513,6 +535,10 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
     private void advanceReconnect(Minecraft mc) {
         Reconnect r = reconnect;
         r.ticks++;
+        if (r.stage == Stage.PAUSING || r.stage == Stage.PROVING) {
+            advanceLeavePause(mc, r);
+            return;
+        }
         if (r.stage == Stage.LEAVING) {
             if (r.ticks < LEAVE_DELAY_TICKS || System.currentTimeMillis() - r.askedAtMillis < LEAVE_DELAY_MS) {
                 return;
@@ -539,16 +565,16 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
                 r.readStoppedAtMillis = now;
                 return;
             }
-            if (!r.markerQueued) {
+            if (!r.drainMarkerQueued) {
                 if (now - r.readStoppedAtMillis < READ_SETTLE_MS) {
                     return;
                 }
                 queueDrainMarker(mc, r);
-                r.markerQueued = true;
-                r.markerQueuedAtMillis = now;
+                r.drainMarkerQueued = true;
+                r.drainMarkerQueuedAtMillis = now;
                 return;
             }
-            if (!r.drained && now - r.markerQueuedAtMillis < DRAIN_TIMEOUT_MS) {
+            if (!r.drained && now - r.drainMarkerQueuedAtMillis < DRAIN_TIMEOUT_MS) {
                 return;
             }
             if (r.quit) {
@@ -566,13 +592,10 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
                 mc.loadWorld(null);
                 mc.displayGuiScreen(new GuiMultiplayer(new GuiMainMenu()));
             } else if (r.logsOut) {
-                // Single player, asked to log out: the pause menu's Save and Quit, in its order,
-                // so the server logs the player out before it stops. The default below skips
-                // the packet because of a shutdown hang seen once from the toolkit's tick; this
-                // path is used only when a test asks for the logout.
-                mc.world.sendQuittingDisconnectingPacket();
-                mc.loadWorld(null);
-                mc.displayGuiScreen(new GuiMainMenu());
+                // Single player, asked to log out: pause first, as a person's Save and Quit
+                // happens from the pause menu, and leave only once the pause is proven.
+                startLeavePause(mc, r);
+                return;
             } else {
                 // Single player: no quitting packet first. Sending it lets the integrated server
                 // notice its host left and stop its loop before the shutdown the client waits
@@ -610,6 +633,106 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
             giveUp(r, "loadAborted");
         } else if (elapsed > deadline + (worldLoading ? WORLD_LOAD_EXTRA_MS : 0L)) {
             giveUp(r, "timeout");
+        }
+    }
+
+    /** {@code leave} on the records of a logout leave that went out, or ended, with the game paused. */
+    static final String LEAVE_PAUSED = "paused";
+    /** {@code leave} on the record of a logout leave that ended before the game read as paused. */
+    static final String LEAVE_NOT_PAUSED = "notPaused";
+
+    /** Opens the pause screen; the next ticks wait for the game to read as paused. */
+    private static void startLeavePause(Minecraft mc, Reconnect r) {
+        r.pauseScreen = new LeavePauseScreen();
+        r.stage = Stage.PAUSING;
+        r.pauseStartedAtMillis = System.currentTimeMillis();
+        mc.displayGuiScreen(r.pauseScreen);
+    }
+
+    /**
+     * One tick of the pause before the single-player logout leave. Without the pause, the
+     * integrated server could see the quitting packet in its own network step and stop itself
+     * while the client waits for the shutdown it asked for, and the client would wait forever.
+     */
+    private void advanceLeavePause(Minecraft mc, Reconnect r) {
+        long waited = System.currentTimeMillis() - r.pauseStartedAtMillis;
+        LeaveStep.Next next = LeaveStep.next(r.stage == Stage.PROVING,
+                mc.world != null && mc.getIntegratedServer() != null,
+                r.pauseScreen != null && mc.currentScreen == r.pauseScreen, mc.isGamePaused(),
+                r.serverMarkersQueued, r.serverMarkersDone.get(), waited);
+        switch (next) {
+            case PROVE:
+                r.stage = Stage.PROVING;
+                queueServerMarker(mc, r);
+                return;
+            case QUEUE_SECOND:
+                queueServerMarker(mc, r);
+                return;
+            case LEAVE:
+                r.pausedLeave = true;
+                r.leaveWaitMs = waited;
+                // What the pause menu's Save and Quit does, all in this one tick: a later tick
+                // would let the client find the closed connection and leave by itself first.
+                mc.world.sendQuittingDisconnectingPacket();
+                mc.loadWorld(null);
+                mc.displayGuiScreen(new GuiMainMenu());
+                r.stage = Stage.AWAY;
+                r.ticks = 0;
+                r.leftAtMillis = System.currentTimeMillis();
+                return;
+            case TIMEOUT:
+                if (mc.currentScreen == r.pauseScreen) {
+                    mc.displayGuiScreen(null);
+                }
+                endLeave(mc, r, "leaveTimeout", waited);
+                return;
+            case INTERRUPTED:
+                endLeave(mc, r, "leaveInterrupted", waited);
+                return;
+            default:
+                // WAIT
+        }
+    }
+
+    /**
+     * Queues a marker task on the integrated server; it only counts that it ran. With no server
+     * any more, nothing is queued, and the next tick reads the world as gone.
+     */
+    private static void queueServerMarker(Minecraft mc, final Reconnect r) {
+        net.minecraft.server.integrated.IntegratedServer server = mc.getIntegratedServer();
+        if (server == null) {
+            return;
+        }
+        r.serverMarkersQueued++;
+        server.addScheduledTask(new Runnable() {
+            @Override
+            public void run() {
+                r.serverMarkersDone.incrementAndGet();
+            }
+        });
+    }
+
+    /**
+     * The logout leave is given up before anything was sent. While the client is still connected,
+     * the player stays in the world, the connection is read again, and the failure is reported.
+     * When the player has already left there is no connection to report on, so only the client's
+     * own record has it; the server saw an ordinary logout.
+     */
+    private void endLeave(Minecraft mc, Reconnect r, String reason, long waited) {
+        reconnect = null;
+        boolean connected = mc.getConnection() != null;
+        if (connected && mc.getConnection().getNetworkManager().channel() != null) {
+            mc.getConnection().getNetworkManager().channel().config().setAutoRead(true);
+        }
+        java.util.Map<String, String> fields = new java.util.LinkedHashMap<String, String>();
+        fields.put("logout", "true");
+        // What the game really was when the leave ended: paused, or never read as paused.
+        fields.put("leave", r.stage == Stage.PROVING ? LEAVE_PAUSED : LEAVE_NOT_PAUSED);
+        fields.put("leaveWaitMs", String.valueOf(waited));
+        if (connected) {
+            finish(r.request, "failed", reason, screenName(mc.currentScreen), null, fields);
+        } else {
+            record(r.request, "failed", reason, screenName(mc.currentScreen), null, fields);
         }
     }
 
@@ -709,6 +832,15 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
      */
     private void finish(ClientActionRequest request, String result, String reason, String screen,
                         String showing, java.util.Map<String, String> fields) {
+        record(request, result, reason, screen, showing, fields);
+        ToolkitChannel.sendToServer(new ClientActionReport(
+                request.getStep(), result, reason, screen, showing, null, request.getRequestTick())
+                .withFields(serverReadsFields() ? fields : null));
+    }
+
+    /** The client's own record of a step, without a report. */
+    private static void record(ClientActionRequest request, String result, String reason, String screen,
+                               String showing, java.util.Map<String, String> fields) {
         LogRecord record = LogRecord.of(EventType.CLIENT_ACTION)
                 .add("side", "CLIENT")
                 .add("step", request.getStep())
@@ -723,9 +855,6 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
         }
         record.add("requestTick", request.getRequestTick());
         ToolkitLog.write(record);
-        ToolkitChannel.sendToServer(new ClientActionReport(
-                request.getStep(), result, reason, screen, showing, null, request.getRequestTick())
-                .withFields(serverReadsFields() ? fields : null));
     }
 
     /** The server said hello with 1.7.0 or later, so a report may carry extra fields. */
