@@ -75,6 +75,7 @@ The toolkit's own failure keys are tolerated the same way, by declaring them:
 | `devtool.client.notDead` | A respawn was asked of a living player |
 | `devtool.client.dead` | A click, hold, drop or tooltip was asked of a dead player (1.7.0) |
 | `devtool.client.busy` | Your client is on a reconnect, from the request until it is back and reported |
+| `devtool.client.noTarget` | `client face` found no single loaded entity in your dimension, or the block is not loaded (1.9.0) |
 | `devtool.baubles.absent` | Baubles is not installed |
 | `devtool.baubles.rejected` | A bauble slot refused the item |
 | `devtool.find.unknownBlock` | `devtool find block` names no block the game knows (1.8.0) |

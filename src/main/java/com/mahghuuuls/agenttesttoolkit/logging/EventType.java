@@ -148,6 +148,13 @@ public enum EventType {
      */
     MENU_STEP,
 
+    /**
+     * {@code client keys}, {@code side=CLIENT}: one registered key binding with its name, category,
+     * key code and key name, modifier and context, and {@code duplicate=true} when another binding
+     * has the same name. From 1.9.0.
+     */
+    KEY_BINDING,
+
     /** {@code devtool baubles}: a slot set (or refused) or slots cleared, with the player and slot. */
     BAUBLES,
 

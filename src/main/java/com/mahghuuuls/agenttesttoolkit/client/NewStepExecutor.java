@@ -5,7 +5,6 @@ import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.net.ClientActionReport;
-import com.mahghuuuls.agenttesttoolkit.net.InputRequest;
 import com.mahghuuuls.agenttesttoolkit.net.ScreenRequest;
 import com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel;
 import net.minecraft.client.Minecraft;
@@ -16,14 +15,14 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * Answers the input and screen steps on the client thread.
+ * Answers the screen steps on the client thread; the input steps are taken by {@link PlayerInput}.
  *
  * <p>Every step is received, recorded and answered, so a server asking for one never waits for
  * an answer that does not come: words that do not parse are refused {@code badArguments}, and a
  * step this build does not carry out yet {@code notImplemented}. Client-only: registered through
  * {@code ClientProxy}.
  */
-public final class NewStepExecutor implements ToolkitChannel.InputReceiver, ToolkitChannel.ScreenReceiver {
+public final class NewStepExecutor implements ToolkitChannel.ScreenReceiver {
 
     /** One received step: its name, token and request tick, all a refusal needs, and whether it parsed. */
     private static final class Step {
@@ -41,11 +40,6 @@ public final class NewStepExecutor implements ToolkitChannel.InputReceiver, Tool
     }
 
     private final ConcurrentLinkedQueue<Step> incoming = new ConcurrentLinkedQueue<Step>();
-
-    @Override
-    public void receive(InputRequest request) {
-        incoming.add(new Step(request.getStep(), request.getToken(), request.getRequestTick(), request.isValid()));
-    }
 
     @Override
     public void receive(ScreenRequest request) {

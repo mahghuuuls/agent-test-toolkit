@@ -69,4 +69,20 @@ class ClientStepRouteTest {
         }
         assertNull(ClientStepRoute.of(new String[0]));
     }
+
+    @Test
+    @DisplayName("a hold with keepHold needs the input message; the 1.8.0 hold still reaches an older client")
+    void holdsBesideHolds() {
+        for (String line : new String[] {"hold use 20", "hold attack 40 keepHold=false", "hold use 20 delay=5"}) {
+            assertEquals(Message.PLAYER_ACTION, route(line).message, line);
+            assertNull(refusalFor(line, EIGHT), line);
+        }
+        assertEquals(20, route("hold use 20 delay=5").action.getTicks());
+        assertEquals(5, route("hold use 20 delay=5").action.getDelay());
+        for (String line : new String[] {"hold use 20 keepHold=true", "key key.sneak hold 30 keepHold=true"}) {
+            assertEquals(Message.INPUT, route(line).message, line);
+            assertEquals(Refusal.CLIENT_TOO_OLD, refusalFor(line, EIGHT), line);
+            assertNull(refusalFor(line, NINE), line);
+        }
+    }
 }

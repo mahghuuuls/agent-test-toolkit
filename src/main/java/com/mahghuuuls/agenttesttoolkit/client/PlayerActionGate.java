@@ -13,6 +13,8 @@ final class PlayerActionGate {
      * action keys while one is open, so the action would do nothing.
      */
     static final String REASON_SCREEN_OPEN = "screenOpen";
+    /** The game is without focus (after an emulated focus loss), so a queued click would take focus back. */
+    static final String REASON_NO_FOCUS = "noFocus";
     /** The key the action presses is unbound in the client's controls. */
     static final String REASON_UNBOUND = "unbound";
     /** The inventory slot whose tooltip was asked for holds nothing. */

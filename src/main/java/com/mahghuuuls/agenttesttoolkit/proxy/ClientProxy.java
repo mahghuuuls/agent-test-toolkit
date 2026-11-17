@@ -51,11 +51,12 @@ public class ClientProxy extends CommonProxy {
         com.mahghuuuls.agenttesttoolkit.client.PlayerInput input =
                 new com.mahghuuuls.agenttesttoolkit.client.PlayerInput(executor, taker);
         com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setPlayerActionReceiver(input);
+        // The input steps share the player actions' holds and delay, so the same object takes them.
+        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setInputReceiver(input);
         MinecraftForge.EVENT_BUS.register(input);
-        // And the input and screen steps, answered on the client tick.
+        // And the screen steps, answered on the client tick.
         com.mahghuuuls.agenttesttoolkit.client.NewStepExecutor steps =
                 new com.mahghuuuls.agenttesttoolkit.client.NewStepExecutor();
-        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setInputReceiver(steps);
         com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setScreenReceiver(steps);
         MinecraftForge.EVENT_BUS.register(steps);
         // And the client request channel of ARC-028, which steps aside while a reconnect runs.

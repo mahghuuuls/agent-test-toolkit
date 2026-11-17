@@ -188,7 +188,7 @@ public final class ClientCapabilities {
             String expected = key(report.getStep(), report.getRequestTick()) + "#" + report.getToken();
             // A hold answers twice: when the input goes down, and when it is released.
             boolean started = "started".equals(report.getResult());
-            if (started && !com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions.HOLD.equals(report.getStep())) {
+            if (started && !answersTwice(report.getStep())) {
                 return false;
             }
             return started ? waiting.contains(expected) : waiting.remove(expected);
@@ -213,6 +213,17 @@ public final class ClientCapabilities {
             }
         }
         return true;
+    }
+
+    /**
+     * A step that may answer {@code started} before its final answer: a held input, which answers
+     * as it goes down and as it is released. A player action's hold, a key's hold, and a turn of
+     * the view spread over ticks.
+     */
+    static boolean answersTwice(String step) {
+        return com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions.HOLD.equals(step)
+                || com.mahghuuuls.agenttesttoolkit.inbox.InputOptions.KEY.equals(step)
+                || com.mahghuuuls.agenttesttoolkit.inbox.InputOptions.LOOK.equals(step);
     }
 
     /**

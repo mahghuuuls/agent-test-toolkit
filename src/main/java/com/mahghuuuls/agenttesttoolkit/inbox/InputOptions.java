@@ -31,6 +31,8 @@ public final class InputOptions {
     public static final String USE = PlayerActionOptions.USE;
     /** A left click; here only with a route other than the binding or with {@code keepHold}. */
     public static final String ATTACK = PlayerActionOptions.ATTACK;
+    /** A use or attack held; here only with {@code keepHold}, which a client older than 1.9.0 does not read. */
+    public static final String HOLD_INPUT = PlayerActionOptions.HOLD;
     /** Turn the view to an absolute yaw and pitch. */
     public static final String LOOK = "look";
     /** Turn the view to an entity or a block. */
@@ -42,7 +44,7 @@ public final class InputOptions {
 
     /** The steps, in the order the usage text lists them. */
     public static final List<String> STEPS = Collections.unmodifiableList(
-            Arrays.asList(KEY, KEYS, USE, ATTACK, LOOK, FACE, VIEW, FOCUS));
+            Arrays.asList(KEY, KEYS, USE, ATTACK, HOLD_INPUT, LOOK, FACE, VIEW, FOCUS));
 
     /** What {@code key} does with its binding. */
     public static final String PRESS = "press";
@@ -55,6 +57,10 @@ public final class InputOptions {
     public static final String ROUTE_QUEUE = "queue";
     public static final List<String> ROUTES = Collections.unmodifiableList(
             Arrays.asList(ROUTE_BINDING, ROUTE_EVENT, ROUTE_QUEUE));
+
+    /** The registered names of the use and attack bindings, whose presses take a route. */
+    public static final List<String> CLICK_BINDINGS = Collections.unmodifiableList(
+            Arrays.asList("key.use", "key.attack"));
 
     public static final String OPTION_ROUTE = "route";
     public static final String OPTION_KEEP_HOLD = "keepHold";
@@ -103,7 +109,10 @@ public final class InputOptions {
     private final String step;
     /** The binding for {@code key}, the prefix for {@code keys}, the selector or UUID for {@code face}; empty otherwise. */
     private String name = "";
-    /** For {@code key}: press, hold or release. For {@code view}: the view. For {@code focus}: lost or gained. */
+    /**
+     * For {@code key}: press, hold or release. For {@code hold}: use or attack. For {@code view}: the
+     * view. For {@code focus}: lost or gained.
+     */
     private String mode = "";
     private int ticks;
     private boolean raw;
@@ -186,6 +195,15 @@ public final class InputOptions {
         if (USE.equals(step) || ATTACK.equals(step)) {
             return 1;
         }
+        if (HOLD_INPUT.equals(step)) {
+            if (words.length < 3 || !(USE.equals(words[1]) || ATTACK.equals(words[1]))
+                    || !HOLD_TICKS.matcher(words[2]).matches()) {
+                return -1;
+            }
+            mode = words[1];
+            ticks = Integer.parseInt(words[2]);
+            return 3;
+        }
         if (LOOK.equals(step)) {
             if (words.length < 3 || !ANGLE.matcher(words[1]).matches() || !ANGLE.matcher(words[2]).matches()) {
                 return -1;
@@ -251,11 +269,12 @@ public final class InputOptions {
             return KEY.equals(step) && (PRESS.equals(mode) || HOLD.equals(mode)) && readFlag(value, true);
         }
         if (OPTION_KEEP_HOLD.equals(key)) {
-            return (USE.equals(step) || ATTACK.equals(step) || (KEY.equals(step) && PRESS.equals(mode)))
+            return (USE.equals(step) || ATTACK.equals(step) || HOLD_INPUT.equals(step)
+                    || (KEY.equals(step) && (PRESS.equals(mode) || HOLD.equals(mode))))
                     && readFlag(value, false);
         }
         if (OPTION_ROUTE.equals(key)) {
-            if (!(USE.equals(step) || ATTACK.equals(step)) || !ROUTES.contains(value)) {
+            if (!(USE.equals(step) || ATTACK.equals(step) || pressesClickBinding()) || !ROUTES.contains(value)) {
                 return false;
             }
             route = value;
@@ -269,6 +288,14 @@ public final class InputOptions {
             return true;
         }
         return extras.take(key, value) == StepExtras.Take.TAKEN;
+    }
+
+    /**
+     * A {@code key} press of the use or attack binding, which takes a click's routes: the other
+     * routes are mouse input, which only the bindings behind the mouse buttons answer to.
+     */
+    private boolean pressesClickBinding() {
+        return KEY.equals(step) && PRESS.equals(mode) && CLICK_BINDINGS.contains(name);
     }
 
     /** {@code true} or {@code false}; sets {@link #raw} or {@link #keepHold}. */
@@ -306,6 +333,9 @@ public final class InputOptions {
             if (!name.isEmpty()) {
                 words.add(name);
             }
+        } else if (HOLD_INPUT.equals(step)) {
+            words.add(mode);
+            words.add(String.valueOf(ticks));
         } else if (LOOK.equals(step)) {
             words.add(angleText(yaw));
             words.add(angleText(pitch));
@@ -351,17 +381,24 @@ public final class InputOptions {
 
     /**
      * Whether this step needs the newer message. A {@code use} or {@code attack} with the
-     * binding route and no {@code keepHold} is the click every 1.7.0 client already takes, so it
-     * keeps going there.
+     * binding route and no {@code keepHold}, and a {@code hold} without {@code keepHold}, are the
+     * player actions every 1.7.0 client already takes, so they keep going there.
      */
     public boolean travelsAsInput() {
+        if (HOLD_INPUT.equals(step)) {
+            return keepHold;
+        }
         return !(USE.equals(step) || ATTACK.equals(step)) || !ROUTE_BINDING.equals(route) || keepHold;
     }
 
-    /** For a click that does not need the newer message: the same click in the player actions' words. */
+    /** For a click or hold that does not need the newer message: the same step in the player actions' words. */
     public String[] toPlayerActionWords() {
         List<String> words = new ArrayList<String>();
         words.add(step);
+        if (HOLD_INPUT.equals(step)) {
+            words.add(mode);
+            words.add(String.valueOf(ticks));
+        }
         extras.addWords(words);
         return words.toArray(new String[0]);
     }
@@ -383,12 +420,12 @@ public final class InputOptions {
         return name;
     }
 
-    /** {@code press}, {@code hold} or {@code release} for {@code key}; the view; {@code lost} or {@code gained}; empty otherwise. */
+    /** {@code press}, {@code hold} or {@code release} for {@code key}; {@code use} or {@code attack} for {@code hold}; the view; {@code lost} or {@code gained}; empty otherwise. */
     public String getMode() {
         return mode;
     }
 
-    /** The ticks of a key's hold; 0 otherwise. */
+    /** The ticks of a key's hold or of a {@code hold}; 0 otherwise. */
     public int getTicks() {
         return ticks;
     }
@@ -441,6 +478,30 @@ public final class InputOptions {
     /** The face of the block aimed at; empty for its centre. */
     public String getSide() {
         return side;
+    }
+
+    /**
+     * For {@code face block}: the point turned to, the block's centre or the centre of the named
+     * face, which lies half a block from the centre toward that side.
+     */
+    public double[] blockAimPoint() {
+        double x = blockX + 0.5;
+        double y = blockY + 0.5;
+        double z = blockZ + 0.5;
+        if ("down".equals(side)) {
+            y -= 0.5;
+        } else if ("up".equals(side)) {
+            y += 0.5;
+        } else if ("north".equals(side)) {
+            z -= 0.5;
+        } else if ("south".equals(side)) {
+            z += 0.5;
+        } else if ("west".equals(side)) {
+            x -= 0.5;
+        } else if ("east".equals(side)) {
+            x += 0.5;
+        }
+        return new double[] {x, y, z};
     }
 
     /** Ticks the client waits before it acts; 0 acts at once. */

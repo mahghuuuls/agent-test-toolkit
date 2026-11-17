@@ -5,6 +5,7 @@ import com.mahghuuuls.agenttesttoolkit.inbox.InboxGate;
 import com.mahghuuuls.agenttesttoolkit.inbox.InputOptions;
 import com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions;
 import com.mahghuuuls.agenttesttoolkit.inbox.ScreenOptions;
+import com.mahghuuuls.agenttesttoolkit.inspect.EntityTarget;
 import com.mahghuuuls.agenttesttoolkit.net.InputRequest;
 import com.mahghuuuls.agenttesttoolkit.net.PlayerActionRequest;
 import com.mahghuuuls.agenttesttoolkit.net.ScreenRequest;
@@ -22,11 +23,16 @@ import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityList;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
 
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -53,6 +59,10 @@ public final class ClientSubCommand implements SubCommand {
     public static final String KEY_BUSY = "devtool.client.busy";
     /** Failure key for a player action that acts on the world, asked of a dead player. */
     public static final String KEY_DEAD = "devtool.client.dead";
+    /** Failure key for a {@code face} whose entity or block is not loaded in the sender's dimension. */
+    public static final String KEY_NO_TARGET = "devtool.client.noTarget";
+    /** The reason in the server's record of that refusal. */
+    static final String REASON_NO_TARGET = "noTarget";
 
     private static final SecureRandom RANDOM = new SecureRandom();
     /** The reconnect's last word: leave as Save and Quit does, logging the player out. */
@@ -99,11 +109,11 @@ public final class ClientSubCommand implements SubCommand {
             throw new WrongUsageException("/devtool " + getUsage());
         }
         if (route.message == ClientStepRoute.Message.SCREEN) {
-            executeNewStep(sender, route, route.screen.toWords(), new ScreenRequestFactory(route.screen));
+            executeNewStep(server, sender, route, route.screen.toWords(), new ScreenRequestFactory(route.screen));
             return;
         }
         if (route.message == ClientStepRoute.Message.INPUT) {
-            executeNewStep(sender, route, route.input.toWords(), new InputRequestFactory(route.input));
+            executeNewStep(server, sender, route, route.input.toWords(), new InputRequestFactory(route.input));
             return;
         }
         if (route.message == ClientStepRoute.Message.PLAYER_ACTION) {
@@ -219,19 +229,38 @@ public final class ClientSubCommand implements SubCommand {
      * chosen; false when the channel would not send it to this client.
      */
     private interface NewStepMessage {
+        /**
+         * What the server finds before sending, written into the request's record; refuses with
+         * a key, after its own record, what the client could not act on.
+         */
+        void prepare(MinecraftServer server, EntityPlayerMP player, LogRecord record) throws CommandException;
+
         boolean send(EntityPlayerMP player, String token, long requestTick);
     }
 
     private static final class InputRequestFactory implements NewStepMessage {
         private final InputOptions options;
+        /** The point a {@code face} turns to; null for every other step. */
+        private double[] aim;
 
         InputRequestFactory(InputOptions options) {
             this.options = options;
         }
 
         @Override
+        public void prepare(MinecraftServer server, EntityPlayerMP player, LogRecord record) throws CommandException {
+            if (InputOptions.FACE.equals(options.getStep())) {
+                aim = faceTarget(server, player, options, record);
+            }
+        }
+
+        @Override
         public boolean send(EntityPlayerMP player, String token, long requestTick) {
-            return ToolkitChannel.send(new InputRequest(options, token, requestTick), player);
+            InputRequest request = new InputRequest(options, token, requestTick);
+            if (aim != null) {
+                request.withAim(aim[0], aim[1], aim[2]);
+            }
+            return ToolkitChannel.send(request, player);
         }
     }
 
@@ -243,9 +272,64 @@ public final class ClientSubCommand implements SubCommand {
         }
 
         @Override
+        public void prepare(MinecraftServer server, EntityPlayerMP player, LogRecord record) {
+            // A screen step names nothing the server must find.
+        }
+
+        @Override
         public boolean send(EntityPlayerMP player, String token, long requestTick) {
             return ToolkitChannel.send(new ScreenRequest(options, token, requestTick), player);
         }
+    }
+
+    /**
+     * The point a {@code face} step turns to, found when it is asked: one loaded entity that is
+     * not dead (any entity: a mob, an item, a minecart) in the sender's dimension, at its eyes' height, or a loaded block's centre or face centre. The
+     * client turns to that point wherever the target moves afterward. Anything else is refused
+     * here, so the client never turns toward a guess.
+     */
+    private static double[] faceTarget(MinecraftServer server, EntityPlayerMP player, InputOptions options,
+                                       LogRecord record) throws CommandException {
+        if (options.isFaceBlock()) {
+            BlockPos pos = new BlockPos(options.getBlockX(), options.getBlockY(), options.getBlockZ());
+            if (!player.world.isBlockLoaded(pos)) {
+                refuseNoTarget(player, record, 0);
+            }
+            record.add("target", "block");
+            record.addBlockPos("target", pos.getX(), pos.getY(), pos.getZ());
+            return options.blockAimPoint();
+        }
+        List<Entity> found = new ArrayList<Entity>();
+        try {
+            for (Entity entity : EntityTarget.matchAll(server, player, options.getName())) {
+                if (entity.world == player.world && !entity.isDead) {
+                    found.add(entity);
+                }
+            }
+        } catch (CommandException unmatched) {
+            // A selector the engine cannot read finds nothing, the same as one that matches nothing.
+        }
+        if (found.size() != 1) {
+            refuseNoTarget(player, record, found.size());
+        }
+        Entity entity = found.get(0);
+        ResourceLocation type = EntityList.getKey(entity);
+        record.add("target", "entity");
+        record.add("entityUuid", entity.getUniqueID().toString());
+        record.add("entityType", type == null ? entity.getClass().getSimpleName() : type.toString());
+        return new double[] {entity.posX, entity.posY + entity.getEyeHeight(), entity.posZ};
+    }
+
+    /** One record of the refusal, then the key a bundle can tolerate. */
+    private static void refuseNoTarget(EntityPlayerMP player, LogRecord record, int matched) throws CommandException {
+        record.add("action", "refused");
+        record.add("result", "refused");
+        record.add("reason", REASON_NO_TARGET);
+        record.add("matched", matched);
+        // The tick the step was asked in, as on every other record of a request.
+        record.add("requestTick", player.world.getTotalWorldTime());
+        ToolkitLog.write(record);
+        throw new CommandException(KEY_NO_TARGET, player.getName());
     }
 
     /**
@@ -253,8 +337,8 @@ public final class ClientSubCommand implements SubCommand {
      * player actions, sent only to a client that said hello with 1.9.0 or later. The server's
      * record names the step and its words, as the client will read them.
      */
-    private static void executeNewStep(ICommandSender sender, ClientStepRoute route, List<String> words,
-                                       NewStepMessage message) throws CommandException {
+    private static void executeNewStep(MinecraftServer server, ICommandSender sender, ClientStepRoute route,
+                                       List<String> words, NewStepMessage message) throws CommandException {
         EntityPlayerMP player = requireOwnPlayer(sender);
         String step = route.step;
         ClientRequestGate.Step gateStep = route.gateStep(false);
@@ -268,6 +352,7 @@ public final class ClientSubCommand implements SubCommand {
             options.append(options.length() == 0 ? "" : " ").append(words.get(i));
         }
         record.add("options", options.toString());
+        message.prepare(server, player, record);
         record.add("requestTick", requestTick);
 
         if (!message.send(player, token, requestTick)) {

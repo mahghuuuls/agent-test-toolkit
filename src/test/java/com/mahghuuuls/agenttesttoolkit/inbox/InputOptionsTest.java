@@ -45,7 +45,7 @@ class InputOptionsTest {
         assertNotNull(parse("key key.jump hold 1200"));
         for (String bad : new String[] {"key", "key key.jump", "key key.jump tap", "key key.jump hold",
                 "key key.jump hold 0", "key key.jump hold 1201", "key key.jump hold 05", "key key.jump press 3",
-                "key key.jump release raw=true", "key key.jump hold 20 keepHold=true", "key key.jump press raw=yes",
+                "key key.jump release raw=true", "key key.jump press raw=yes",
                 "key key=jump press", "key key.jump press route=event", "key key.jump press over=5",
                 "key key.jump press raw=true raw=true"}) {
             assertNull(parse(bad), bad);
@@ -169,5 +169,61 @@ class InputOptionsTest {
         assertNull(InputOptions.parse(null));
         assertNull(parse("Key key.jump press"), "steps are lower case");
         assertNull(parse("select 3"), "a player action is not an input step");
+    }
+
+    @Test
+    @DisplayName("a press of the use or attack binding takes a click's route; no other key and no hold does")
+    void keyPressRoute() {
+        InputOptions attack = parse("key key.attack press route=event keepHold=true");
+        assertNotNull(attack);
+        assertEquals("event", attack.getRoute());
+        assertTrue(attack.isKeepHold());
+        assertEquals("queue", parse("key key.use press route=queue").getRoute());
+        assertEquals("binding", parse("key key.use press").getRoute(), "the default");
+        assertTrue(parse("key key.use press route=binding").travelsAsInput(), "a key step always needs the newer message");
+        assertRoundTrip("key key.attack press route=queue keepHold=true raw=true");
+        for (String bad : new String[] {"key key.jump press route=event", "key key.use hold 20 route=event",
+                "key key.attack release route=queue", "key key.use press route=mouse", "key key.useitem press route=event",
+                "key key.use press route=event route=queue"}) {
+            assertNull(parse(bad), bad);
+        }
+    }
+
+    @Test
+    @DisplayName("face block turns to the block's centre, or to the centre of the face named")
+    void blockAimPoint() {
+        assertArrayEquals(new double[] {10.5, 64.5, -2.5}, parse("face block 10 64 -3").blockAimPoint(), 1.0E-9);
+        assertArrayEquals(new double[] {10.5, 65.0, -2.5}, parse("face block 10 64 -3 up").blockAimPoint(), 1.0E-9);
+        assertArrayEquals(new double[] {10.5, 64.0, -2.5}, parse("face block 10 64 -3 down").blockAimPoint(), 1.0E-9);
+        assertArrayEquals(new double[] {10.5, 64.5, -3.0}, parse("face block 10 64 -3 north").blockAimPoint(), 1.0E-9);
+        assertArrayEquals(new double[] {10.5, 64.5, -2.0}, parse("face block 10 64 -3 south").blockAimPoint(), 1.0E-9);
+        assertArrayEquals(new double[] {10.0, 64.5, -2.5}, parse("face block 10 64 -3 west").blockAimPoint(), 1.0E-9);
+        assertArrayEquals(new double[] {11.0, 64.5, -2.5}, parse("face block 10 64 -3 east").blockAimPoint(), 1.0E-9);
+    }
+
+    @Test
+    @DisplayName("keepHold on a hold: a key's hold and a use or attack hold, the latter needing the newer message only with it")
+    void keepHoldOnHolds() {
+        InputOptions sneak = parse("key key.sneak hold 30 keepHold=true");
+        assertNotNull(sneak);
+        assertTrue(sneak.isKeepHold());
+        assertEquals(30, sneak.getTicks());
+        assertRoundTrip("key key.sneak hold 30 keepHold=true raw=true");
+        InputOptions use = parse("hold use 40 keepHold=true delay=3");
+        assertEquals("hold", use.getStep());
+        assertEquals("use", use.getMode());
+        assertEquals(40, use.getTicks());
+        assertTrue(use.travelsAsInput());
+        assertRoundTrip("hold attack 1200 keepHold=true screenshot=a");
+        InputOptions plain = parse("hold attack 20 delay=5");
+        assertFalse(plain.travelsAsInput(), "the 1.7.0 hold keeps going as a player action");
+        assertArrayEquals(new String[] {"hold", "attack", "20", "delay=5"}, plain.toPlayerActionWords());
+        assertNotNull(PlayerActionOptions.parse(plain.toPlayerActionWords()));
+        assertFalse(parse("hold use 20 keepHold=false").travelsAsInput());
+        for (String bad : new String[] {"hold", "hold use", "hold jump 20", "hold use 0", "hold use 1201",
+                "hold use 20 route=event", "hold use 20 raw=true", "hold use 20 keepHold=yes",
+                "key key.jump release keepHold=true"}) {
+            assertNull(parse(bad), bad);
+        }
     }
 }

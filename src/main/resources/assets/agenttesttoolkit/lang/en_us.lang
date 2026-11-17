@@ -22,6 +22,7 @@ devtool.client.notAllowed=[DevToolkit] No client action: %s has not allowed clie
 devtool.client.notDead=[DevToolkit] No respawn: %s is not dead
 devtool.client.dead=[DevToolkit] No click: %s is dead
 devtool.client.busy=[DevToolkit] No client action: %s is about to leave on a reconnect
+devtool.client.noTarget=[DevToolkit] No turn: %s has no single loaded target for face in their dimension
 devtool.baubles.absent=[DevToolkit] Baubles is not installed: %s
 devtool.baubles.rejected=[DevToolkit] Baubles refused %s
 devtool.find.unknownBlock=[DevToolkit] No such block to find: %s

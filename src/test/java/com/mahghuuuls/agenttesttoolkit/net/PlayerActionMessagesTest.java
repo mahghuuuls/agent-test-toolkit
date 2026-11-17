@@ -178,9 +178,50 @@ class PlayerActionMessagesTest {
         assertFalse(ClientCapabilities.accept(player, new ClientActionReport("hold", "started", "", "", "", "h1", 30L)));
         ClientCapabilities.expectAction(player, "use", 31L, "u1");
         assertFalse(ClientCapabilities.accept(player, new ClientActionReport("use", "started", "", "", "", "u1", 31L)),
-                "only a hold answers twice");
+                "only a held input answers twice");
         assertTrue(ClientCapabilities.accept(player, new ClientActionReport("use", "done", "", "", "", "u1", 31L)));
         ClientCapabilities.resetForTesting();
+    }
+
+    @Test
+    @DisplayName("a key's hold and a turn over ticks also answer started, then their release; the other input steps once")
+    void keyHoldAndTurnAnswerTwice() {
+        ClientCapabilities.resetForTesting();
+        UUID player = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        for (String step : new String[] {"key", "look"}) {
+            ClientCapabilities.expectAction(player, step, 40L, "k1");
+            assertTrue(ClientCapabilities.accept(player, new ClientActionReport(step, "started", "", "", "", "k1", 40L)),
+                    step);
+            assertTrue(ClientCapabilities.accept(player, new ClientActionReport(step, "started", "", "", "", "k1", 40L)),
+                    "the started answer does not settle it: " + step);
+            assertTrue(ClientCapabilities.accept(player, new ClientActionReport(step, "done", "", "", "", "k1", 40L)), step);
+            assertFalse(ClientCapabilities.accept(player, new ClientActionReport(step, "done", "", "", "", "k1", 40L)),
+                    "settled: " + step);
+        }
+        for (String step : new String[] {"keys", "face", "view", "focus", "screen"}) {
+            ClientCapabilities.expectAction(player, step, 41L, "k2");
+            assertFalse(ClientCapabilities.accept(player, new ClientActionReport(step, "started", "", "", "", "k2", 41L)),
+                    step);
+            assertTrue(ClientCapabilities.accept(player, new ClientActionReport(step, "done", "", "", "", "k2", 41L)), step);
+        }
+        assertTrue(ClientCapabilities.answersTwice("hold"));
+        assertFalse(ClientCapabilities.answersTwice("use"));
+        ClientCapabilities.resetForTesting();
+    }
+
+    @Test
+    @DisplayName("the input steps' fields may be reported; a name outside the list may not")
+    void inputStepFields() {
+        Map<String, String> fields = new LinkedHashMap<String, String>();
+        for (String name : new String[] {"binding", "keyCode", "modifier", "context", "route", "pressedTick",
+                "releasedTick", "taken", "wasHeld", "listed", "truncated", "detail", "startYaw", "startPitch", "endYaw",
+                "endPitch", "over", "turnTicks", "aimX", "aimY", "aimZ", "view", "viewWas", "emulated",
+                "windowChanged"}) {
+            fields.put(name, "1");
+        }
+        assertTrue(new ClientActionReport("key", "done", "", "none", "", "beef", 7L).withFields(fields).isValid());
+        fields.put("keyName", "J");
+        assertFalse(new ClientActionReport("key", "done", "", "none", "", "beef", 7L).withFields(fields).isValid());
     }
 
     @Test

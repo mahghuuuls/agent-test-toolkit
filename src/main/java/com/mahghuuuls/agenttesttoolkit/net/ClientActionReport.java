@@ -57,7 +57,11 @@ public final class ClientActionReport implements IMessage {
                     "entityId", "entityType", "entityUuid", "held", "heldCount", "logout", "awayMs",
                     "focus", "input", "ticks", "heldTicks", "released", "all", "delay", "screenshot",
                     "item", "count", "advanced", "keys", "keysSeen", "lines", "closed", "showTicks",
-                    "leave", "leaveWaitMs"));
+                    "leave", "leaveWaitMs",
+                    // The input steps: a key binding, the route a press took, a turn, the view, the focus.
+                    "binding", "keyCode", "modifier", "context", "route", "pressedTick", "releasedTick", "taken",
+                    "wasHeld", "listed", "truncated", "detail", "startYaw", "startPitch", "endYaw", "endPitch", "over",
+                    "turnTicks", "aimX", "aimY", "aimZ", "view", "viewWas", "emulated", "windowChanged", "countedOn"));
         // A tooltip's lines, as many as the client reports; its own record has more.
         for (int i = 1; i <= 20; i++) {
             names.add("line" + i);
