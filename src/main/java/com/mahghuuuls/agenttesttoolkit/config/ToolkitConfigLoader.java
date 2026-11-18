@@ -171,10 +171,14 @@ public final class ToolkitConfigLoader {
 
             boolean allowActions = cfg.getBoolean("allowActions", CATEGORY_CLIENT,
                     d.isClientAllowActions(),
-                    "Whether a server with the toolkit may ask this client to leave and come back, "
-                            + "respawn, or close the open screen, for the player who asked. Off by "
-                            + "default. Independent of applyOnJoin; takes effect at the next world "
-                            + "join. Use it in a development or test instance only.");
+                    "Whether a server with the toolkit may ask this client, for the player who asked, "
+                            + "for player input (hotbar slot, clicks and held buttons, drop, inventory, "
+                            + "item tooltips, keys by name, turning and facing, the camera view, "
+                            + "emulated focus, and clicks, scrolls and tooltips in the open screen) "
+                            + "and for lifecycle steps (leave and come back, respawn, close the open "
+                            + "screen, quit). Off by default. Independent of applyOnJoin. In single "
+                            + "player, reopening a world picks up a change; for a dedicated server, "
+                            + "restart the game. Use it in a development or test instance only.");
 
             // One key per category; -1, the default, leaves it as it is: these are personal
             // preferences, not test settings, and enabling applyOnJoin must not change them.
@@ -222,11 +226,15 @@ public final class ToolkitConfigLoader {
 
             boolean requestChannel = cfg.getBoolean("requestChannel", CATEGORY_CLIENT,
                     d.isClientRequestChannel(),
-                    "Whether this client reads menu-step requests from config/devtool/client-inbox "
-                            + "while no world is open: create or open a single-player world, connect "
-                            + "to a server on this computer or the local network, quit the game. Off "
-                            + "by default. When true, it listens from game start, with no click. Use "
-                            + "it in a development or test instance only.");
+                    "Whether this client reads requests from config/devtool/client-inbox. At a menu: "
+                            + "create or open a single-player world (an open can report or answer the "
+                            + "question a world asks as it opens), connect to a server on this computer "
+                            + "or the local network, quit the game, list or take a screenshot of the "
+                            + "menu on show, and show a mod's entry in the Mods list. In a world, only "
+                            + "close, for a screen that pauses single player. Off by default. When "
+                            + "true, it listens from game start, with no click; after changing it at "
+                            + "the title screen, restart the game. Use it in a development or test "
+                            + "instance only.");
 
             boolean dismissTutorial = cfg.getBoolean("dismissTutorial", CATEGORY_CLIENT,
                     d.isClientDismissTutorial(),

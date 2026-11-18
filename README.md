@@ -4,7 +4,7 @@ A development tool for Minecraft mod authors. **This is not a gameplay mod.** It
 
 It is for someone developing a Minecraft mod. It works on its own, as a way to set up a test scenario without typing the same eight commands every time. But its main purpose is to help an AI coding assistant stop relying on you to describe what happened on screen, by writing what the game actually did into `latest.log` in a form a program can read.
 
-You still do the parts of a test that need a person: aiming, walking, working in other mods' screens. The toolkit sets the world up, takes small player actions such as a click, a held button or a tooltip, watches, and writes it down.
+The toolkit sets the world up, takes player input such as a key, a click, a turn toward a target or a click in an open screen, watches, and writes it down. You still do the parts of a test that need your own judgment, or input it cannot make, such as dragging items across slots.
 
 ## Where to read what
 
@@ -157,13 +157,16 @@ Four steps you used to do by hand: leave the world and come back to the same pla
 /devtool client drop all
 /devtool client inventory
 /devtool client tooltip 0 shift screenshot=tip
+/devtool client key key.forward hold 40
+/devtool client face @e[type=zombie,c=1]
+/devtool client click slot 0
 ```
 
-From 1.7.0, small player actions on your own client, so a test whose action is a click needs no person: pick a hotbar slot, right click, left click, keep a mouse button down for a time, drop the held item, open the inventory, or show an item's tooltip (with Shift, Ctrl or Alt held for it if asked) and write its lines into the log. A click goes through the game's own key handling, so the game and other mods see it as a click (except mods that read the raw mouse events); what it does is the game's decision. The toolkit never moves or turns you: a bundle aims with vanilla `tp`. Same rules as the client actions above.
+From 1.7.0, small player actions on your own client, so a test whose action is a click needs no person: pick a hotbar slot, right click, left click, keep a mouse button down for a time, drop the held item, open the inventory, or show an item's tooltip (with Shift, Ctrl or Alt held for it if asked) and write its lines into the log. A click goes through the game's own key handling, so the game and other mods see it as a click; what it does is the game's decision. From 1.9.0 it also presses, holds and releases any key binding by name (several at once), turns you to a direction or to face an entity or block, switches the camera view, and clicks, scrolls and reads tooltips in an open screen. A key or click can also go through Forge's input events or the game's input queue, for mods that listen there. Same rules as the client actions above.
 
 ### Client request channel
 
-At the title screen no server runs, so nothing above can reach the game. With `B:requestChannel=true` under `client`, your client reads small request files from `config/devtool/client-inbox/` and takes one of four menu steps: create a single-player world with the settings the Create New World screen offers, open a save, connect to a server on your own computer or local network, or quit. A create never replaces an existing save, and a connect never goes anywhere outside your own network. Off by default; with it on, it listens from game start, with no click. Together with the inbox opening at your own join, an AI assistant can run a whole test from the title screen to closing the game while you only launch it.
+At the title screen no server runs, so nothing above can reach the game. With `B:requestChannel=true` under `client`, your client reads small request files from `config/devtool/client-inbox/` and acts on them: create a single-player world with the settings the Create New World screen offers, open a save (reporting or answering a question the world asks as it opens), connect to a server on your own computer or local network, quit, list or picture the screen on show, picture a mod's entry in the Mods list, or, while a menu or a book pauses single player, close it. A create never replaces an existing save, and a connect never goes anywhere outside your own network. Off by default; with it on, it listens from game start, with no click. Together with the inbox opening at your own join, an AI assistant can run a whole test from the title screen to closing the game while you only launch it.
 
 ### Sessions and marks
 
@@ -188,7 +191,7 @@ Put a mark before each step you ask a human to perform. Then a missing record me
 
 ## Configuration
 
-`config/devtool/devtool.cfg`. Arena defaults and construction block, the NBT truncation limit, whether a bundle runs when an operator joins, whether spawn logging includes dropped items, whether the command inbox may be opened, whether it opens by itself at your own join, and how long it waits for you across a reconnect, whether your client allows client actions, whether it reads menu-step requests, and optional client defaults: brightness, music, master, weather, hostile, friendly and ambient volume, and keeping the game running when its window loses focus.
+`config/devtool/devtool.cfg`. Arena defaults and construction block, the NBT truncation limit, whether a bundle runs when an operator joins, whether spawn logging includes dropped items, whether the command inbox may be opened, whether it opens by itself at your own join, and how long it waits for you across a reconnect, whether your client allows client actions, whether it reads client request channel requests, and optional client defaults: brightness, music, master, weather, hostile, friendly and ambient volume, and keeping the game running when its window loses focus.
 
 Everything that could change your world or your settings without being asked is off until you turn it on.
 

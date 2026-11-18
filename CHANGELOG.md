@@ -1,5 +1,79 @@
 # Changelog
 
+## 1.9.0
+
+The theme is fewer steps for the person at the keyboard: keys by name, turning the view, clicks that other mods hear, and work inside open screens and menus, so more of a test runs while the person only launches the game. It also fixes a reconnect that could freeze single player, keeps bundle output out of the chat, and shows the toolkit's prompts where the chat cannot cover them. The items came from other projects' test sessions with the toolkit and from the developer.
+
+### Fixed
+
+- **The logout reconnect no longer freezes single player.** In 1.8.0, `devtool client reconnect [awaySeconds] logout` could let the integrated server stop on its own while the client waited for it forever. The client now pauses the game first, with its own "Leaving..." screen, waits until the integrated server proves the pause, and then leaves in one tick as Save and Quit does: the player is logged out once and the reconnect comes back as before. The records add `leave=paused` and `leaveWaitMs`. When the pause is not proven within 10 seconds, the player stays in the world and the reconnect ends `failed reason=leaveTimeout`; another screen over the pause screen, or a leave by the player, ends it `failed reason=leaveInterrupted` before anything is sent. Without `logout`, and on a dedicated server, the reconnect is as before.
+
+### Added
+
+- **Keys by name.** `devtool client key <binding> press|hold <1-1200>|release` acts on one key binding of your own client, named as in `options.txt` without `key_`: `key.forward`, `key.jump`, `key.sneak`, or a mod's own. A bundle can now walk, jump, sneak off a mount or press a mod's key. The record names the binding, its key, modifier and context, the route, and the client tick the key went down and up (`pressedTick`, `releasedTick`). Refused `unknownKey`, `ambiguousKey` or `unbound`; a press the game counted on another binding fails `notCounted` and names it in `countedOn`.
+
+- **Key routes.** By default a key is set through its binding (`route=binding`). `raw=true` also holds it in the keyboard library's own key state, for code that reads the keyboard directly. `route=queue` puts a real key event into the game's input queue, so the game runs its whole key path and posts Forge's `KeyInputEvent` itself, which a mod that listens only to that event needs: Hwyla's configuration key opens its screen through `route=queue` and not through the default route. Where the running game's input library offers no such state or queue, the step is refused `routeUnavailable`.
+
+- **`devtool client keys [prefix]`** lists the key bindings, one `KEY_BINDING` record each, with `duplicate=true` for a name two bindings share. It changes nothing.
+
+- **Several holds at once.** Holds are kept per key. `keepHold=true` on `use`, `attack`, `hold`, `key ... press` and `key ... hold` leaves the running holds, and a running turn, going: walk and sneak together, or keep a shield raised and attack. Any other step still ends them first (`released=nextAction`), and `key <binding> release` ends only that binding's hold. A press of the attack, use or pick-block binding while an item is in use says whether the game took it (`taken=true` or `false`).
+
+- **Click routes.** `client use` and `client attack` take `route=binding|event|queue`. `binding`, the default, is the 1.8.0 click. `event` also posts Forge's `InputEvent.MouseInputEvent` right after the press; `queue` puts a real mouse-button press and release into the game's input queue, so the game's whole click path runs, Forge's `MouseEvent` included. Spartan Shields' shield bash answered `route=event` (shield raised with `client hold use 40`, then `client attack route=event keepHold=true`) and not the default click. RLCombat's own attack handling (its off-hand attack, a swing through a cobweb) answered only `route=queue` (tested on Cleanroom; see Known Issues); RLCombat ignores clicks while an item is in use, so a queued click during a held use does nothing there.
+
+- **Turning, facing and the camera.** `client look <yaw> <pitch> [over=<ticks>]` turns your view as the mouse does, at once or evenly over up to 200 ticks. `client face <selector|uuid>` turns it to an entity's eyes, `client face block <x> <y> <z> [face]` to a block's centre or one of its faces; a target that is not loaded is refused with `devtool.client.noTarget`. The rotation reaches the server as your own. `client view first|back|front` sets the camera as F5 does. An `attack` after `face` hits only within the game's own reach (3 blocks in survival), so put the target close.
+
+- **Focus, emulated.** `client focus lost|gained` does what the game does when its window loses or regains focus, without touching the window: keys are let go, holds and turns end `released=focusLost`, and the pause menu opens when the game pauses on lost focus. The records say `emulated=true windowChanged=false`.
+
+- **Screens.** `client screen` writes the open screen's class, size and scale, its buttons and, for a container, its slots (`SCREEN_INFO`, `SCREEN_BUTTON`, `SCREEN_SLOT`). `client click slot <n> [left|right|shift|key=<1-9>]`, `client click button <id>` or `button label=<text>`, `client click at <x> <y> [left|right]` and `client scroll <amount>` act on the open screen through its own handling, as a person's click does; `expect=<screen class>` refuses a click on the wrong screen (`screenChanged`). Inventory Tweaks' sort button, named by its label, sorted a chest. Controls a screen keeps outside its button list (Hwyla's configuration screen, for one) are not listed. Dragging across slots is not offered.
+
+- **A container slot's tooltip as drawn.** `client tooltip container <slot> [advanced] [shift] [ctrl] [alt]` draws the tooltip of a slot in the open container through the screen's own drawing and writes its lines, including a line the screen adds only while drawing, such as the creative search tab's category. `screenshot=<label>` takes a picture with it.
+
+- **More client request channel steps.**
+  - `close <screen class>`, in a world, only while single player is paused: Esc on the open screen, so a book or a mod's screen that pauses the game no longer leaves the inbox waiting for a person. A screen that asks a person to decide is refused `confirmScreen`.
+  - `open <folder> onQuestion=report|confirm|cancel`: when a world asks a question as it opens (an old save, blocks or items of a mod no longer installed), `report`, the default, ends the step at once with `failed reason=question`, the kind and the text, instead of after the 60-second deadline; the screen stays for a person. `confirm` and `cancel` answer it as its buttons do. `confirm` on missing blocks makes Forge back the save up, then open it with each missing block kept as an invisible stand-in that acts as air; use it on copies of test saves.
+  - `screen` and `screenshot <label> [hide=...]` at a menu: list the menu's buttons, or picture the title screen, another menu, or the screen of a lost connection.
+  - `mods <modId> [screenshot=<label>]` at the title screen: opens the Mods list (Forge's, or Cleanroom's own), selects the mod, waits until its name, version and logo are drawn, takes the picture, and goes back.
+
+- **`hide=toasts`, and lists.** A screenshot (the command, a player action's `screenshotHide`, a channel request) can leave the toasts out, and `hide` takes a comma list such as `hide=chat,toasts`. The toasts come back in order right after the picture.
+
+- **`client.dismissTutorial`** (off by default) sets the tutorial to done at game start, so its hints never cover a test or a picture.
+
+- **The prompt panel.** For a client with toolkit 1.9.0, `checkpoint arm` and `checkpoint cue` show in the toolkit's own panel on the right of the screen, with the acknowledgement command for an arm: below the toasts and the effect icons, above the subtitles, clear of a scoreboard sidebar and of the chat. It goes at the acknowledgement, at the timeout, or when the player leaves; F1 and `hide=hud` leave it out. `CHECKPOINT` records the `form`.
+
+- **Quiet bundles.** While a quiet run's command executes, vanilla command feedback and the toolkit's own replies reach nobody's chat; the server log keeps the vanilla line, and a failed command still shows one line naming the bundle, the command and the key. `devtool run <name> quiet=true|false`, the new alias `devtool bundle run <name>`, or `"quiet"` in the bundle file decide it, and a nested run follows its parent. Chat a command sends by itself, such as `list`, `say` or `tellraw`, is not stopped. `BUNDLE_START` and `BUNDLE_END` carry `quiet`, and `BUNDLE_END` counts the kept-back lines in `chatSuppressed`.
+
+- **`devtool fixture clear <handle|all> strict`** fails with `devtool.fixture.notLoaded` when a fixture is not loaded, so `stopOnFailure` stops the bundle; the handle is kept. Without `strict`, as before.
+
+- **`viewDistance`** on the record of an `await chunks` timeout.
+
+- **Four new record types**, `KEY_BINDING`, `SCREEN_INFO`, `SCREEN_BUTTON` and `SCREEN_SLOT`, for 56 in total. `MENU_STEP` gains `action=question` and `action=answered`.
+
+### Changed
+
+- **Bundles the inbox starts are quiet by default.** Their command output no longer reaches the chat. Write `run <bundle> quiet=false` in the inbox request, or `"quiet": false` in the bundle, for the 1.8.0 behaviour. A bundle typed in chat, at the console, by a command block or by join automation shows its chat as before.
+
+- **Checkpoint prompts default to the panel** for a client with toolkit 1.9.0. In 1.8.0 an `arm` showed as a title and a `cue` in the action bar; `cue <label> chat|actionbar|title` still picks a form.
+
+- **An unbound placeholder says what to run first**: `devtool session start <name>`, `devtool session operator <player>` or `devtool fixture claim <handle> ...`. The hint is also in the failure's `ERROR` `detail` and in the `detail` of the inbox answer, so an agent that reads only files sees it. The key stays `devtool.placeholder.unbound`. A fixture command without a session names `devtool session start <name>`.
+
+- **A client too old for a step is told which versions.** The refusal keeps its key (`devtool.client.noClient`, `devtool.screenshot.noClient`) and now names the client's version and the one needed, such as `Developer (client toolkit 1.8.0, this step needs 1.9.0)`, in the server's `ERROR` record and the client's chat. The inbox answer's `detail` is the key.
+
+- **Documentation** adds: `hide=hud` also hides the first-person hand; a server teleport can read the player as not on ground for up to 20 ticks; forcing an attribute with a held item; when to write the first client channel request after a launch; and `toleratedFailures` for vanilla commands expected to fail. The descriptions a new `devtool.cfg` gives for `client.allowActions` and `client.requestChannel` now name the 1.9.0 steps; keys and defaults are unchanged.
+
+### Compatibility
+
+- **A client older than 1.9.0** on a 1.9.0 server is refused every new step at once, with nothing sent; the 1.7.0 and 1.8.0 player actions work for it as before. Its cues show in the action bar, where chat lines can cover them.
+
+- **Beside other mods** (seen on Cleanroom): clicks inside a chest gave the same results with Inventory Tweaks, Mouse Tweaks and Scaling GUIs installed, and the key steps and the prompt panel the same with ModifierKeyFix and Gnetum installed. The toolkit adds no integration with any of these mods and changes none of their settings.
+
+- **Input on both runtimes.** The raw key state and the input queue (keys, clicks, scroll) work on the Forge development client and on Cleanroom.
+
+### Known Issues
+
+- **RLCombat 2.2.6 in a Forge development client** crashed the game at world start in RLCombat's own code (a `ClassCastException` in its client tick), before any toolkit input step ran. The same RLCombat runs on Cleanroom, where `route=queue` reached it. The cause was not confirmed.
+
+- **With Gnetum installed**, chat cannot be hidden from screenshots (`hide=chat` still leaves it in the picture), as in 1.8.0; hiding the whole HUD (`hide=hud`) still works.
+
 ## 1.8.0
 
 Small additions that save a person a step during a test: the screenshot without chat, the light level without F3, the reason a request waits, and checks a bundle could not make before. They came from another project's test sessions with the toolkit.
