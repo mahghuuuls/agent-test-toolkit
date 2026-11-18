@@ -21,6 +21,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.MouseEvent;
+import net.minecraftforge.client.event.RenderTooltipEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
@@ -170,6 +171,15 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver, T
     @SubscribeEvent
     public void onDrawScreen(GuiScreenEvent.DrawScreenEvent.Post event) {
         screens.draw(event);
+    }
+
+    /**
+     * The final lines of a tooltip as it is drawn; kept only while the toolkit's own tooltip draw
+     * runs. Last and also when cancelled, since the lines cannot be changed in this event.
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
+    public void onTooltipDrawn(RenderTooltipEvent.Pre event) {
+        screens.tooltipEvent(event);
     }
 
     /** Before any other listener of an input event: whether one of them takes a watched press. */

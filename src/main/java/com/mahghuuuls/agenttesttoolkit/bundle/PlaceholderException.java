@@ -16,11 +16,18 @@ public final class PlaceholderException extends Exception {
 
     private final String key;
     private final String placeholder;
+    private final String hint;
 
     public PlaceholderException(String key, String placeholder, String message) {
+        this(key, placeholder, message, null);
+    }
+
+    /** @param hint the step to run first so the placeholder has a value; null when none is known */
+    public PlaceholderException(String key, String placeholder, String message, String hint) {
         super(message);
         this.key = key;
         this.placeholder = placeholder;
+        this.hint = hint;
     }
 
     public String getKey() {
@@ -30,5 +37,19 @@ public final class PlaceholderException extends Exception {
     /** The placeholder text as written in the bundle, such as {@code ${operator.name}}. */
     public String getPlaceholder() {
         return placeholder;
+    }
+
+    /** The step to run first, such as {@code devtool session start <name>}; null when none is known. */
+    public String getHint() {
+        return hint;
+    }
+
+    /**
+     * The failure's detail for its record and an inbox answer: the key, then the step to run
+     * first when one is known. The key leads, so a reader matching on it still finds it, and an
+     * agent that reads only the files learns the step without the chat.
+     */
+    public String getDetail() {
+        return hint == null ? key : key + ": run " + hint + " first";
     }
 }

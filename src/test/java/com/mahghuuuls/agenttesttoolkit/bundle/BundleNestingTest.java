@@ -46,7 +46,7 @@ class BundleNestingTest {
     };
 
     /** Dispatcher that parks its parent on a child when it sees the nesting command. */
-    private static final class NestingDispatcher implements CommandDispatcher {
+    private static class NestingDispatcher implements CommandDispatcher {
         private final List<String> dispatched = new ArrayList<String>();
         private BundleExecution parent;
         private BundleExecution child;
@@ -190,5 +190,31 @@ class BundleNestingTest {
         assertTrue(parentCommands.dispatched.contains("after"),
                 "parent honours its own, and continues");
         assertFalse(parentCommands.parent.isStoppedEarly());
+    }
+
+    @Test
+    @DisplayName("a nested child's unbound-placeholder step passes up to the parent with the key unchanged")
+    void childHintPassesUp() {
+        BundleScheduler scheduler = new BundleScheduler();
+        NestingDispatcher childCommands = new NestingDispatcher() {
+            @Override
+            public String resolve(String command) throws PlaceholderException {
+                throw new PlaceholderException(PlaceholderException.KEY_UNBOUND, "${operator.name}",
+                        "Placeholder ${operator.name} has no value.", "devtool session start <name>");
+            }
+        };
+        BundleExecution childExec = new BundleExecution(
+                bundle("child", true, "say ${operator.name}"), childCommands, CONTEXT);
+        NestingDispatcher parentCommands = wire(scheduler, true, childExec);
+
+        scheduler.tick(IGNORE);
+        childExec.advance(IGNORE);
+        scheduler.tick(IGNORE);
+
+        BundleExecution parent = parentCommands.parent;
+        assertEquals(PlaceholderException.KEY_UNBOUND, parent.getFirstFailure(), "the key stays the failure");
+        assertEquals("devtool.placeholder.unbound: run devtool session start <name> first",
+                parent.getFirstFailureDetail());
+        assertEquals(childExec.getFirstFailureDetail(), parent.getFirstFailureDetail());
     }
 }

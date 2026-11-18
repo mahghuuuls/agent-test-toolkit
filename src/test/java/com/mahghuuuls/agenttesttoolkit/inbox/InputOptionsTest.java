@@ -172,7 +172,26 @@ class InputOptionsTest {
     }
 
     @Test
-    @DisplayName("a press of the use or attack binding takes a click's route; no other key and no hold does")
+    @DisplayName("any key press or hold takes the queue route and the binding route; release takes none")
+    void keyQueueRoute() {
+        InputOptions press = parse("key waila.keybind.wailaconfig press route=queue");
+        assertNotNull(press);
+        assertEquals("queue", press.getRoute());
+        InputOptions hold = parse("key key.forward hold 40 route=queue keepHold=true raw=true");
+        assertNotNull(hold);
+        assertEquals("queue", hold.getRoute());
+        assertEquals(40, hold.getTicks());
+        assertEquals("binding", parse("key key.jump hold 20 route=binding").getRoute());
+        assertRoundTrip("key key.jump hold 20 route=queue");
+        assertRoundTrip("key key.ashenskills.skill press route=queue keepHold=true");
+        for (String bad : new String[] {"key key.jump release route=queue", "key key.jump hold 20 route=event",
+                "key key.jump press route=event", "key key.jump press route=queue route=binding"}) {
+            assertNull(parse(bad), bad);
+        }
+    }
+
+    @Test
+    @DisplayName("a press of the use or attack binding also takes the event route; no other key and no hold does")
     void keyPressRoute() {
         InputOptions attack = parse("key key.attack press route=event keepHold=true");
         assertNotNull(attack);

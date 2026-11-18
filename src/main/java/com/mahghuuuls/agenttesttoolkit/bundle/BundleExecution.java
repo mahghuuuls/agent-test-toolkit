@@ -86,6 +86,8 @@ public final class BundleExecution implements QuietScope.Run {
     private boolean completionNotified;
     /** The detail of the first failure, which with stopOnFailure is the one that stopped it. */
     private String firstFailure;
+    /** The first failure's detail when it says more than its key; null otherwise. */
+    private String firstFailureDetail;
 
     private final String bundleName;
     private final String hash;
@@ -237,6 +239,7 @@ public final class BundleExecution implements QuietScope.Run {
             boolean childFailed = child.getFailed() > 0 || child.isSenderLost();
             String childName = child.getBundleName();
             String childFailure = child.getFirstFailure();
+            String childFailureDetail = child.getFirstFailureDetail();
             // A quiet child has already shown its own failure line; a second one here would say
             // the same failure twice.
             boolean childSaidIt = child.isQuiet();
@@ -244,7 +247,8 @@ public final class BundleExecution implements QuietScope.Run {
 
             if (childFailed) {
                 failed++;
-                noteFailure(childFailure != null ? childFailure : "nested bundle reported failures");
+                noteFailure(childFailure != null ? childFailure : "nested bundle reported failures",
+                        childFailureDetail);
                 listener.onCommandFailed(this, position - 1,
                         "devtool run " + childName, "nested bundle reported failures");
                 if (!childSaidIt) {
@@ -354,8 +358,9 @@ public final class BundleExecution implements QuietScope.Run {
                     continue;
                 }
                 failed++;
-                noteFailure(e.getKey());
-                listener.onCommandFailed(this, index, command.getCommand(), e.getKey());
+                // The record's detail carries the step to run first; the key stays the failure's.
+                noteFailure(e.getKey(), e.getHint() == null ? null : e.getDetail());
+                listener.onCommandFailed(this, index, command.getCommand(), e.getDetail());
                 announceFailure(index, e.getKey());
                 if (stopOnFailure) {
                     stoppedEarly = true;
@@ -445,14 +450,27 @@ public final class BundleExecution implements QuietScope.Run {
     }
 
     private void noteFailure(String detail) {
+        noteFailure(detail, null);
+    }
+
+    private void noteFailure(String detail, String fullDetail) {
         if (firstFailure == null) {
             firstFailure = detail;
+            firstFailureDetail = fullDetail;
         }
     }
 
     /** @return the detail of the first failed command, or null when none failed. */
     public String getFirstFailure() {
         return firstFailure;
+    }
+
+    /**
+     * The first failed command's detail when it says more than {@link #getFirstFailure}: an
+     * unbound placeholder's key followed by the step to run first. Null otherwise.
+     */
+    public String getFirstFailureDetail() {
+        return firstFailureDetail;
     }
 
     /** Registers a listener told once when this execution ends. */

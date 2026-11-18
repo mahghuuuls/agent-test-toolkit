@@ -133,6 +133,8 @@ public final class InboxDispatch implements InboxRequestHandler {
                 execution.getExecuted(), execution.getFailed(), execution.getTolerated(),
                 execution.getTotal(), execution.isStoppedEarly(), execution.getDurationTicks(),
                 execution.isSenderLost(), discarded, execution.getFirstFailure())
+                // The step to run first, for a failure that names one, so the agent reads it here.
+                .with("detail", execution.getFirstFailureDetail())
                 .with("resultFile", execution.getResultFile())
                 .writeTo(directory);
     }

@@ -2,6 +2,7 @@ package com.mahghuuuls.agenttesttoolkit.client;
 
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.client.settings.IKeyConflictContext;
+import net.minecraftforge.client.settings.KeyBindingMap;
 import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
 import java.lang.reflect.Field;
@@ -17,8 +18,13 @@ final class KeyBindings {
     /** The press count's name in the obfuscated game; the helper maps it in a development game. */
     private static final String PRESS_TIME = "field_151474_i";
 
+    /** The map of bindings by key, in the obfuscated game; the helper maps it in a development game. */
+    private static final String HASH = "field_74514_b";
+
     private static boolean resolved;
     private static Field pressTime;
+    private static boolean lookupResolved;
+    private static KeyBindingMap lookup;
 
     private KeyBindings() {
     }
@@ -82,6 +88,41 @@ final class KeyBindings {
         int[] before = counts(same);
         KeyBinding.onTick(code);
         return KeyLookup.countedElsewhere(names, before, counts(same), at);
+    }
+
+    /**
+     * Which binding the game would count a press of the named binding's key on now, when not the
+     * named one, decided before the key goes down (see {@link KeyLookup#countedOnActive}): the
+     * one the game's own lookup finds, which is how the game picks the binding it counts a key
+     * or button going down on. Null when it is the named one, or when the lookup cannot be read.
+     */
+    static String countedOnBeforePress(KeyBinding named) {
+        KeyBindingMap map = lookup();
+        if (map == null) {
+            return KeyLookup.countedOnActive(false, false, null);
+        }
+        KeyBinding active;
+        try {
+            active = map.lookupActive(named.getKeyCode());
+        } catch (RuntimeException unreadable) {
+            return KeyLookup.countedOnActive(false, false, null);
+        }
+        return KeyLookup.countedOnActive(true, active == named, active == null ? null : active.getKeyDescription());
+    }
+
+    /** The game's own map of the bindings by key, the one its key handling reads; null when it cannot be read. */
+    private static synchronized KeyBindingMap lookup() {
+        if (!lookupResolved) {
+            lookupResolved = true;
+            try {
+                Field field = ObfuscationReflectionHelper.findField(KeyBinding.class, HASH);
+                Object value = field.get(null);
+                lookup = value instanceof KeyBindingMap ? (KeyBindingMap) value : null;
+            } catch (IllegalAccessException | RuntimeException notFound) {
+                lookup = null;
+            }
+        }
+        return lookup;
     }
 
     private static int[] counts(List<KeyBinding> bindings) {

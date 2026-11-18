@@ -7,6 +7,7 @@ import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 
@@ -21,8 +22,9 @@ import java.util.Set;
 /**
  * Every input the toolkit keeps down beyond the moment it is asked, and its release: key bindings
  * held (a player action's hold and a key's hold), one per key code; key presses and clicks, each
- * let go and recorded on the tick after, once the game has handled them; clicks through the
- * mouse queue (their life is {@link PressStages}'); and one turn of the view spread over ticks.
+ * let go and recorded on the tick after, once the game has handled them; presses, clicks and
+ * holds through the mouse or keyboard queue, whose life is {@link PressStages}'; and one turn of
+ * the view spread over ticks.
  * It also keeps whether {@code client focus lost} has taken the game's focus, which counts as a
  * loss of focus for every hold and turn until the game takes focus again.
  *
@@ -46,52 +48,71 @@ final class HeldInputs {
     static final String REASON_NOT_COUNTED = "notCounted";
 
     private final Records records;
-    /** Held bindings by key code: one key code is one key, whatever the bindings on it. */
+    /** Running holds by key code: one key code is one key, whatever the bindings on it. */
     private final Map<Integer, Hold> holds = new LinkedHashMap<Integer, Hold>();
     private final List<Press> presses = new ArrayList<Press>();
+    /** Queued holds that have ended, whose key-up is still to go into the queue or be let go. */
+    private final List<Hold> releasing = new ArrayList<Hold>();
     private Turn turn;
     /** {@code client focus lost} took the game's focus, and the game has not taken it back yet. */
     private boolean focusLost;
 
-    private static final class Hold {
+    /** What a press and a hold share: the binding, its key, and where it is in its life. */
+    private abstract static class Input {
         final Asked asked;
         final KeyBinding binding;
         final int keyCode;
-        final int askedTicks;
         final boolean raw;
-        final boolean focusedAtStart;
-        /** A key step's record names the tick it was let go. */
-        final boolean keyStep;
-        /** What the release's record carries besides its ticks and reason. */
+        /** Through an input queue: the game presses and lets go the key itself, from its events. */
+        final boolean queued;
+        /** Through the keyboard queue rather than the mouse queue: the binding is on a key. */
+        final boolean keyboard;
         final Map<String, String> fields;
-        int heldTicks;
+        PressStages.Stage stage;
 
-        Hold(Asked asked, KeyBinding binding, int askedTicks, boolean raw, boolean focusedAtStart, boolean keyStep,
-             Map<String, String> fields) {
+        Input(Asked asked, KeyBinding binding, boolean raw, boolean queued, Map<String, String> fields) {
             this.asked = asked;
             this.binding = binding;
             this.keyCode = binding.getKeyCode();
-            this.askedTicks = askedTicks;
             this.raw = raw;
+            this.queued = queued;
+            this.keyboard = queued && MouseQueue.button(keyCode) < 0;
+            this.fields = fields;
+            this.stage = queued ? PressStages.Stage.QUEUE_DUE : PressStages.Stage.DOWN;
+        }
+
+        /** A {@code key} step's: the game's lookup is asked, before its key-down is queued, which binding it counts. */
+        abstract boolean keyStep();
+    }
+
+    private static final class Hold extends Input {
+        final int askedTicks;
+        final boolean focusedAtStart;
+        /** A key step's record names the tick it was let go. */
+        final boolean keyStep;
+        int heldTicks;
+
+        Hold(Asked asked, KeyBinding binding, int askedTicks, boolean raw, boolean focusedAtStart, boolean keyStep,
+             boolean queued, Map<String, String> fields) {
+            super(asked, binding, raw, queued, fields);
+            this.askedTicks = askedTicks;
             this.focusedAtStart = focusedAtStart;
             this.keyStep = keyStep;
-            this.fields = fields;
+        }
+
+        @Override
+        boolean keyStep() {
+            return keyStep;
         }
     }
 
-    private static final class Press {
-        final Asked asked;
-        final KeyBinding binding;
-        final int keyCode;
+    private static final class Press extends Input {
         final String route;
-        final boolean queued;
+        final boolean keyStep;
         /** A key press sets the binding down for a tick; a click only counts the press, as a player action's does. */
         final boolean setsState;
-        final boolean raw;
         /** Made while a hand was active, on a binding the game then drains: its record says whether it was taken. */
         final boolean watched;
-        final Map<String, String> fields;
-        PressStages.Stage stage;
         /** The binding the game counted the press on instead of this one; null when this one. */
         String countedOn;
         int expected = -1;
@@ -99,17 +120,18 @@ final class HeldInputs {
         boolean takenByEvent;
         int beforeEvent = -1;
 
-        Press(Asked asked, KeyBinding binding, String route, boolean setsState, boolean raw, boolean watched,
+        Press(Asked asked, KeyBinding binding, String route, boolean keyStep, boolean raw, boolean watched,
               Map<String, String> fields) {
-            this.asked = asked;
-            this.binding = binding;
-            this.keyCode = binding.getKeyCode();
+            super(asked, binding, raw, ROUTE_QUEUE.equals(route), fields);
             this.route = route;
-            this.queued = ROUTE_QUEUE.equals(route);
-            this.setsState = setsState;
-            this.raw = raw;
+            this.keyStep = keyStep;
+            this.setsState = PressStages.setsState(keyStep, queued);
             this.watched = watched;
-            this.fields = fields;
+        }
+
+        @Override
+        boolean keyStep() {
+            return keyStep;
         }
     }
 
@@ -136,7 +158,7 @@ final class HeldInputs {
         this.records = records;
     }
 
-    /** The key codes held now. */
+    /** The key codes held now, a queued hold whose key-down is still due included. */
     Set<Integer> heldKeyCodes() {
         return Collections.unmodifiableSet(new LinkedHashSet<Integer>(holds.keySet()));
     }
@@ -155,7 +177,8 @@ final class HeldInputs {
      */
     String hold(Minecraft mc, Asked asked, KeyBinding binding, int ticks, boolean raw, boolean keyStep,
                 Map<String, String> fields) {
-        Hold hold = new Hold(asked, binding, ticks, raw, focused(), keyStep, fields);
+        Hold hold = new Hold(asked, binding, ticks, raw, focused(), keyStep, false, fields);
+        takeKey(hold.keyCode);
         holds.put(hold.keyCode, hold);
         KeyBinding.setKeyBindState(hold.keyCode, true);
         String countedOn = KeyBindings.countPress(mc.gameSettings.keyBindings, binding);
@@ -166,23 +189,67 @@ final class HeldInputs {
     }
 
     /**
+     * A hold or key press that keeps the binding down itself now owns the key: the key-up of an
+     * ended queued hold or queued press of that key, not yet queued, is dropped, since in the tick
+     * the game read it the binding would be let go under the new input.
+     */
+    private void takeKey(int keyCode) {
+        List<Input> ended = new ArrayList<Input>(releasing);
+        for (Press press : presses) {
+            if (press.queued) {
+                ended.add(press);
+            }
+        }
+        for (Input input : ended) {
+            if (input.keyCode != keyCode) {
+                continue;
+            }
+            PressStages.Act act = PressStages.onKeyTaken(input.stage);
+            input.stage = PressStages.after(input.stage, act, true);
+            if (input.stage == PressStages.Stage.OVER) {
+                if (input instanceof Press) {
+                    presses.remove(input);
+                } else {
+                    releasing.remove(input);
+                }
+            }
+        }
+    }
+
+    /**
+     * Holds a binding's key or button through its input queue: the key-down goes into the queue
+     * at the next tick start and the hold's {@code started} record is written then, or the hold is
+     * refused then with why; the key-up goes into the queue at the tick start after the hold ends,
+     * or the binding is let go directly when nothing may be queued. The binding is set down again
+     * every tick, as any hold is, since the game sets every key from the real keyboard when it
+     * regains focus.
+     */
+    void queueHold(Asked asked, KeyBinding binding, int ticks, boolean raw, Map<String, String> fields) {
+        Hold hold = new Hold(asked, binding, ticks, raw, focused(), true, true, fields);
+        holds.put(hold.keyCode, hold);
+    }
+
+    /**
      * One press, by a route: {@code binding} counts it on the binding, {@code event} also posts
      * Forge's mouse input event right after, so listeners hear it before the game's next key
-     * handling, and {@code queue} puts a real button event in the mouse queue at the next tick
-     * start. Its record is written at the end of the tick the game handles it in.
+     * handling, and {@code queue} puts a real button or key event in the mouse or keyboard queue
+     * at the next tick start. Its record is written at the end of the tick the game handles it in.
+     *
+     * @param keyStep a {@code key} press rather than a click
      */
-    void press(Minecraft mc, Asked asked, KeyBinding binding, String route, boolean setsState, boolean raw,
+    void press(Minecraft mc, Asked asked, KeyBinding binding, String route, boolean keyStep, boolean raw,
                Map<String, String> fields) {
         boolean watched = mc.player != null && mc.player.isHandActive() && drainedWhileHandActive(mc, binding);
-        Press press = new Press(asked, binding, route, setsState, raw, watched, fields);
+        Press press = new Press(asked, binding, route, keyStep, raw, watched, fields);
+        if (PressStages.takesKey(false, press.queued, press.setsState)) {
+            takeKey(press.keyCode);
+        }
         presses.add(press);
         if (press.queued) {
-            press.stage = PressStages.Stage.QUEUE_DUE;
             return;
         }
-        press.stage = PressStages.Stage.DOWN;
         putTick(fields, "pressedTick", mc);
-        if (setsState) {
+        if (press.setsState) {
             KeyBinding.setKeyBindState(press.keyCode, true);
         }
         if (raw) {
@@ -233,8 +300,8 @@ final class HeldInputs {
 
     /**
      * {@code client focus lost}: the game counts as without focus until it takes focus again;
-     * every hold and the turn end as a loss of focus, and every press and queued click is let go
-     * or cancelled now.
+     * every hold and the turn end as a loss of focus, and every press, queued click and queued
+     * key-up is let go or cancelled now.
      */
     void loseFocus(Minecraft mc) {
         focusLost = true;
@@ -244,10 +311,12 @@ final class HeldInputs {
         if (turn != null) {
             endTurn(mc, HoldRelease.RELEASED_FOCUS_LOST);
         }
-        for (Press press : new ArrayList<Press>(presses)) {
+        List<Input> pending = new ArrayList<Input>(presses);
+        pending.addAll(releasing);
+        for (Input input : pending) {
             PressStages.Act act;
-            while ((act = PressStages.onFocusLost(press.stage)) != PressStages.Act.NONE) {
-                perform(mc, press, act, PlayerActionGate.REASON_NO_FOCUS);
+            while ((act = PressStages.onFocusLost(input.stage)) != PressStages.Act.NONE) {
+                perform(mc, input, act, PlayerActionGate.REASON_NO_FOCUS);
             }
         }
     }
@@ -259,8 +328,8 @@ final class HeldInputs {
 
     /**
      * The start of a client tick, before the game reads its input: the turn's next step, the
-     * queued clicks' buttons, the raw keys written again, and the hand's state for the presses
-     * the game handles in this tick.
+     * queued keys' and buttons' events, every key-up before any key-down, the raw keys written
+     * again, and the hand's state for the presses the game handles in this tick.
      */
     void tickStart(Minecraft mc) {
         boolean worldOpen = mc.world != null && mc.player != null;
@@ -272,12 +341,24 @@ final class HeldInputs {
             advanceTurn(mc, false, true);
         }
         String blocked = PressStages.blocked(worldOpen, mc.currentScreen != null, focusLost);
-        for (Press press : new ArrayList<Press>(presses)) {
-            PressStages.Act act = PressStages.atStart(press.stage, blocked);
+        List<Input> due = new ArrayList<Input>(presses);
+        due.addAll(releasing);
+        for (Hold hold : holds.values()) {
+            if (hold.stage == PressStages.Stage.QUEUE_DUE) {
+                due.add(hold);
+            }
+        }
+        List<PressStages.Stage> stages = new ArrayList<PressStages.Stage>(due.size());
+        for (Input input : due) {
+            stages.add(input.stage);
+        }
+        for (int at : PressStages.startOrder(stages)) {
+            Input input = due.get(at);
+            PressStages.Act act = PressStages.atStart(input.stage, blocked);
             if (act != PressStages.Act.NONE) {
-                perform(mc, press, act, blocked);
-            } else if (press.stage == PressStages.Stage.DOWN && worldOpen) {
-                press.handActive = mc.player.isHandActive();
+                perform(mc, input, act, blocked);
+            } else if (input instanceof Press && input.stage == PressStages.Stage.DOWN && worldOpen) {
+                ((Press) input).handActive = mc.player.isHandActive();
             }
         }
         reassertRaw();
@@ -330,7 +411,7 @@ final class HeldInputs {
             return;
         }
         for (Press press : presses) {
-            if (press.stage == PressStages.Stage.DOWN && press.queued
+            if (press.stage == PressStages.Stage.DOWN && press.queued && !press.keyboard
                     && MouseQueue.button(press.keyCode) == event.getButton()) {
                 press.takenByEvent = true;
             }
@@ -338,37 +419,63 @@ final class HeldInputs {
     }
 
     /**
-     * Does one act of a press's life and moves it on. A button that cannot go into the queue
-     * turns the act into its fallback: a press never queued is cancelled, a release never queued
-     * lets the binding go directly.
+     * Does one act of a press's or a queued hold's life and moves it on. A key-down the game
+     * would count on another binding is not queued for a press (see {@link PressStages#beforeAdd}),
+     * and an event that cannot go into its queue turns the act into its fallback: a key-down
+     * never queued is refused, a key-up never queued lets the binding go directly.
      */
-    private void perform(Minecraft mc, Press press, PressStages.Act act, String reason) {
+    private void perform(Minecraft mc, Input input, PressStages.Act act, String reason) {
         PressStages.Act done = act;
         String why = reason;
-        if (act == PressStages.Act.ADD_PRESS && !queuePress(mc, press)) {
-            done = PressStages.Act.CANCEL;
-            why = RouteState.REASON_ROUTE_UNAVAILABLE;
-        } else if (act == PressStages.Act.ADD_RELEASE && !queueButton(press, false)) {
+        String countedOn = null;
+        if (act == PressStages.Act.ADD_PRESS) {
+            countedOn = input.keyStep() ? KeyBindings.countedOnBeforePress(input.binding) : null;
+            done = PressStages.beforeAdd(act, countedOn, input instanceof Hold);
+            if (done == PressStages.Act.ADD_PRESS && !addDown(mc, input)) {
+                done = PressStages.Act.CANCEL;
+                why = RouteState.REASON_ROUTE_UNAVAILABLE;
+            }
+        } else if (act == PressStages.Act.ADD_RELEASE && !queueInput(input, false)) {
             done = PressStages.Act.UNPRESS;
         }
         if (done == PressStages.Act.CANCEL) {
-            cancel(mc, press, why);
+            cancel(mc, input, why);
+        } else if (done == PressStages.Act.NOT_COUNTED) {
+            notCounted(mc, (Press) input, countedOn);
+        } else if (done == PressStages.Act.ADD_PRESS && input instanceof Hold) {
+            started(mc, (Hold) input, countedOn);
         } else if (done == PressStages.Act.LET_GO) {
-            letGo(mc, press);
+            letGo(mc, (Press) input);
         } else if (done == PressStages.Act.UNPRESS
-                || (done == PressStages.Act.UNPRESS_IF_UP && !buttonDown(press))) {
-            unpress(press.keyCode);
+                || (done == PressStages.Act.UNPRESS_IF_UP && !realDown(input))) {
+            unpress(input.keyCode);
         }
-        press.stage = PressStages.after(press.stage, done, press.queued);
-        if (press.stage == PressStages.Stage.OVER) {
-            presses.remove(press);
+        input.stage = PressStages.after(input.stage, done, input.queued);
+        if (input.stage == PressStages.Stage.OVER) {
+            if (input instanceof Press) {
+                presses.remove(input);
+            } else {
+                releasing.remove(input);
+                if (holds.get(input.keyCode) == input) {
+                    holds.remove(input.keyCode);
+                }
+            }
         }
     }
 
-    private boolean queuePress(Minecraft mc, Press press) {
+    /** The key-down into its queue; false when that queue cannot be used. */
+    private boolean addDown(Minecraft mc, Input input) {
+        if (!(input instanceof Press)) {
+            if (!queueInput(input, true)) {
+                return false;
+            }
+            putTick(input.fields, "pressedTick", mc);
+            return true;
+        }
+        Press press = (Press) input;
         int before = KeyBindings.pressCount(press.binding);
         press.handActive = mc.player.isHandActive();
-        if (!queueButton(press, true)) {
+        if (!queueInput(press, true)) {
             return false;
         }
         // The game counts the press as it reads the event, unless a mod cancels its mouse event.
@@ -377,46 +484,81 @@ final class HeldInputs {
         return true;
     }
 
-    private static boolean queueButton(Press press, boolean down) {
-        MouseQueue queue = MouseQueue.Choice.get();
-        if (queue == null) {
-            return false;
+    /** A queued hold's key went into the queue: its {@code started} record, naming where the game counts the press when elsewhere. */
+    private void started(Minecraft mc, Hold hold, String countedOn) {
+        if (hold.raw) {
+            rawDown(hold.keyCode, true);
         }
+        Map<String, String> fields = new LinkedHashMap<String, String>(hold.fields);
+        if (countedOn != null) {
+            // Held all the same, as a real key is; its press went to another binding on the key.
+            fields.put("countedOn", countedOn);
+        }
+        records.finish(mc, hold.asked, "started", null, PlayerInput.screenName(mc.currentScreen), null, fields);
+    }
+
+    /** The button or key of a queued input into its queue; false when that queue cannot be used. */
+    private static boolean queueInput(final Input input, final boolean down) {
+        if (input.keyboard) {
+            return KeyQueue.CHOICE.add(queue -> queue.add(input.keyCode, down));
+        }
+        return MouseQueue.CHOICE.add(queue -> queue.add(MouseQueue.button(input.keyCode), down));
+    }
+
+    /** Whether the real button or key is down, so letting the binding go would undo a person's input. */
+    private static boolean realDown(Input input) {
         try {
-            queue.add(MouseQueue.button(press.keyCode), down);
-            return true;
-        } catch (RuntimeException failure) {
-            MouseQueue.Choice.failed(failure);
+            return input.keyboard ? Keyboard.isKeyDown(input.keyCode)
+                    : Mouse.isButtonDown(MouseQueue.button(input.keyCode));
+        } catch (RuntimeException noDevice) {
             return false;
         }
     }
 
-    private static boolean buttonDown(Press press) {
-        try {
-            return Mouse.isButtonDown(MouseQueue.button(press.keyCode));
-        } catch (RuntimeException noMouse) {
-            return false;
-        }
-    }
-
-    /** Lets a binding go, unless a hold keeps its key down. */
+    /** Lets a binding go, unless a hold or a key press that sets the binding itself keeps its key down. */
     private void unpress(int keyCode) {
-        if (!holds.containsKey(keyCode)) {
-            KeyBinding.setKeyBindState(keyCode, false);
+        if (holds.containsKey(keyCode)) {
+            return;
         }
-    }
-
-    /** A queued click whose button never went down: refused with why, and nothing was clicked. */
-    private void cancel(Minecraft mc, Press press, String reason) {
-        Map<String, String> fields = new LinkedHashMap<String, String>();
-        if (RouteState.REASON_ROUTE_UNAVAILABLE.equals(reason)) {
-            String failure = MouseQueue.Choice.state().takeFailureName();
-            if (failure != null) {
-                fields.put("detail", failure);
+        for (Press press : presses) {
+            if (press.keyCode == keyCode && press.setsState && press.stage == PressStages.Stage.DOWN) {
+                return;
             }
         }
-        fields.put("route", press.route);
-        records.finish(mc, press.asked, "refused", reason, PlayerInput.screenName(mc.currentScreen), null, fields);
+        KeyBinding.setKeyBindState(keyCode, false);
+    }
+
+    /**
+     * A queued click, key press or key hold whose key-down never went into the queue: refused
+     * with why, and nothing was pressed. A hold's why is the reason it ended, when it ended first.
+     */
+    private void cancel(Minecraft mc, Input input, String reason) {
+        Map<String, String> fields = new LinkedHashMap<String, String>();
+        if (input.keyStep()) {
+            // A key step's refusal names its binding, as its other records do.
+            fields.putAll(input.fields);
+        }
+        Map<String, String> refused = new LinkedHashMap<String, String>();
+        if (RouteState.REASON_ROUTE_UNAVAILABLE.equals(reason)) {
+            String failure = (input.keyboard ? KeyQueue.CHOICE.state() : MouseQueue.CHOICE.state())
+                    .takeFailureName();
+            if (failure != null) {
+                refused.put("detail", failure);
+            }
+        }
+        refused.putAll(fields);
+        if (!refused.containsKey("route")) {
+            refused.put("route", ROUTE_QUEUE);
+        }
+        records.finish(mc, input.asked, "refused", reason, PlayerInput.screenName(mc.currentScreen), null, refused);
+    }
+
+    /** A queued key press the game would have counted on another binding, or on none: never queued, and failed. */
+    private void notCounted(Minecraft mc, Press press, String countedOn) {
+        Map<String, String> fields = new LinkedHashMap<String, String>(press.fields);
+        fields.put("countedOn", countedOn);
+        records.finish(mc, press.asked, "failed", REASON_NOT_COUNTED, PlayerInput.screenName(mc.currentScreen),
+                null, fields);
     }
 
     /**
@@ -449,6 +591,10 @@ final class HeldInputs {
 
     /** Keeps a hold down for one more tick, or releases it with its reason. A tick end counts the tick just run. */
     private void advanceHold(Minecraft mc, Hold hold, boolean nextAction, boolean tickEnd) {
+        if (tickEnd && !PressStages.holdRuns(hold.stage)) {
+            // A queued hold's key goes down at a tick start; nothing of it has run yet.
+            return;
+        }
         if (tickEnd) {
             hold.heldTicks++;
         }
@@ -456,19 +602,35 @@ final class HeldInputs {
         String released = HoldRelease.reason(worldOpen, worldOpen && !died(mc), mc.currentScreen != null,
                 hold.focusedAtStart, focused(), nextAction, hold.heldTicks, hold.askedTicks);
         if (released == null) {
-            KeyBinding.setKeyBindState(hold.keyCode, true);
+            if (PressStages.holdRuns(hold.stage)) {
+                KeyBinding.setKeyBindState(hold.keyCode, true);
+            }
             return;
         }
         release(mc, hold, released);
     }
 
     private void release(Minecraft mc, Hold hold, String released) {
-        holds.remove(hold.keyCode);
-        KeyBinding.setKeyBindState(hold.keyCode, false);
+        if (hold.queued) {
+            PressStages.Act act = PressStages.onHoldEnd(hold.stage);
+            if (act == PressStages.Act.CANCEL) {
+                // Ended before its key-down went in: refused with the reason it ended, nothing pressed.
+                perform(mc, hold, act, released);
+                return;
+            }
+            holds.remove(hold.keyCode);
+            // The key-up goes into the queue at the next tick start, so the game lets the key go
+            // itself and posts its key event; the binding stays down until then.
+            hold.stage = PressStages.after(hold.stage, act, true);
+            releasing.add(hold);
+        } else {
+            holds.remove(hold.keyCode);
+            KeyBinding.setKeyBindState(hold.keyCode, false);
+        }
         if (hold.raw) {
             rawDown(hold.keyCode, false);
         }
-        if (hold.heldTicks == 0) {
+        if (hold.heldTicks == 0 && !hold.queued) {
             // Released before the game ran a tick with it: the press counted at the start would
             // still act once on the next tick, so it is taken back.
             while (hold.binding.isPressed()) {
@@ -522,7 +684,7 @@ final class HeldInputs {
 
     private void reassertRaw() {
         for (Hold hold : holds.values()) {
-            if (hold.raw) {
+            if (hold.raw && hold.stage == PressStages.Stage.DOWN) {
                 rawDown(hold.keyCode, true);
             }
         }

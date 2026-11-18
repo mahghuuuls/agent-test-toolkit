@@ -84,4 +84,30 @@ class KeyLookupTest {
         assertNull(KeyLookup.countedElsewhere(names, new int[] {0, -1, 0}, new int[] {1, -1, 0}, 1),
                 "the count cannot be read: nothing is claimed");
     }
+
+    @Test
+    @DisplayName("before a queued key goes down: the binding the game's lookup finds active is where it counts")
+    void countedOnActive() {
+        assertNull(KeyLookup.countedOnActive(true, true, "key.jump"), "the named binding is the active one");
+        assertEquals("key.mod.skill", KeyLookup.countedOnActive(true, false, "key.mod.skill"),
+                "another binding on the key is active, as with its modifier held");
+        assertEquals("none", KeyLookup.countedOnActive(true, false, null),
+                "no binding on the key is active, as with the named one's modifier not held");
+        assertNull(KeyLookup.countedOnActive(false, false, null), "the lookup cannot be read: nothing is claimed");
+    }
+
+    @Test
+    @DisplayName("a queued press counted elsewhere is never queued and fails; a queued hold goes down and names it")
+    void queuedPressCountedElsewhere() {
+        String elsewhere = KeyLookup.countedOnActive(true, false, "key.mod.skill");
+        assertEquals(PressStages.Act.NOT_COUNTED, PressStages.beforeAdd(PressStages.Act.ADD_PRESS, elsewhere, false));
+        assertEquals(PressStages.Stage.OVER,
+                PressStages.after(PressStages.Stage.QUEUE_DUE, PressStages.Act.NOT_COUNTED, true));
+        assertEquals(PressStages.Act.ADD_PRESS, PressStages.beforeAdd(PressStages.Act.ADD_PRESS, elsewhere, true),
+                "a hold goes down all the same, as the default route's does");
+        String here = KeyLookup.countedOnActive(true, true, "key.jump");
+        assertEquals(PressStages.Act.ADD_PRESS, PressStages.beforeAdd(PressStages.Act.ADD_PRESS, here, false));
+        assertEquals(PressStages.Act.CANCEL, PressStages.beforeAdd(PressStages.Act.CANCEL, elsewhere, false),
+                "a blocked key-down stays refused for its own reason");
+    }
 }

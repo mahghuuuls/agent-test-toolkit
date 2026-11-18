@@ -1,0 +1,1576 @@
+{
+  "v47_session": {
+    "description": "Starts the v47 session and binds the caller as its operator, so ${operator.name} and fixture placeholders resolve and the panel goes to the caller. Run once per world after v42_world_prepare, and again after the hint cards (they stop the session). Expect V47_SESSION_READY.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v47_cycle10",
+      "devtool session operator @s",
+      "devtool mark V47_SESSION_READY"
+    ]
+  },
+  "v47_scene": {
+    "description": "The scene every v47 card uses, in any overworld, at fixed coordinates (rerunnable: a fill or setblock that changes nothing is tolerated). A stone floor at y 99, x -6 to 6, z -4 to 16, with air above to y 107 and no light source on it (sky light only; noon, daylight cycle off); the caller in creative at 0.5 100 0.5 facing south (yaw 0) with an empty inventory and no effects. Fixtures, each tagged v47_fx: a zombie v47zombie (no AI, unbreakable helmet, so it neither moves nor burns) at -2.5 100 5.5, 5.8 blocks away; a saddled pig v47mount (no AI) at 3.5 100 0.5, 3 blocks east; a chest at -3 100 2 facing east holding stone 64 in slot 0, dirt 10 in slot 1, iron ingot 5 in slot 2 and a diamond sword named 'v47 sword' with the lore 'v47 lore line' in slot 3. The caller is moved first and the build waits for the chunks. Expect AWAIT outcome=satisfied, BLOCK_INSPECT minecraft:chest at -3 100 2, four INVENTORY_INSPECT records for the chest, ASSERT pass for one zombie and one pig, and V47_SCENE_READY.",
+    "stopOnFailure": true,
+    "commands": [
+      "gamemode creative",
+      "tp @s 0.5 101 0.5 0 0",
+      "devtool await chunks -8 -6 8 18 200",
+      "gamerule doDaylightCycle false",
+      "time set 6000",
+      "kill @e[tag=v47_fx]",
+      {
+        "command": "fill -6 100 -4 6 107 16 minecraft:air",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      {
+        "command": "fill -6 99 -4 6 99 16 minecraft:stone",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      {
+        "command": "setblock -3 100 2 minecraft:air",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      "setblock -3 100 2 minecraft:chest 5 replace {Items:[{Slot:0b,id:\"minecraft:stone\",Count:64b},{Slot:1b,id:\"minecraft:dirt\",Count:10b},{Slot:2b,id:\"minecraft:iron_ingot\",Count:5b},{Slot:3b,id:\"minecraft:diamond_sword\",Count:1b,tag:{display:{Name:\"v47 sword\",Lore:[\"v47 lore line\"]}}}]}",
+      {
+        "command": "summon minecraft:zombie -2.5 100 5.5 {CustomName:\"v47zombie\",NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v47_fx\",\"v47_zombie\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+        "delayTicks": 2
+      },
+      "summon minecraft:pig 3.5 100 0.5 {CustomName:\"v47mount\",NoAI:1b,Saddle:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v47_fx\",\"v47_mount\"]}",
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      {
+        "command": "effect @s clear",
+        "toleratedFailures": [
+          "commands.effect.failure.notActive.all"
+        ]
+      },
+      "devtool inspect block -3 100 2",
+      "devtool inspect container -3 100 2",
+      {
+        "command": "devtool assert entities count 1 within 32 type minecraft:zombie name v47zombie",
+        "delayTicks": 5
+      },
+      "devtool assert entities count 1 within 32 type minecraft:pig name v47mount",
+      "devtool mark V47_SCENE_READY"
+    ]
+  },
+  "v47_reset_pos": {
+    "description": "Puts the caller back at the scene start, 0.5 100 0.5 facing south, creative, empty hands, no open screen. Run between cards. Expect V47_POS_READY.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool client close",
+      "gamemode creative",
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      "devtool mark V47_POS_READY"
+    ]
+  },
+  "v47_toast_shots": {
+    "description": "hide=toasts (1.9.0). Run first in a new survival world whose options.txt has tutorialStep:movement, so the tutorial's hint toast shows; the tutorial shows that hint only after 100 ticks in the world, so the bundle waits 100 ticks after its first mark before anything else. It also grants Stone Age, whose advancement toast shows for about 5 seconds. Pictures: v47_toast_plain (hide=chat: the toasts in the top right corner), v47_toast_hidden 2 ticks later (hide=chat,toasts: no toast), v47_toast_back 10 ticks later (hide=chat: the toasts back, same order). Expect SCREENSHOT records hide=chat, hide=chat,toasts, hide=chat, no hideFailed, and V47_TOASTS_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V47_TOASTS_BEGIN",
+      {
+        "command": "advancement revoke @s only minecraft:story/mine_stone",
+        "delayTicks": 100,
+        "toleratedFailures": [
+          "commands.advancement.revoke.only.failed"
+        ]
+      },
+      "advancement grant @s only minecraft:story/mine_stone",
+      {
+        "command": "devtool screenshot v47_toast_plain 0 hide=chat",
+        "delayTicks": 20
+      },
+      {
+        "command": "devtool screenshot v47_toast_hidden 0 hide=chat,toasts",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool screenshot v47_toast_back 0 hide=chat",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool mark V47_TOASTS_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_keys": {
+    "description": "Key bindings by name (1.9.0). client keys key. lists the vanilla bindings (expect KEY_BINDING binding=key.jump key=SPACE and CLIENT_ACTION step=keys result=done listed truncated=false); client key key.nothing press is refused by the client (expect CLIENT_ACTION result=refused reason=unknownKey, nothing pressed). Ends with V47_KEYS_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool client keys key.",
+      {
+        "command": "devtool client key key.nothing press",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool mark V47_KEYS_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_walk": {
+    "description": "A held key walks (1.9.0). From the scene start facing south: PLAYER_INSPECT, client key key.forward hold 40, PLAYER_INSPECT 60 ticks later. Expect CLIENT_ACTION step=key binding=key.forward route=binding result=started, then result=done heldTicks=40 released=done with pressedTick and releasedTick; the second position about 8 to 9 blocks further south (posZ larger) on the same x. Ends with V47_WALK_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      "devtool client key key.forward hold 40",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 60
+      },
+      "devtool mark V47_WALK_END"
+    ]
+  },
+  "v47_jump_raw": {
+    "description": "A raw key (1.9.0). From the scene start: client key key.jump hold 20 raw=true. On the development client expect route=binding+raw (the toolkit wrote the key into LWJGL's state and read it back through Keyboard.isKeyDown before trusting it), started then done heldTicks=20 released=done, and a PLAYER_INSPECT 6 ticks in with posY above 100; on Cleanroom the same, or result=refused reason=routeUnavailable with detail. Ends with V47_JUMP_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "devtool client key key.jump hold 20 raw=true",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 6
+      },
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 30
+      },
+      "devtool mark V47_JUMP_END"
+    ]
+  },
+  "v47_queue_keys": {
+    "description": "Vanilla keys through the keyboard queue (1.9.0; base profile on Cleanroom and the development client). From the scene start facing south: PLAYER_INSPECT, client key key.forward hold 40 route=queue, PLAYER_INSPECT 60 ticks later. Expect CLIENT_ACTION step=key binding=key.forward route=queue result=started with pressedTick (written at the tick start its key-down went into the queue, not when asked), then result=done heldTicks=40 released=done with releasedTick; the second position about 8 to 9 blocks further south on the same x, as v47_walk. Then client key key.inventory press route=queue, a binding no mod listens to: expect route=queue result=done with pressedTick and releasedTick, and client screen showing the creative inventory (SCREEN_INFO screen=net.minecraft.client.gui.inventory.GuiContainerCreative), opened by the game from the queued key; then client close. On Cleanroom a refusal routeUnavailable with detail is recorded as it stands. Ends with V47_QUEUE_KEYS_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      "devtool client key key.forward hold 40 route=queue",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 60
+      },
+      {
+        "command": "devtool client key key.inventory press route=queue",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client screen",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool client close",
+        "delayTicks": 5
+      },
+      "devtool mark V47_QUEUE_KEYS_END"
+    ]
+  },
+  "v47_mount": {
+    "description": "Sneak dismounts (1.9.0). Faces the saddled pig v47mount 3 blocks east, right-clicks it with an empty hand (the player rides it), moves the pig 3 blocks south with the player on it, then client key key.sneak hold 20, and puts the pig back. A pig's NBT never lists a player passenger (a player is saved apart from the entity it rides), so riding is read from the player's position: a seated player stands about 0.33 above the floor, where the pig is. Expect CLIENT_ACTION step=face done with aimX near 3.5, step=use target=entity entityType=minecraft:pig; PLAYER_INSPECT before the use at x 0.5 z 0.5 y 100.0; while riding at x near 3.5, z near 0.5, y near 100.33; after the pig moved, at z near 3.5 (the player moved with it), y near 100.33; step=key binding=key.sneak done heldTicks=20; after the sneak at y 100.0 on the floor (no longer seated) and no longer following the pig when it goes back. Ends with V47_MOUNT_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "tp @e[tag=v47_mount] 3.5 100 0.5",
+      "clear @s",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      "devtool client face @e[tag=v47_mount]",
+      {
+        "command": "devtool client use",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 10
+      },
+      "tp @e[tag=v47_mount] 3.5 100 3.5",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      "devtool client key key.sneak hold 20",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 30
+      },
+      "tp @e[tag=v47_mount] 3.5 100 0.5",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      "devtool mark V47_MOUNT_END"
+    ]
+  },
+  "v47_two_holds": {
+    "description": "Two holds at once (1.9.0). client key key.forward hold 60, then 10 ticks later client key key.sneak hold 30 keepHold=true. Expect both started; sneak done heldTicks=30 released=done; forward done heldTicks=60 released=done (not nextAction); a position change southward. Ends with V47_TWO_HOLDS_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      "devtool client key key.forward hold 60",
+      {
+        "command": "devtool client key key.sneak hold 30 keepHold=true",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 70
+      },
+      "devtool mark V47_TWO_HOLDS_END"
+    ]
+  },
+  "v47_hold_keep": {
+    "description": "A press while a hold runs (1.9.0). A shield in hotbar slot 0, selected; client hold use 60 (the shield is raised, a hand is active), then 20 ticks later client attack keepHold=true. Expect the use hold started, then done heldTicks=60 released=done; the attack's record with route=binding and taken (false expected: vanilla drains a press while a hand is active). Ends with V47_HOLD_KEEP_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      "replaceitem entity @s slot.hotbar.0 minecraft:shield",
+      {
+        "command": "devtool client select 0",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client hold use 60",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client attack keepHold=true",
+        "delayTicks": 20
+      },
+      {
+        "command": "devtool mark V47_HOLD_KEEP_END",
+        "delayTicks": 50
+      }
+    ]
+  },
+  "v47_hold_next": {
+    "description": "The same without keepHold (1.9.0). client hold use 60, then 20 ticks later client attack. Expect the use hold done released=nextAction with heldTicks about 20, then the attack's record. Ends with V47_HOLD_NEXT_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      "replaceitem entity @s slot.hotbar.0 minecraft:shield",
+      {
+        "command": "devtool client select 0",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client hold use 60",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client attack",
+        "delayTicks": 20
+      },
+      {
+        "command": "devtool mark V47_HOLD_NEXT_END",
+        "delayTicks": 20
+      }
+    ]
+  },
+  "v47_look": {
+    "description": "Turning (1.9.0). client look 90 0, then the server's NBT of the player (expect Rotation:[90.0f,0.0f]: west, as the server holds it); client look 0 0 over=20 (expect started over=20, then done turnTicks=20 endYaw=0); client look 179 0, then client look -179 0 over=10 (the short way, 2 degrees across 180: expect endYaw=-179 and a small turn); NBT again. Ends with V47_LOOK_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "devtool client look 90 0",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool nbt entity @s",
+        "delayTicks": 5
+      },
+      "devtool client look 0 0 over=20",
+      {
+        "command": "devtool nbt entity @s",
+        "delayTicks": 30
+      },
+      "devtool client look 179 0",
+      {
+        "command": "devtool client look -179 0 over=10",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool nbt entity @s",
+        "delayTicks": 20
+      },
+      "devtool mark V47_LOOK_END"
+    ]
+  },
+  "v47_face_attack": {
+    "description": "Facing a target, then attacking in the same tick (1.9.0). client face @e[type=minecraft:zombie,c=1] (the one zombie, 5.8 blocks away) and client attack. Expect the server's action=requested step=face target=entity entityType=minecraft:zombie; the client's face done with aimX/aimY/aimZ near -2.5/101.7/5.5; the attack's target=entity entityType=minecraft:zombie; ENTITY_DAMAGE on v47zombie. Then client face block 3000 100 3000 (not loaded): refused at once, tolerated devtool.client.noTarget, CLIENT_ACTION action=refused reason=noTarget. Ends with V47_FACE_END. The first attack waits 21 ticks after the teleport: a teleport to the spot the client last reported leaves the server reading the caller as in the air for up to 20 ticks, which changes an attack (no sweep, no critical hit).",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "devtool log entity_damage on radius 16",
+      {
+        "command": "devtool client face @e[type=minecraft:zombie,c=1]",
+        "delayTicks": 21
+      },
+      "devtool client attack",
+      {
+        "command": "devtool inspect entity @e[tag=v47_zombie]",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool client face block 3000 100 3000",
+        "toleratedFailures": [
+          "devtool.client.noTarget"
+        ]
+      },
+      "devtool log entity_damage off",
+      "devtool mark V47_FACE_END"
+    ]
+  },
+  "v47_view": {
+    "description": "The camera view (1.9.0). client view back, then a picture v47_view_back (hide=chat,toasts: the player seen from behind), then client view first. Expect CLIENT_ACTION step=view view=back viewWas=first, then view=first viewWas=back. Ends with V47_VIEW_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "devtool client view back",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool screenshot v47_view_back 0 hide=chat,toasts",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool client view first",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool mark V47_VIEW_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_view_front": {
+    "description": "The camera view from the front (1.9.0), in one bundle so the picture is taken before the view goes back. client view front, then a picture v47_view_front (hide=chat,toasts: the player's face), then client view first. Expect CLIENT_ACTION step=view view=front viewWas=first, the SCREENSHOT saved record for v47_view_front before the step=view view=first viewWas=front record. Ends with V47_VIEW_FRONT_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "devtool client view front",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool screenshot v47_view_front 0 hide=chat,toasts",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool client view first",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool mark V47_VIEW_FRONT_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_focus_walk": {
+    "description": "Emulated focus loss during a walk (1.9.0). client key key.forward hold 100, client focus lost 20 ticks in, PLAYER_INSPECT 5 and 45 ticks after (the same position: the walk stopped), client focus gained. Expect the hold done released=focusLost (not nextAction) before 100 ticks; focus lost emulated=true windowChanged=false, showing=none when the client's pause on lost focus is off and showing=net.minecraft.client.gui.GuiIngameMenu when it is on; focus gained done, or refused noRealFocus when the real window had no focus. With the pause on and the real window without focus, the game itself keeps the pause menu open (it reopens it every frame), so the hold is refused screenOpen and the focus lost record's screen already names the pause menu: recorded as it stands. Until the game takes focus back, later queued keys and clicks are refused noFocus, so run it after the cards that queue input or right before a leave of the world. Ends with V47_FOCUS_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      "devtool client key key.forward hold 100",
+      {
+        "command": "devtool client focus lost",
+        "delayTicks": 20
+      },
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 40
+      },
+      "devtool client focus gained",
+      {
+        "command": "devtool mark V47_FOCUS_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_routes": {
+    "description": "Click routes (1.9.0). Faces the zombie and attacks three times, 25 ticks apart (past its hurt immunity): route=binding (as 1.8.0), route=event (also Forge's MouseInputEvent), route=queue (a real button press in the mouse queue; on Cleanroom done or refused routeUnavailable). Expect three attack records with route=binding, route=event, route=queue and target=entity, and ENTITY_DAMAGE for each click that reached the game. Ends with V47_ROUTES_END. The first attack waits 21 ticks after the teleport: a teleport to the spot the client last reported leaves the server reading the caller as in the air for up to 20 ticks, which changes an attack (no sweep, no critical hit).",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "devtool log entity_damage on radius 16",
+      {
+        "command": "devtool client face @e[tag=v47_zombie]",
+        "delayTicks": 19
+      },
+      {
+        "command": "devtool client attack",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool client attack route=event",
+        "delayTicks": 25
+      },
+      {
+        "command": "devtool client attack route=queue",
+        "delayTicks": 25
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_zombie]",
+        "delayTicks": 25
+      },
+      "devtool log entity_damage off",
+      "devtool mark V47_ROUTES_END"
+    ]
+  },
+  "v47_chest_open": {
+    "description": "Opens the scene chest (1.9.0): refills it with the known items, empties the caller's inventory, faces the chest block and right-clicks it, then client screen. Expect CLIENT_ACTION step=use target=block targetBlock=minecraft:chest; SCREEN_INFO screen=net.minecraft.client.gui.inventory.GuiChest container=true slots=63 listed=buttons,slots; SCREEN_SLOT slot=0 item=minecraft:stone count=64, slot=1 dirt 10, slot=2 iron_ingot 5, slot=3 diamond_sword 1. The chest stays open for the click lines that follow. Ends with V47_CHEST_OPEN.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      {
+        "command": "setblock -3 100 2 minecraft:air",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      "setblock -3 100 2 minecraft:chest 5 replace {Items:[{Slot:0b,id:\"minecraft:stone\",Count:64b},{Slot:1b,id:\"minecraft:dirt\",Count:10b},{Slot:2b,id:\"minecraft:iron_ingot\",Count:5b},{Slot:3b,id:\"minecraft:diamond_sword\",Count:1b,tag:{display:{Name:\"v47 sword\",Lore:[\"v47 lore line\"]}}}]}",
+      {
+        "command": "devtool client face block -3 100 2 east",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client use",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool client screen",
+        "delayTicks": 10
+      },
+      "devtool mark V47_CHEST_OPEN"
+    ]
+  },
+  "v47_chest_check": {
+    "description": "Reads what the server kept after the chest clicks: the chest's slots and the caller's inventory. After the card's lines (slot 0 shift, slot 1 left twice, slot 2 right then left, slot 2 key=1) expect the chest with dirt 10 in slot 1 and the sword in slot 3 only, and the inventory with iron_ingot 5 in slot 0 and stone 64 in slot 8 (a shift click from a chest fills the player's slots from the end). Ends with V47_CHEST_CHECKED.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool inspect container -3 100 2",
+      "devtool inspect inventory",
+      "devtool mark V47_CHEST_CHECKED"
+    ]
+  },
+  "v47_creative_open": {
+    "description": "Opens the creative inventory for the container tooltip card (1.9.0): no effects (so the screen is not shifted), then client inventory and client screen. Expect showing=net.minecraft.client.gui.inventory.GuiContainerCreative and SCREEN_INFO with width and height (854x480 window at gui scale 2: width=427 height=240). Ends with V47_CREATIVE_OPEN.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "effect @s clear",
+        "toleratedFailures": [
+          "commands.effect.failure.notActive.all"
+        ]
+      },
+      {
+        "command": "devtool client inventory",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client screen",
+        "delayTicks": 10
+      },
+      "devtool mark V47_CREATIVE_OPEN"
+    ]
+  },
+  "v47_quiet_tp": {
+    "description": "Fifteen teleports on the scene floor (z 0.5 to 7.5). No quiet key on purpose: the card checks the run's default (an inbox run is quiet, a console or typed run is not) and the word quiet=false. Quiet: no [CHAT] Teleported line in the client log between BUNDLE_START and BUNDLE_END, the server's own [Developer: Teleported ...] lines still there (logAdminCommands on), BUNDLE_END quiet=true chatSuppressed>=15. Loud: fifteen [CHAT] Teleported lines, quiet=false chatSuppressed=0. Ends with V47_QUIET_TP_END (its own reply also suppressed when quiet).",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "tp @s 0.5 100 1.5 0 0",
+      "tp @s 0.5 100 2.5 0 0",
+      "tp @s 0.5 100 3.5 0 0",
+      "tp @s 0.5 100 4.5 0 0",
+      "tp @s 0.5 100 5.5 0 0",
+      "tp @s 0.5 100 6.5 0 0",
+      "tp @s 0.5 100 7.5 0 0",
+      "tp @s 0.5 100 0.5 0 0",
+      "tp @s 0.5 100 1.5 0 0",
+      "tp @s 0.5 100 2.5 0 0",
+      "tp @s 0.5 100 3.5 0 0",
+      "tp @s 0.5 100 4.5 0 0",
+      "tp @s 0.5 100 5.5 0 0",
+      "tp @s 0.5 100 6.5 0 0",
+      "devtool mark V47_QUIET_TP_END"
+    ]
+  },
+  "v47_quiet_fail": {
+    "description": "A quiet run whose third command (index 2) fails. quiet true in the file. Expect outcome failed, BUNDLE_END quiet=true failed=1 stoppedEarly=true, and exactly one chat line: [DevToolkit] Bundle 'v47_quiet_fail' command 2 failed: devtool.assert.failed; no Teleported line.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "tp @s 0.5 100 1.5 0 0",
+      "tp @s 0.5 100 0.5 0 0",
+      "devtool assert entities count 99 within 2 type minecraft:pig",
+      "devtool mark V47_NEVER_REACHED"
+    ]
+  },
+  "v47_quiet_nested": {
+    "description": "Nested quiet runs. quiet true in the file; runs v47_nested_child (no quiet key: follows its parent, quiet) and v47_nested_loud (quiet false in its file: loud). Expect BUNDLE_START bundle=v47_nested_child quiet=true and bundle=v47_nested_loud quiet=false, one [CHAT] Teleported line (from the loud child only), and V47_NESTED_END.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "devtool run v47_nested_child",
+      "devtool run v47_nested_loud",
+      "devtool mark V47_NESTED_END"
+    ]
+  },
+  "v47_nested_child": {
+    "description": "Child of v47_quiet_nested with no quiet key: follows its parent. One teleport.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 2.5 0 0"
+    ]
+  },
+  "v47_nested_loud": {
+    "description": "Child of v47_quiet_nested with quiet false in its file: loud even inside a quiet parent. One teleport.",
+    "stopOnFailure": true,
+    "quiet": false,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0"
+    ]
+  },
+  "v47_console_tp_loud": {
+    "description": "Console run with no quiet key on purpose: the card checks that a run not started by the inbox is loud by default. For the isolated server with one client connected as an operator. Fifteen teleports of the nearest player: the client, an operator other than the sender, sees fifteen grey [Server: Teleported ...] lines in its log ([CHAT]). Expect BUNDLE_END channel=console quiet=false chatSuppressed=0 failed=0.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool await chunks -8 -6 8 18 200",
+      "tp @p 0.5 100 0.5 0 0",
+      "tp @p 0.5 100 1.5 0 0",
+      "tp @p 0.5 100 2.5 0 0",
+      "tp @p 0.5 100 3.5 0 0",
+      "tp @p 0.5 100 4.5 0 0",
+      "tp @p 0.5 100 5.5 0 0",
+      "tp @p 0.5 100 6.5 0 0",
+      "tp @p 0.5 100 7.5 0 0",
+      "tp @p 0.5 100 0.5 0 0",
+      "tp @p 0.5 100 1.5 0 0",
+      "tp @p 0.5 100 2.5 0 0",
+      "tp @p 0.5 100 3.5 0 0",
+      "tp @p 0.5 100 4.5 0 0",
+      "tp @p 0.5 100 5.5 0 0",
+      "tp @p 0.5 100 6.5 0 0",
+      "devtool mark V47_CONSOLE_LOUD_END"
+    ]
+  },
+  "v47_console_tp_quiet": {
+    "description": "Console run, quiet (quiet true in the file), as v47_console_tp_loud. Expect no new [Server: Teleported line in the client's log, the server console still logging the teleports, and BUNDLE_END channel=console quiet=true chatSuppressed>=15 failed=0.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "result": true,
+    "commands": [
+      "devtool await chunks -8 -6 8 18 200",
+      "tp @p 0.5 100 0.5 0 0",
+      "tp @p 0.5 100 1.5 0 0",
+      "tp @p 0.5 100 2.5 0 0",
+      "tp @p 0.5 100 3.5 0 0",
+      "tp @p 0.5 100 4.5 0 0",
+      "tp @p 0.5 100 5.5 0 0",
+      "tp @p 0.5 100 6.5 0 0",
+      "tp @p 0.5 100 7.5 0 0",
+      "tp @p 0.5 100 0.5 0 0",
+      "tp @p 0.5 100 1.5 0 0",
+      "tp @p 0.5 100 2.5 0 0",
+      "tp @p 0.5 100 3.5 0 0",
+      "tp @p 0.5 100 4.5 0 0",
+      "tp @p 0.5 100 5.5 0 0",
+      "tp @p 0.5 100 6.5 0 0",
+      "devtool mark V47_CONSOLE_QUIET_END"
+    ]
+  },
+  "v47_console_platform": {
+    "description": "Console run on the isolated server: builds the scene floor at y 99 near the spawn so the console teleports land on stone (the world is flat; the player must be online, since only a player loads chunks). Expect V47_CONSOLE_PLATFORM.",
+    "stopOnFailure": true,
+    "quiet": false,
+    "result": true,
+    "commands": [
+      "devtool await chunks -8 -6 8 18 200",
+      {
+        "command": "fill -6 100 -4 6 107 16 minecraft:air",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      {
+        "command": "fill -6 99 -4 6 99 16 minecraft:stone",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      "devtool mark V47_CONSOLE_PLATFORM"
+    ]
+  },
+  "v47_panel_cue": {
+    "description": "The prompt panel with a quiet run (1.9.0), quiet true in the file. Fifteen teleports (nested v47_quiet_tp, quiet by inheritance), a cue V47_PANEL_READ panel sound (its sound shows a subtitle when subtitles are on), picture v47_panel_cue 20 ticks later (hide=toasts: expect the panel on the right with the label, no chat line over it or near it, below any potion icons, above the subtitle), then checkpoint ack (answered=cue) and picture v47_panel_after_ack (expect no panel). CHECKPOINT action=cue form=panel. Ends with V47_PANEL_CUE_END.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "devtool run v47_quiet_tp",
+      "devtool checkpoint cue V47_PANEL_READ panel sound",
+      {
+        "command": "devtool screenshot v47_panel_cue 0 hide=toasts",
+        "delayTicks": 20
+      },
+      {
+        "command": "devtool checkpoint ack",
+        "delayTicks": 20
+      },
+      {
+        "command": "devtool screenshot v47_panel_after_ack 0 hide=toasts",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool mark V47_PANEL_CUE_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_panel_stack": {
+    "description": "The panel below potion icons and toasts (1.9.0), quiet true. Speed and jump boost with their particles shown (the game draws an effect's icon at the top right only when its particles are shown), the Getting an Upgrade advancement (a toast top right for about 5 seconds), a cue V47_PANEL_STACK. Picture v47_panel_stack 10 ticks later (hide=chat: the panel below the two icons and below the toasts, or below the icons with a toast over it when no room is left) and v47_panel_stack_later 140 ticks later (the advancement toast gone; the panel moved up below the icons, or below a tutorial toast that is still showing: client look does not move the tutorial on, so in a world where the tutorial's look hint shows, that toast stays). Then ack and the effects cleared. Ends with V47_PANEL_STACK_END.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "effect @s minecraft:speed 300 0 false",
+      "effect @s minecraft:jump_boost 300 0 false",
+      {
+        "command": "advancement revoke @s only minecraft:story/upgrade_tools",
+        "toleratedFailures": [
+          "commands.advancement.revoke.only.failed"
+        ]
+      },
+      "advancement grant @s only minecraft:story/upgrade_tools",
+      "devtool checkpoint cue V47_PANEL_STACK panel",
+      {
+        "command": "devtool screenshot v47_panel_stack 0 hide=chat",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool screenshot v47_panel_stack_later 0 hide=chat",
+        "delayTicks": 140
+      },
+      {
+        "command": "devtool checkpoint ack",
+        "delayTicks": 5
+      },
+      "effect @s clear",
+      "devtool mark V47_PANEL_STACK_END"
+    ]
+  },
+  "v47_sidebar": {
+    "description": "The panel beside a scoreboard sidebar (1.9.0), quiet true. A sidebar objective v47side with 5 lines, a cue V47_PANEL_SIDEBAR, picture v47_panel_sidebar5 (hide=chat,toasts: the panel above or below the sidebar, never over it); then 15 lines, picture v47_panel_sidebar15 (the panel above, below or beside it, never over it). Then ack and the objective removed. Ends with V47_SIDEBAR_END.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      {
+        "command": "scoreboard objectives add v47side dummy V47 Side",
+        "toleratedFailures": [
+          "commands.scoreboard.objectives.add.alreadyExists"
+        ]
+      },
+      "scoreboard objectives setdisplay sidebar v47side",
+      "scoreboard players set Alpha v47side 1",
+      "scoreboard players set Bravo v47side 2",
+      "scoreboard players set Charlie v47side 3",
+      "scoreboard players set Delta v47side 4",
+      "scoreboard players set Echo v47side 5",
+      "devtool checkpoint cue V47_PANEL_SIDEBAR panel",
+      {
+        "command": "devtool screenshot v47_panel_sidebar5 0 hide=chat,toasts",
+        "delayTicks": 10
+      },
+      "scoreboard players set Foxtrot v47side 6",
+      "scoreboard players set Golf v47side 7",
+      "scoreboard players set Hotel v47side 8",
+      "scoreboard players set India v47side 9",
+      "scoreboard players set Juliet v47side 10",
+      "scoreboard players set Kilo v47side 11",
+      "scoreboard players set Lima v47side 12",
+      "scoreboard players set Mike v47side 13",
+      "scoreboard players set November v47side 14",
+      "scoreboard players set Oscar v47side 15",
+      {
+        "command": "devtool screenshot v47_panel_sidebar15 0 hide=chat,toasts",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool checkpoint ack",
+        "delayTicks": 5
+      },
+      "scoreboard objectives remove v47side",
+      "devtool mark V47_SIDEBAR_END"
+    ]
+  },
+  "v47_panel_hud": {
+    "description": "F1 and hide=hud hide the panel (1.9.0), quiet true. A cue V47_PANEL_HUD, picture v47_panel_nohud (hide=hud: no panel, no hotbar, no hand) and v47_panel_withhud 5 ticks later (hide=chat,toasts: the panel back). Then ack. Ends with V47_PANEL_HUD_END.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "devtool checkpoint cue V47_PANEL_HUD panel",
+      {
+        "command": "devtool screenshot v47_panel_nohud 0 hide=hud",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool screenshot v47_panel_withhud 0 hide=chat,toasts",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool checkpoint ack",
+        "delayTicks": 5
+      },
+      "devtool mark V47_PANEL_HUD_END"
+    ]
+  },
+  "v47_panel_arm_timeout": {
+    "description": "An armed checkpoint's panel and its timeout (1.9.0), quiet true. A picture is asked for 40 ticks ahead, then arm V47_ARM_TIMEOUT 100 (tolerated devtool.wait.timeout). Expect CHECKPOINT action=arm form=panel timeoutTicks=100; v47_panel_arm showing the label and 'Type /devtool checkpoint ack'; AWAIT condition=checkpoint outcome=timedOut; v47_panel_arm_gone 20 ticks after it with no panel. Ends with V47_ARM_TIMEOUT_END.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "devtool screenshot v47_panel_arm 40 hide=chat,toasts",
+      {
+        "command": "devtool checkpoint arm V47_ARM_TIMEOUT 100",
+        "toleratedFailures": [
+          "devtool.wait.timeout"
+        ]
+      },
+      {
+        "command": "devtool screenshot v47_panel_arm_gone 0 hide=chat,toasts",
+        "delayTicks": 20
+      },
+      {
+        "command": "devtool mark V47_ARM_TIMEOUT_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_panel_arm_wait": {
+    "description": "An armed checkpoint answered by an acknowledgement (1.9.0), quiet true. Send it without waiting for its answer (devtool-inbox send -NoWait), then run v47_ack. A picture 40 ticks ahead (v47_panel_armed: the label and 'Type /devtool checkpoint ack'), then arm V47_ARM_ACK 1200. Expect AWAIT condition=checkpoint outcome=satisfied with latencyTicks once v47_ack has run, and V47_ARM_ACKED.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "devtool screenshot v47_panel_armed 40 hide=chat,toasts",
+      "devtool checkpoint arm V47_ARM_ACK 1200",
+      "devtool mark V47_ARM_ACKED"
+    ]
+  },
+  "v47_ack": {
+    "description": "Acknowledges what is armed or cued, as the bound operator, then pictures the screen (v47_panel_acked: no panel). Expect CHECKPOINT action=ack with latencyTicks and answered=arm (after v47_panel_arm_wait), and V47_ACK_END.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "devtool checkpoint ack",
+      {
+        "command": "devtool screenshot v47_panel_acked 0 hide=chat,toasts",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool mark V47_ACK_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_cue_old": {
+    "description": "A cue for a client older than 1.9.0 (isolated old-client session: a 1.9.0 server, a 1.8.0 client). Default form. Expect CHECKPOINT action=cue form=actionbar, and the picture v47_old_cue (no hide, which 1.8.0 reads) showing the label in the action bar above the hotbar. Then ack. Ends with V47_CUE_OLD_END.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "devtool checkpoint cue V47_OLD_CUE",
+      {
+        "command": "devtool screenshot v47_old_cue 0",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool checkpoint ack",
+        "delayTicks": 20
+      },
+      "devtool mark V47_CUE_OLD_END"
+    ]
+  },
+  "v47_strict_setup": {
+    "description": "A fixture in a chunk that is then unloaded. The caller goes to 2000.5 101 2000.5, waits for the chunks, a pig v47far (no AI, tagged v47_fx and v47_far) is summoned and claimed as handle far, the caller comes back to the scene, and 200 ticks later fixture list reports it. Expect FIXTURE action=claim handle=far, then FIXTURE action=list state=unloaded (its chunk is beyond the view distance and was unloaded). Ends with V47_STRICT_READY.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 2000.5 101 2000.5 0 0",
+      "devtool await chunks 1992 1992 2008 2008 200",
+      "summon minecraft:pig 2000.5 101 2000.5 {CustomName:\"v47far\",NoAI:1b,PersistenceRequired:1b,Tags:[\"v47_fx\",\"v47_far\"]}",
+      {
+        "command": "devtool fixture claim far @e[tag=v47_far]",
+        "delayTicks": 2
+      },
+      "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "devtool fixture list",
+        "delayTicks": 200
+      },
+      "devtool mark V47_STRICT_READY"
+    ]
+  },
+  "v47_strict_clear": {
+    "description": "The strict clear stops a bundle (1.9.0). fixture clear all strict with the fixture far unloaded, then a summon that must not run. Expect FIXTURE action=clear handle=far outcome=notLoaded, the command failing devtool.fixture.notLoaded, BUNDLE_END executed=1 failed=1 stoppedEarly=true, no v47strict pig (checked by v47_strict_check).",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool fixture clear all strict",
+      "summon minecraft:pig 0.5 100 -2.5 {CustomName:\"v47strict\",NoAI:1b,PersistenceRequired:1b,Tags:[\"v47_fx\"]}",
+      "devtool mark V47_NEVER_REACHED"
+    ]
+  },
+  "v47_strict_check": {
+    "description": "After v47_strict_clear: no v47strict pig at the scene (ASSERT count 0 pass), and the handle kept (FIXTURE action=list handle=far state=unloaded). Then the same clear without strict: FIXTURE outcome=notLoaded and the command succeeds. Ends with V47_STRICT_CHECKED.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool assert entities count 0 within 32 type minecraft:pig name v47strict",
+      "devtool fixture list",
+      "devtool fixture clear all",
+      "devtool mark V47_STRICT_CHECKED"
+    ]
+  },
+  "v47_strict_cleanup": {
+    "description": "Removes the far fixture where it is: goes there, waits for the chunks, clears it (FIXTURE outcome=removed handle=far), comes back. Ends with V47_STRICT_CLEANED.",
+    "stopOnFailure": false,
+    "commands": [
+      "tp @s 2000.5 101 2000.5 0 0",
+      "devtool await chunks 1992 1992 2008 2008 200",
+      {
+        "command": "devtool fixture clear all",
+        "delayTicks": 5
+      },
+      {
+        "command": "tp @s 0.5 100 0.5 0 0",
+        "delayTicks": 5
+      },
+      "devtool mark V47_STRICT_CLEANED"
+    ]
+  },
+  "v47_hint_nosession": {
+    "description": "Loud on purpose (quiet false), so the chat reply is also checked; the failure's ERROR record and the inbox run answer carry the step too. No session, then ${operator.name}. Expect outcome failed with firstFailure devtool.placeholder.unbound (the key unchanged), the answer's detail and the ERROR record's detail both \"devtool.placeholder.unbound: run devtool session start <name> first\", and a [CHAT] line naming devtool session start <name>.",
+    "stopOnFailure": true,
+    "quiet": false,
+    "commands": [
+      "devtool session stop",
+      "devtool inspect player ${operator.name}",
+      "devtool mark V47_NEVER_REACHED"
+    ]
+  },
+  "v47_hint_nooperator": {
+    "description": "Loud on purpose (quiet false), so the chat reply is also checked; the failure's ERROR record and the inbox run answer carry the step too. A session with no operator, then ${operator.name}. Expect firstFailure devtool.placeholder.unbound, the answer's detail and the ERROR record's detail both \"devtool.placeholder.unbound: run devtool session operator <player> first\", and a [CHAT] line naming devtool session operator <player>.",
+    "stopOnFailure": true,
+    "quiet": false,
+    "commands": [
+      "devtool session start v47_hint",
+      "devtool inspect player ${operator.name}",
+      "devtool mark V47_NEVER_REACHED"
+    ]
+  },
+  "v47_hint_nohandle": {
+    "description": "Loud on purpose (quiet false), so the chat reply is also checked; the failure's ERROR record and the inbox run answer carry the step too. A session and an operator, then ${fixture.nothere.uuid}. Expect firstFailure devtool.placeholder.unbound, the answer's detail and the ERROR record's detail both \"devtool.placeholder.unbound: run devtool fixture claim nothere <selector|uuid|entityId> first\", and a [CHAT] line naming the same claim.",
+    "stopOnFailure": true,
+    "quiet": false,
+    "commands": [
+      "devtool session start v47_hint",
+      "devtool session operator @s",
+      "devtool nbt entity ${fixture.nothere.uuid}",
+      "devtool mark V47_NEVER_REACHED"
+    ]
+  },
+  "v47_hint_fixture": {
+    "description": "Loud on purpose (quiet false), as the other hint cards. No session, then fixture list, which is no placeholder: expect outcome failed with a firstFailure (the command's message) naming devtool session start <name>, and no detail in the answer.",
+    "stopOnFailure": true,
+    "quiet": false,
+    "commands": [
+      "devtool session stop",
+      "devtool fixture list",
+      "devtool mark V47_NEVER_REACHED"
+    ]
+  },
+  "v47_await_far": {
+    "description": "An await chunks timeout names the view distance (1.9.0). Waits 40 ticks for chunks 6000 blocks away, which nobody loads (tolerated devtool.wait.timeout). Expect AWAIT condition=chunks outcome=timedOut with viewDistance (the client's render distance in single player: 12 on the development client, 6 on the isolated runtime). Ends with V47_AWAIT_FAR_END.",
+    "stopOnFailure": true,
+    "commands": [
+      {
+        "command": "devtool await chunks 6000 6000 6016 6016 40",
+        "toleratedFailures": [
+          "devtool.wait.timeout"
+        ]
+      },
+      "devtool mark V47_AWAIT_FAR_END"
+    ]
+  },
+  "v47_book": {
+    "description": "A written book opened in single player (1.9.0 paused close). Puts a written book in hotbar slot 4, selects it, looks up, uses it: the book screen opens and pauses the game. Expect CLIENT_ACTION step=use done and, while the book is open, config/devtool/inbox/paused.json with screen=net.minecraft.client.gui.GuiScreenBook. Nothing after the use runs until the book closes, so the use is last.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V47_BOOK_BEGIN",
+      "tp @s 0.5 100 0.5 0 -60",
+      "clear @s",
+      "replaceitem entity @s slot.hotbar.4 minecraft:written_book 1 0 {title:\"v47\",author:\"agent\",pages:[\"v47 page\"]}",
+      {
+        "command": "devtool client select 4",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client use",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_hold_die": {
+    "description": "A hold ended by death (1.9.0). Survival, client key key.forward hold 200, kill 20 ticks in. Expect the hold done released=died with heldTicks about 20; then the card's client respawn and v47_after_hold. Ends with V47_HOLD_DIE_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "gamemode survival",
+      {
+        "command": "devtool client key key.forward hold 200",
+        "delayTicks": 5
+      },
+      {
+        "command": "kill @s",
+        "delayTicks": 20
+      },
+      {
+        "command": "devtool mark V47_HOLD_DIE_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_hold_leave": {
+    "description": "A hold ended by leaving (1.9.0). client key key.forward hold 200, then 20 ticks later client reconnect 2 (last). Expect the client's own record of the hold done released=left (it cannot report), and the reconnect back; then v47_after_hold.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "devtool client key key.forward hold 200",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool mark V47_HOLD_LEAVE_RECONNECT",
+        "delayTicks": 20
+      },
+      "devtool client reconnect 2"
+    ]
+  },
+  "v47_after_hold": {
+    "description": "Nothing stays pressed after a hold ended by death or leaving: creative, two PLAYER_INSPECT 40 ticks apart with the same position. Ends with V47_AFTER_HOLD_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "gamemode creative",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 40
+      },
+      "devtool mark V47_AFTER_HOLD_END"
+    ]
+  },
+  "v47_heavy": {
+    "description": "A heavy world tick for the logout loop, bounded: a glass pen at x 18 to 43, z 18 to 39 (floor y 99) about 30 blocks from the scene, with 300 pigs with AI (named v47heavy, tagged v47_heavy, persistent, silent) pathing in it, all in loaded chunks; the caller back at the scene start. Rerunnable (kills the earlier ones first, with mob loot off). Expect ASSERT count 300 pass and V47_HEAVY_READY.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool mark V47_HEAVY_BEGIN",
+      "gamerule doMobLoot false",
+      "kill @e[tag=v47_heavy]",
+      "tp @s 30.5 101 28.5 0 0",
+      "devtool await chunks 16 16 46 42 200",
+      {
+        "command": "fill 17 99 17 44 99 40 minecraft:stone",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      {
+        "command": "fill 17 100 17 44 103 40 minecraft:glass",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      {
+        "command": "fill 18 100 18 43 103 39 minecraft:air",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      "summon minecraft:pig 20.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 20.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 21.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 22.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 23.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 24.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 25.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 26.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 27.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 28.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 29.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 30.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 31.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 32.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 33.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 34.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 32.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 33.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 34.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 35.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 36.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 35.5 100 37.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 20.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 21.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 22.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 23.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 24.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 25.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 26.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 27.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 28.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 29.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 30.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      "summon minecraft:pig 36.5 100 31.5 {CustomName:\"v47heavy\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_heavy\"]}",
+      {
+        "command": "devtool assert entities count 300 within 24 type minecraft:pig name v47heavy",
+        "delayTicks": 5
+      },
+      "tp @s 0.5 100 0.5 0 0",
+      "gamerule doMobLoot true",
+      "devtool mark V47_HEAVY_READY"
+    ]
+  },
+  "v47_heavy_clear": {
+    "description": "Removes the heavy scene: mob loot off, kill @e[tag=v47_heavy], items and orbs removed inside the pen, mob loot back on. Expect V47_HEAVY_CLEARED.",
+    "stopOnFailure": false,
+    "commands": [
+      "gamerule doMobLoot false",
+      "kill @e[tag=v47_heavy]",
+      {
+        "command": "kill @e[type=minecraft:item,x=16,y=95,z=16,dx=30,dy=15,dz=26]",
+        "delayTicks": 5
+      },
+      "kill @e[type=minecraft:xp_orb,x=16,y=95,z=16,dx=30,dy=15,dz=26]",
+      "gamerule doMobLoot true",
+      "devtool mark V47_HEAVY_CLEARED"
+    ]
+  },
+  "v47_spartan_bash": {
+    "description": "Spartan Shields' bash by an input event (1.9.0, compatibility profile). An iron shield (spartanshields:shield_basic_iron) in hotbar slot 0; a pig v47bash with AI, slowed so it stays put, 2 blocks ahead; client hold use 40 (the shield raised), then 10 ticks later client attack route=event keepHold=true. Expect the attack's record route=event with taken=true (read during the input event), the use hold done released=done heldTicks=40, and the bash's effect: the pig's position moved between the two ENTITY_INSPECT records (knockback) and/or ENTITY_DAMAGE on v47bash. Ends with V47_BASH_END. The shield is raised 25 ticks after the teleport: a teleport to the spot the client last reported leaves the server reading the caller as in the air for up to 20 ticks, which a bash may check.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      "kill @e[tag=v47_bash]",
+      "replaceitem entity @s slot.hotbar.0 spartanshields:shield_basic_iron",
+      "summon minecraft:pig 0.5 100 2.5 {CustomName:\"v47bash\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_fx\",\"v47_bash\"]}",
+      "effect @e[tag=v47_bash] minecraft:slowness 1000000 6 true",
+      "devtool log entity_damage on radius 16",
+      {
+        "command": "devtool client select 0",
+        "delayTicks": 21
+      },
+      {
+        "command": "devtool client face @e[tag=v47_bash]",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_bash]",
+        "delayTicks": 2
+      },
+      "devtool client hold use 40",
+      {
+        "command": "devtool client attack route=event keepHold=true",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_bash]",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool log entity_damage off",
+        "delayTicks": 30
+      },
+      "kill @e[tag=v47_bash]",
+      "devtool mark V47_BASH_END"
+    ]
+  },
+  "v47_rlcombat": {
+    "description": "RLCombat's attack by the mouse queue (1.9.0, compatibility profile). A diamond longsword (spartanweaponry:longsword_diamond) in hotbar slot 0; a zombie v47rl (no AI, helmet) 2 blocks ahead; client attack (route binding) then 25 ticks later client attack route=queue. Expect the queue click's record route=queue (or refused routeUnavailable with detail on Cleanroom) and ENTITY_DAMAGE on v47rl after it; the binding click recorded for comparison (RLCombat replaces the vanilla click; observed either way). Then client hold use 40 with a shield in the off hand and a queued attack 10 ticks in: RLCombat ignores a click while a hand is active (expect no ENTITY_DAMAGE from it). Ends with V47_RL_END. The first attack waits 21 ticks after the teleport: a teleport to the spot the client last reported leaves the server reading the caller as in the air for up to 20 ticks, which changes an attack (no sweep, no critical hit).",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      "kill @e[tag=v47_rl]",
+      "replaceitem entity @s slot.hotbar.0 spartanweaponry:longsword_diamond",
+      "summon minecraft:zombie 0.5 100 2.5 {CustomName:\"v47rl\",NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v47_fx\",\"v47_rl\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+      "devtool log entity_damage on radius 16",
+      {
+        "command": "devtool client select 0",
+        "delayTicks": 21
+      },
+      {
+        "command": "devtool client face @e[tag=v47_rl]",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool client attack",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool client attack route=queue",
+        "delayTicks": 25
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_rl]",
+        "delayTicks": 25
+      },
+      "replaceitem entity @s slot.weapon.offhand minecraft:shield",
+      {
+        "command": "devtool client hold use 40",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client attack route=queue keepHold=true",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_rl]",
+        "delayTicks": 35
+      },
+      "devtool log entity_damage off",
+      "kill @e[tag=v47_rl]",
+      "devtool mark V47_RL_END"
+    ]
+  },
+  "v47_sort_chest_open": {
+    "description": "A chest in disorder for Inventory Tweaks' sort button (compatibility profile): dirt 5 in slot 0, stone 3 in slot 4, dirt 7 in slot 9, stone 2 in slot 13, opened by the caller, then client screen. Expect SCREEN_BUTTON records for Inventory Tweaks' buttons on the chest screen (labels s, h, v and ...). Ends with V47_SORT_OPEN.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      {
+        "command": "setblock -3 100 2 minecraft:air",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      "setblock -3 100 2 minecraft:chest 5 replace {Items:[{Slot:0b,id:\"minecraft:dirt\",Count:5b},{Slot:4b,id:\"minecraft:stone\",Count:3b},{Slot:9b,id:\"minecraft:dirt\",Count:7b},{Slot:13b,id:\"minecraft:stone\",Count:2b}]}",
+      "devtool inspect container -3 100 2",
+      {
+        "command": "devtool client face block -3 100 2 east",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client use",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool client screen",
+        "delayTicks": 10
+      },
+      "devtool mark V47_SORT_OPEN"
+    ]
+  },
+  "v47_sort_check": {
+    "description": "After the sort button: the chest as the server keeps it (expect the dirt merged into one stack of 12 and the stone into one of 5, in the first slots), then client close. Ends with V47_SORT_CHECKED.",
+    "stopOnFailure": true,
+    "commands": [
+      {
+        "command": "devtool inspect container -3 100 2",
+        "delayTicks": 10
+      },
+      "devtool client close",
+      "devtool mark V47_SORT_CHECKED"
+    ]
+  },
+  "v47_hwyla_key": {
+    "description": "A mod's own key binding through both routes (compatibility profile, Hwyla 1.8.26, which reads its configuration key only in its KeyInputEvent listener). First client key waila.keybind.wailaconfig press on the default route: expect CLIENT_ACTION step=key binding=waila.keybind.wailaconfig route=binding result=done and client screen with no screen (screen=none), since the default route posts no KeyInputEvent. Then the mark V47_HWYLA_KEY_END and, last, the same press with route=queue: expect route=queue result=done with pressedTick and releasedTick and screen=mcp.mobius.waila.gui.screens.config.ScreenConfig in that record (the screen open when the press was let go, in the tick the game read the key). Hwyla's configuration screen pauses single player (it does not say otherwise), so nothing after the press would run: the press is last, the pause note config/devtool/inbox/paused.json names the screen while it is open, and the client request channel's close mcp.mobius.waila.gui.screens.config.ScreenConfig closes it. A refusal routeUnavailable with detail, or failed notCounted with countedOn, is recorded as it stands. The default press leaves one counted press unused on the binding, which the queued press's event also takes; the queued record is what shows the event came through the queue.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "devtool client key waila.keybind.wailaconfig press",
+      {
+        "command": "devtool client screen",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool mark V47_HWYLA_KEY_END",
+        "delayTicks": 5
+      },
+      "devtool client key waila.keybind.wailaconfig press route=queue"
+    ]
+  },
+  "v47_q_place": {
+    "description": "Question save, part 1 (the development client with a copy of Uppers 0.0.6 in run/mods): places an uppers:upper block on a stone block at 0 100 3 and saves (rerunnable: the block is cleared first, and a clear or stone that changes nothing is tolerated). Expect BLOCK_INSPECT block=uppers:upper at 0 100 3 and SAVE. Ends with V47_Q_PLACED.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 101 0.5 0 0",
+      "devtool await chunks -8 -8 8 8 200",
+      {
+        "command": "setblock 0 99 3 minecraft:stone",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      {
+        "command": "setblock 0 100 3 minecraft:air",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      "setblock 0 100 3 uppers:upper",
+      "devtool inspect block 0 100 3",
+      "devtool save",
+      "devtool mark V47_Q_PLACED"
+    ]
+  },
+  "v47_q_check": {
+    "description": "Question save, part 2 (the development client after Uppers was taken out of run/mods, after open ... onQuestion=confirm): the block Forge removed. Expect BLOCK_INSPECT at 0 100 3 with block=minecraft:air, and V47_Q_CHECKED.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 101 0.5 0 0",
+      "devtool await chunks -8 -8 8 8 200",
+      "devtool inspect block 0 100 3",
+      "devtool mark V47_Q_CHECKED"
+    ]
+  },
+  "v47_cleanup": {
+    "description": "Returns the world to a neutral state without ending the session: logging off, no open screen, the scene fixtures and the heavy pigs removed (mob loot off meanwhile), items and orbs removed inside the scene and the pen (x -8 to 46, y 90 to 115, z -6 to 42), the sidebar objective removed, effects cleared, creative, back at the start. Every step may find nothing. Expect V47_CLEANED.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool log all off",
+      "devtool client close",
+      "gamerule doMobLoot false",
+      "kill @e[tag=v47_fx]",
+      "kill @e[tag=v47_heavy]",
+      {
+        "command": "kill @e[type=minecraft:item,x=-8,y=90,z=-6,dx=54,dy=25,dz=48]",
+        "delayTicks": 5
+      },
+      "kill @e[type=minecraft:xp_orb,x=-8,y=90,z=-6,dx=54,dy=25,dz=48]",
+      "gamerule doMobLoot true",
+      {
+        "command": "scoreboard objectives remove v47side",
+        "toleratedFailures": [
+          "commands.scoreboard.objectiveNotFound"
+        ]
+      },
+      {
+        "command": "effect @s clear",
+        "toleratedFailures": [
+          "commands.effect.failure.notActive.all"
+        ]
+      },
+      "gamemode creative",
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      "devtool mark V47_CLEANED"
+    ]
+  }
+}

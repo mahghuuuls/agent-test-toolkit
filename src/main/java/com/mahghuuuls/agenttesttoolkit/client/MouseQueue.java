@@ -13,7 +13,11 @@ import java.nio.ByteBuffer;
  * {@code MouseEvent} (which a mod may cancel), the key binding, the input event, and the game's
  * own click. Two libraries keep the queue in different places: LWJGL 2 in {@code Mouse}'s
  * private read buffer, and Cleanroom in the input queues of its main window. Neither is compiled
- * against; both are found by name once. Buttons are the game's: 0 left, 1 right, 2 middle.
+ * against; both are found by name once (see {@link QueueChoice}). Buttons are the game's: 0
+ * left, 1 right, 2 middle. An event carries {@code System.nanoTime()} as its time, not the
+ * clock of the library's own events (LWJGL 2 stamps them with the time the operating system
+ * gave, Cleanroom with SDL's): the game reads no button event's time, and a mod that compares
+ * it with a real event's time sees an unrelated number.
  *
  * <p>Client thread only, at a client tick start, before the game reads the queue in that tick.
  */
@@ -30,9 +34,6 @@ interface MouseQueue {
         return keyCode < 0 && button >= 0 && button < MAX_BUTTONS ? button : -1;
     }
 
-    /** {@code lwjgl2} or {@code cleanroom}, for records. */
-    String name();
-
     /** Puts one button event at the end of the queue. */
     void add(int button, boolean down);
 
@@ -46,51 +47,10 @@ interface MouseQueue {
     int WHEEL_PER_NOTCH = 120;
 
     /** The backend of this launch, found once the mouse exists. */
-    final class Choice {
-        private static boolean resolved;
-        private static MouseQueue backend;
-        private static final RouteState STATE = new RouteState();
-
-        private Choice() {
-        }
-
-        /** The backend, or null when none works in this game or the mouse is not made yet. */
-        static synchronized MouseQueue get() {
-            if (!resolved) {
-                if (!Mouse.isCreated()) {
-                    return null;
-                }
-                resolved = true;
-                backend = find();
-            }
-            return STATE.isFailed() ? null : backend;
-        }
-
-        static synchronized RouteState state() {
-            get();
-            return STATE;
-        }
-
-        /** Adding an event failed in use; the route is refused from now on. */
-        static synchronized void failed(RuntimeException failure) {
-            STATE.fail(failure.getClass().getSimpleName());
-        }
-
-        private static MouseQueue find() {
-            String lwjgl2Failure;
-            try {
-                return Lwjgl2.find();
-            } catch (ReflectiveOperationException | RuntimeException | LinkageError notLwjgl2) {
-                lwjgl2Failure = notLwjgl2.getClass().getSimpleName();
-            }
-            try {
-                return Cleanroom.find();
-            } catch (ReflectiveOperationException | RuntimeException | LinkageError notCleanroom) {
-                STATE.fail(lwjgl2Failure + "," + notCleanroom.getClass().getSimpleName());
-            }
-            return null;
-        }
-    }
+    // Lambdas, not method references: the mouse classes are loaded only when asked, not when
+    // this interface is first used for its button numbers.
+    QueueChoice<MouseQueue> CHOICE = new QueueChoice<MouseQueue>(() -> Mouse.isCreated(), () -> Lwjgl2.find(),
+            () -> Cleanroom.find());
 
     /**
      * LWJGL 2: the private {@code Mouse.readBuffer}, which {@code Mouse.next()} reads from its
@@ -101,10 +61,11 @@ interface MouseQueue {
      */
     final class Lwjgl2 implements MouseQueue {
         static final int EVENT_SIZE = 22;
-        private final ByteBuffer buffer;
+        /** The field, not the buffer: the library makes a new buffer when it makes the mouse again. */
+        private final Field readBuffer;
 
-        Lwjgl2(ByteBuffer buffer) {
-            this.buffer = buffer;
+        private Lwjgl2(Field readBuffer) {
+            this.readBuffer = readBuffer;
         }
 
         static Lwjgl2 find() throws ReflectiveOperationException {
@@ -114,30 +75,25 @@ interface MouseQueue {
             }
             Field field = Mouse.class.getDeclaredField("readBuffer");
             field.setAccessible(true);
-            Object value = field.get(null);
-            if (!(value instanceof ByteBuffer)) {
+            if (!(field.get(null) instanceof ByteBuffer)) {
                 throw new NoSuchFieldException("readBuffer");
             }
-            return new Lwjgl2((ByteBuffer) value);
-        }
-
-        @Override
-        public String name() {
-            return "lwjgl2";
+            return new Lwjgl2(field);
         }
 
         @Override
         public void add(int button, boolean down) {
             boolean grabbed = Mouse.isGrabbed();
-            append(buffer, button, down, grabbed ? 0 : Mouse.getX(), grabbed ? 0 : Mouse.getY(), System.nanoTime());
+            append(QueueChoice.readBuffer(readBuffer), button, down, grabbed ? 0 : Mouse.getX(),
+                    grabbed ? 0 : Mouse.getY(), System.nanoTime());
         }
 
         @Override
         public void wheel(int notches) {
             boolean grabbed = Mouse.isGrabbed();
             // No button: the library's -1, and the wheel's amount where a button event has 0.
-            append(buffer, -1, false, grabbed ? 0 : Mouse.getX(), grabbed ? 0 : Mouse.getY(),
-                    notches * WHEEL_PER_NOTCH, System.nanoTime());
+            append(QueueChoice.readBuffer(readBuffer), -1, false, grabbed ? 0 : Mouse.getX(),
+                    grabbed ? 0 : Mouse.getY(), notches * WHEEL_PER_NOTCH, System.nanoTime());
         }
 
         /** Writes one event after the unread ones; kept apart so its layout is tested. */
@@ -147,16 +103,7 @@ interface MouseQueue {
 
         /** The same, with a wheel amount. */
         static void append(ByteBuffer buffer, int button, boolean down, int first, int second, int wheel, long nanos) {
-            if (buffer.limit() + EVENT_SIZE > buffer.capacity()) {
-                // Moves the unread events to the front, as the library does before it reads more.
-                buffer.compact();
-                buffer.flip();
-            }
-            int at = buffer.limit();
-            if (at + EVENT_SIZE > buffer.capacity()) {
-                throw new IllegalStateException("queueFull");
-            }
-            buffer.limit(at + EVENT_SIZE);
+            int at = QueueChoice.reserve(buffer, EVENT_SIZE);
             buffer.put(at, (byte) button);
             buffer.put(at + 1, (byte) (down ? 1 : 0));
             buffer.putInt(at + 2, first);
@@ -224,11 +171,6 @@ interface MouseQueue {
                 return 2;
             }
             return button + 1;
-        }
-
-        @Override
-        public String name() {
-            return "cleanroom";
         }
 
         @Override

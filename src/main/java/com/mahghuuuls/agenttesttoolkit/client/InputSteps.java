@@ -131,16 +131,24 @@ final class InputSteps {
             return;
         }
         String route = options.getRoute();
-        if (InputOptions.ROUTE_QUEUE.equals(route) && refuseQueue(mc, asked, code, fields)) {
+        boolean queued = InputOptions.ROUTE_QUEUE.equals(route);
+        boolean press = InputOptions.PRESS.equals(options.getMode());
+        if (queued && refuseKeyQueue(mc, asked, code, fields)) {
             return;
         }
         fields.put("route", route + (options.isRaw() ? "+raw" : ""));
-        if (InputOptions.PRESS.equals(options.getMode())) {
+        if (press) {
             records.screenshotAfter(asked, fields);
             held.press(mc, asked, binding, route, true, options.isRaw(), fields);
             return;
         }
         fields.put("ticks", String.valueOf(options.getTicks()));
+        if (queued) {
+            // Its started record is written when its key goes down, at the next tick start.
+            records.screenshotAfter(asked, fields);
+            held.queueHold(asked, binding, options.getTicks(), options.isRaw(), fields);
+            return;
+        }
         HeldInputs.putTick(fields, "pressedTick", mc);
         records.screenshotAfter(asked, fields);
         String countedOn = held.hold(mc, asked, binding, options.getTicks(), options.isRaw(), true, fields);
@@ -341,10 +349,40 @@ final class InputSteps {
             refuse(mc, asked, RouteState.REASON_ROUTE_UNAVAILABLE, fields);
             return true;
         }
-        if (MouseQueue.Choice.get() != null) {
+        if (MouseQueue.CHOICE.get() != null) {
             return false;
         }
-        String failure = MouseQueue.Choice.state().takeFailureName();
+        return refuseUnavailable(mc, asked, MouseQueue.CHOICE.state(), fields);
+    }
+
+    /**
+     * True when a key binding's press or hold cannot go through the input queue of its key or
+     * button here: refused, with why in {@code detail}. A binding on a mouse button goes through
+     * the mouse queue, as a click does, and its key-up has the click's fallback: the binding is
+     * let go a tick after the key-up is queued unless the real button is down, so a mod that
+     * cancels the button's release leaves nothing held. A binding on a key the keyboard library
+     * has no code for is refused {@code notQueueable}.
+     */
+    private boolean refuseKeyQueue(Minecraft mc, Asked asked, int code, Map<String, String> fields) {
+        if (MouseQueue.button(code) >= 0) {
+            return refuseQueue(mc, asked, code, fields);
+        }
+        KeyQueue queue = KeyQueue.CHOICE.get();
+        if (queue == null) {
+            return refuseUnavailable(mc, asked, KeyQueue.CHOICE.state(), fields);
+        }
+        if (!queue.reaches(code)) {
+            // A key the game knows only by its character: the library has no code to carry it.
+            fields.put("detail", "notQueueable");
+            refuse(mc, asked, RouteState.REASON_ROUTE_UNAVAILABLE, fields);
+            return true;
+        }
+        return false;
+    }
+
+    /** Refuses a route that cannot be driven in this launch, naming its first failure once. */
+    private boolean refuseUnavailable(Minecraft mc, Asked asked, RouteState state, Map<String, String> fields) {
+        String failure = state.takeFailureName();
         if (failure != null) {
             fields.put("detail", failure);
         }

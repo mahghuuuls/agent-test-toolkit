@@ -53,7 +53,7 @@ Two vanilla keys you will often want to declare, because they are the second run
 - `commands.fill.failed`: `fill` changed no block, because the region already is the block you asked for.
 - `commands.setblock.noChange`: `setblock` found the block already there.
 
-Neither is tolerated unless you declare it.
+Neither is tolerated unless you declare it, per command: `{ "command": "fill -2 99 -1 2 99 4 minecraft:stone", "toleratedFailures": ["commands.fill.failed"] }`. A setup run twice then ends `failed=0 tolerated=1`, and its inbox `run` answers `done`, instead of reporting a failure on every run after the first.
 
 The toolkit's own failure keys are tolerated the same way, by declaring them:
 
@@ -151,7 +151,7 @@ A command may name a value the toolkit fills in when the command runs. Exactly f
 | `${operator.selector}` | `@p[name=<their name>]` |
 | `${fixture.<handle>.uuid}` | The UUID of the fixture claimed under that handle in this session; from 1.8.0 also of the fixture `devtool fixture clear` removed under it, until the session ends |
 
-From 1.9.0 the message of `devtool.placeholder.unbound` names what to run first: `devtool session start <name>`, `devtool session operator <player>`, or `devtool fixture claim <handle> ...`. The key does not change, so `toleratedFailures` written for it still match.
+From 1.9.0 the message of `devtool.placeholder.unbound` names what to run first: `devtool session start <name>`, `devtool session operator <player>`, or `devtool fixture claim <handle> ...`. The key does not change, so `toleratedFailures` written for it still match. The failure's `ERROR` record carries the same step in `detail`, after the key (`devtool.placeholder.unbound: run devtool session start <name> first`), and so does the `detail` of an inbox `run` answer whose first failure it is, so an agent reading only the files sees it.
 
 
 Bind the operator first, inside the session:

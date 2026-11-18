@@ -137,6 +137,24 @@ final class KeyLookup {
         return "none";
     }
 
+    /**
+     * Which binding the game will count a press on, when not the one named, decided before the
+     * key goes down, as for a key put into an input queue: the binding the game's own lookup
+     * finds active on the key now, by the same rule it counts a press with (the modifier keys
+     * held and the contexts active), or {@code none} when no binding on the key is active. Null
+     * when that is the named binding, or when the lookup could not be read and nothing can be said.
+     *
+     * @param readable      the game's lookup could be read
+     * @param activeIsNamed the binding it found is the named one
+     * @param activeName    the name of the binding it found; null when it found none
+     */
+    static String countedOnActive(boolean readable, boolean activeIsNamed, String activeName) {
+        if (!readable || activeIsNamed) {
+            return null;
+        }
+        return activeName == null ? "none" : activeName;
+    }
+
     /** How many bindings match the prefix, listed or not. */
     static int matching(List<Entry> entries, String prefix) {
         int count = 0;

@@ -68,7 +68,8 @@ class PackageRulesTest {
             "client/KeyLookup.java", "client/Aim.java", "client/PressTaken.java", "client/RouteState.java",
             "client/screen/ScreenTargets.java", "client/menu/ConfirmScreens.java", "client/menu/ModListChoice.java",
             "client/FrameHide.java", "inbox/HideSet.java", "client/menu/QuestionAnswers.java",
-            "client/PanelLayout.java", "wait/PromptPanels.java"};
+            "client/PanelLayout.java", "wait/PromptPanels.java", "client/PressStages.java", "client/QueueChoice.java",
+            "client/TooltipCapture.java"};
 
     /**
      * The roots a source file may import from. Another loader's or mod's classes are reached by

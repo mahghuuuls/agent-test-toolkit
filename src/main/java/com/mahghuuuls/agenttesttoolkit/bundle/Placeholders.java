@@ -83,7 +83,7 @@ public final class Placeholders {
                 String hint = source.unboundHint(name);
                 throw new PlaceholderException(PlaceholderException.KEY_UNBOUND, token,
                         "Placeholder " + token + " has no value: nothing is bound for it."
-                                + (hint == null ? "" : " Run " + hint + " first."));
+                                + (hint == null ? "" : " Run " + hint + " first."), hint);
             }
             if (!isSafe(value)) {
                 throw new PlaceholderException(PlaceholderException.KEY_UNSAFE, token,

@@ -11,8 +11,12 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.client.event.GuiScreenEvent;
+import net.minecraftforge.client.event.RenderTooltipEvent;
 import net.minecraftforge.fml.client.config.GuiUtils;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,9 +43,17 @@ final class ScreenSteps {
     /** And this many ticks past a screenshot's delay, so the picture falls while it shows. */
     static final int TOOLTIP_PAST_SCREENSHOT = 10;
 
+    /** {@code GuiScreen.renderToolTip(ItemStack, int, int)}, which a screen overrides to draw its own lines. */
+    private static final String RENDER_TOOL_TIP = "func_146285_a";
+
+    private static boolean resolved;
+    private static Method renderToolTip;
+
     private final HeldInputs.Records records;
     /** The container tooltip being drawn, until its ticks run out or the screen changes. */
     private Drawn drawn;
+    /** Takes the lines of the one tooltip draw the toolkit asks for. */
+    private final TooltipCapture capture = new TooltipCapture();
 
     private static final class Drawn {
         final GuiContainer screen;
@@ -49,6 +61,13 @@ final class ScreenSteps {
         final boolean advanced;
         final int[] keys;
         int ticksLeft;
+        /** The step whose record waits for the first draw, with its fields so far; null once written. */
+        Asked pending;
+        Map<String, String> fields;
+        String screenName;
+        /** The lines the screen's {@code getItemToolTip} built when the step was taken, and the keys read then. */
+        List<String> built;
+        String builtKeysSeen;
 
         Drawn(GuiContainer screen, Slot slot, boolean advanced, int[] keys, int ticks) {
             this.screen = screen;
@@ -81,16 +100,30 @@ final class ScreenSteps {
         }
     }
 
-    /** One tick of the drawn tooltip: it ends after its ticks, or once its screen is not the open one. */
+    /**
+     * One tick of the drawn tooltip: it ends after its ticks, or once its screen is not the open
+     * one. A record still waiting for a draw is written then, with the lines built at the step.
+     */
     void tick(Minecraft mc) {
         if (drawn != null && (mc.currentScreen != drawn.screen || --drawn.ticksLeft <= 0)) {
+            Drawn ended = drawn;
             drawn = null;
+            if (ended.pending != null) {
+                writeDrawn(mc, ended, TooltipCapture.choose(true, null, ended.built), ended.builtKeysSeen);
+            }
         }
+    }
+
+    /** A tooltip about to be drawn, with its final lines: kept when it is the one the toolkit asked for. */
+    void tooltipEvent(RenderTooltipEvent.Pre event) {
+        capture.offer(event.getLines());
     }
 
     /**
      * Draws the asked tooltip after the open container has drawn itself, at the slot's centre,
-     * the way the game draws a hovered slot's tooltip, so the tooltip events fire as for a hover.
+     * through the screen's own tooltip method, the way the game draws a hovered slot's tooltip, so
+     * a screen's own lines and the tooltip events come as for a hover. The first draw writes the
+     * step's record with the lines it drew.
      */
     void draw(GuiScreenEvent.DrawScreenEvent.Post event) {
         final Drawn d = drawn;
@@ -104,24 +137,110 @@ final class ScreenSteps {
         final Minecraft mc = Minecraft.getMinecraft();
         final int x = d.screen.getGuiLeft() + d.slot.xPos + 8;
         final int y = d.screen.getGuiTop() + d.slot.yPos + 8;
+        final Method method = tooltipMethod();
+        final String[] seen = {""};
+        List<String> drawnLines;
         try {
-            ModifierKeys.holding(d.keys, new Callable<Void>() {
+            drawnLines = ModifierKeys.holding(d.keys, new Callable<List<String>>() {
                 @Override
-                public Void call() {
-                    List<String> lines = linesOf(mc, d.screen, stack, d.advanced);
-                    FontRenderer font = stack.getItem().getFontRenderer(stack);
-                    GuiUtils.preItemToolTip(stack);
-                    GuiUtils.drawHoveringText(lines, x, y, d.screen.width, d.screen.height, -1,
-                            font == null ? mc.fontRenderer : font);
-                    GuiUtils.postItemToolTip();
-                    return null;
+                public List<String> call() throws Exception {
+                    seen[0] = ModifierKeys.seen();
+                    if (method == null) {
+                        drawBuilt(mc, d, stack, x, y);
+                        return null;
+                    }
+                    return drawThroughScreen(mc, method, d, stack, x, y);
                 }
             });
         } catch (RuntimeException failure) {
             // Another mod's tooltip handler threw while drawing: the drawing stops rather than
-            // throwing out of every frame. The step's record was written when it was taken.
+            // throwing out of every frame, and a record still waiting says the step failed.
             drawn = null;
+            if (d.pending != null) {
+                Asked asked = d.pending;
+                d.pending = null;
+                records.finish(mc, asked, "failed", failure.getClass().getSimpleName(), d.screenName, null,
+                        new LinkedHashMap<String, String>());
+            }
+            return;
         }
+        if (d.pending != null && method != null) {
+            writeDrawn(mc, d, TooltipCapture.choose(true, drawnLines, d.built), seen[0]);
+        }
+    }
+
+    /**
+     * Calls the screen's own tooltip method at the point, with the game's advanced setting as
+     * asked, and hands back the lines Forge's tooltip event saw for that call, or null.
+     */
+    private List<String> drawThroughScreen(Minecraft mc, Method method, Drawn d, ItemStack stack, int x, int y)
+            throws Exception {
+        boolean was = mc.gameSettings.advancedItemTooltips;
+        mc.gameSettings.advancedItemTooltips = d.advanced;
+        List<String> lines;
+        capture.arm();
+        try {
+            method.invoke(d.screen, stack, x, y);
+        } catch (InvocationTargetException thrown) {
+            // What the screen's or a mod's handler threw, not the reflection around it.
+            Throwable cause = thrown.getCause();
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            }
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
+            throw new IllegalStateException(cause);
+        } finally {
+            mc.gameSettings.advancedItemTooltips = was;
+            lines = capture.disarm();
+        }
+        return lines;
+    }
+
+    /** The tooltip drawn from the built lines, as before the screen's method could be called. */
+    private static void drawBuilt(Minecraft mc, Drawn d, ItemStack stack, int x, int y) {
+        List<String> lines = linesOf(mc, d.screen, stack, d.advanced);
+        FontRenderer font = stack.getItem().getFontRenderer(stack);
+        GuiUtils.preItemToolTip(stack);
+        GuiUtils.drawHoveringText(lines, x, y, d.screen.width, d.screen.height, -1,
+                font == null ? mc.fontRenderer : font);
+        GuiUtils.postItemToolTip();
+    }
+
+    /** The step's one record, with the chosen lines; the drawing goes on. */
+    private void writeDrawn(Minecraft mc, Drawn d, TooltipCapture.Choice choice, String keysSeen) {
+        Asked asked = d.pending;
+        Map<String, String> fields = d.fields;
+        d.pending = null;
+        d.fields = null;
+        finishTooltip(mc, asked, fields, choice, keysSeen, d.screenName);
+    }
+
+    private void finishTooltip(Minecraft mc, Asked asked, Map<String, String> fields, TooltipCapture.Choice choice,
+            String keysSeen, String screenName) {
+        fields.putAll(TooltipLines.fields(choice.lines));
+        if (fields.containsKey("keys")) {
+            fields.put("keysSeen", keysSeen);
+        }
+        if (choice.detail != null) {
+            fields.put("detail", choice.detail);
+        }
+        records.finish(mc, asked, "done", null, screenName, null, fields);
+    }
+
+    /** The screen's tooltip method, found once by its name in the game's mappings; null when absent. */
+    private static synchronized Method tooltipMethod() {
+        if (!resolved) {
+            resolved = true;
+            try {
+                renderToolTip = ObfuscationReflectionHelper.findMethod(GuiScreen.class, RENDER_TOOL_TIP, void.class,
+                        ItemStack.class, int.class, int.class);
+            } catch (RuntimeException notFound) {
+                renderToolTip = null;
+            }
+        }
+        return renderToolTip;
     }
 
     /** {@code SCREEN_INFO} and its buttons and slots; changes nothing. */
@@ -272,9 +391,9 @@ final class ScreenSteps {
             refuse(mc, asked, refusal, fields);
             return;
         }
-        MouseQueue queue = MouseQueue.Choice.get();
+        MouseQueue queue = MouseQueue.CHOICE.get();
         if (queue == null) {
-            String failure = MouseQueue.Choice.state().takeFailureName();
+            String failure = MouseQueue.CHOICE.state().takeFailureName();
             if (failure != null) {
                 fields.put("detail", failure);
             }
@@ -288,7 +407,7 @@ final class ScreenSteps {
                 queue.wheel(step);
             }
         } catch (RuntimeException failure) {
-            MouseQueue.Choice.failed(failure);
+            MouseQueue.CHOICE.failed(failure);
             records.finish(mc, asked, "failed", failure.getClass().getSimpleName(), info.screenName(), null, fields);
             return;
         }
@@ -355,19 +474,30 @@ final class ScreenSteps {
                     new LinkedHashMap<String, String>());
             return;
         }
-        fields.putAll(TooltipLines.fields(lines));
-        if (!keys.isEmpty()) {
-            fields.put("keysSeen", seen[0]);
-        }
-        drawn = new Drawn(container, slot, advanced, codes, ticks);
+        Drawn d = new Drawn(container, slot, advanced, codes, ticks);
         records.screenshotAfter(asked, fields);
-        records.finish(mc, asked, "done", null, screenName, null, fields);
+        if (drawn != null && drawn.pending != null) {
+            // An earlier tooltip asked in the same tick, before any frame drew it.
+            writeDrawn(mc, drawn, TooltipCapture.choose(true, null, drawn.built), drawn.builtKeysSeen);
+        }
+        drawn = d;
+        if (tooltipMethod() == null) {
+            finishTooltip(mc, asked, fields, TooltipCapture.choose(false, null, lines), seen[0], screenName);
+            return;
+        }
+        // The record waits for the first draw, normally in the frame right after this tick, so
+        // it carries the lines as the screen drew them, its own additions included.
+        d.pending = asked;
+        d.fields = fields;
+        d.screenName = screenName;
+        d.built = lines;
+        d.builtKeysSeen = seen[0];
     }
 
     /**
-     * The lines the open screen gives for the item, through its own tooltip method (which a mod's
-     * screen may change), in the normal or the advanced form as asked; the player's own F3+H
-     * setting comes back right after.
+     * The lines the open screen's {@code getItemToolTip} builds for the item, in the normal or the
+     * advanced form as asked; the player's own F3+H setting comes back right after. A screen that
+     * adds lines only while drawing them does not add them here.
      */
     private static List<String> linesOf(Minecraft mc, GuiScreen screen, ItemStack stack, boolean advanced) {
         boolean was = mc.gameSettings.advancedItemTooltips;

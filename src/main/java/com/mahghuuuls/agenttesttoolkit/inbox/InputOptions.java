@@ -51,14 +51,17 @@ public final class InputOptions {
     public static final String HOLD = "hold";
     public static final String RELEASE = "release";
 
-    /** How a click reaches the game: the binding (as before 1.9.0), plus Forge's input event, or the input queue. */
+    /**
+     * How a click or a key reaches the game: the binding (as before 1.9.0), plus Forge's input
+     * event (a click only), or the input queue of its button or key.
+     */
     public static final String ROUTE_BINDING = "binding";
     public static final String ROUTE_EVENT = "event";
     public static final String ROUTE_QUEUE = "queue";
     public static final List<String> ROUTES = Collections.unmodifiableList(
             Arrays.asList(ROUTE_BINDING, ROUTE_EVENT, ROUTE_QUEUE));
 
-    /** The registered names of the use and attack bindings, whose presses take a route. */
+    /** The registered names of the use and attack bindings, whose presses also take the event route. */
     public static final List<String> CLICK_BINDINGS = Collections.unmodifiableList(
             Arrays.asList("key.use", "key.attack"));
 
@@ -274,7 +277,7 @@ public final class InputOptions {
                     && readFlag(value, false);
         }
         if (OPTION_ROUTE.equals(key)) {
-            if (!(USE.equals(step) || ATTACK.equals(step) || pressesClickBinding()) || !ROUTES.contains(value)) {
+            if (!ROUTES.contains(value) || !takesRoute(value)) {
                 return false;
             }
             route = value;
@@ -291,11 +294,20 @@ public final class InputOptions {
     }
 
     /**
-     * A {@code key} press of the use or attack binding, which takes a click's routes: the other
-     * routes are mouse input, which only the bindings behind the mouse buttons answer to.
+     * Whether this step takes the route: a click takes every route; a {@code key} press or hold
+     * takes the binding and the queue, whose events the client puts in the queue of the binding's
+     * own key or button. The event route posts Forge's mouse input event, which only the bindings
+     * behind the mouse buttons answer to, so of the keys only a press of the use or attack binding
+     * takes it.
      */
-    private boolean pressesClickBinding() {
-        return KEY.equals(step) && PRESS.equals(mode) && CLICK_BINDINGS.contains(name);
+    private boolean takesRoute(String value) {
+        if (USE.equals(step) || ATTACK.equals(step)) {
+            return true;
+        }
+        if (!KEY.equals(step) || !(PRESS.equals(mode) || HOLD.equals(mode))) {
+            return false;
+        }
+        return !ROUTE_EVENT.equals(value) || (PRESS.equals(mode) && CLICK_BINDINGS.contains(name));
     }
 
     /** {@code true} or {@code false}; sets {@link #raw} or {@link #keepHold}. */
