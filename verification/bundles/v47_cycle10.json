@@ -327,10 +327,10 @@
     ]
   },
   "v47_face_attack": {
-    "description": "Facing a target, then attacking in the same tick (1.9.0). client face @e[type=minecraft:zombie,c=1] (the one zombie, 5.8 blocks away) and client attack. Expect the server's action=requested step=face target=entity entityType=minecraft:zombie; the client's face done with aimX/aimY/aimZ near -2.5/101.7/5.5; the attack's target=entity entityType=minecraft:zombie; ENTITY_DAMAGE on v47zombie. Then client face block 3000 100 3000 (not loaded): refused at once, tolerated devtool.client.noTarget, CLIENT_ACTION action=refused reason=noTarget. Ends with V47_FACE_END. The first attack waits 21 ticks after the teleport: a teleport to the spot the client last reported leaves the server reading the caller as in the air for up to 20 ticks, which changes an attack (no sweep, no critical hit).",
+    "description": "Facing a target, then attacking in the same tick (1.9.0). The caller is moved to 0.5 100 5.5 facing south (yaw 0), so the zombie (-2.5 100 5.5) stands 3 blocks to its west, at its side: face must turn the view about 90 degrees before the attack can hit (in open air vanilla limits the entity pick to the block ray's reach, 5.0 even in creative, and the zombie seen from the scene start, 5.8 blocks, is past it). client face @e[type=minecraft:zombie,c=1] (the one zombie) and client attack. Expect the server's action=requested step=face target=entity entityType=minecraft:zombie; the client's face done with startYaw about 0 and endYaw about 90, aimX/aimY/aimZ near -2.5/101.7/5.5; the attack's target=entity entityType=minecraft:zombie; ENTITY_DAMAGE on v47zombie. Then client face block 3000 100 3000 (not loaded): refused at once, tolerated devtool.client.noTarget, CLIENT_ACTION action=refused reason=noTarget. Ends with V47_FACE_END. The first attack waits 21 ticks after the teleport: a teleport to the spot the client last reported leaves the server reading the caller as in the air for up to 20 ticks, which changes an attack (no sweep, no critical hit).",
     "stopOnFailure": true,
     "commands": [
-      "tp @s 0.5 100 0.5 0 0",
+      "tp @s 0.5 100 5.5 0 0",
       "devtool log entity_damage on radius 16",
       {
         "command": "devtool client face @e[type=minecraft:zombie,c=1]",
@@ -398,7 +398,7 @@
     ]
   },
   "v47_focus_walk": {
-    "description": "Emulated focus loss during a walk (1.9.0). client key key.forward hold 100, client focus lost 20 ticks in, PLAYER_INSPECT 5 and 45 ticks after (the same position: the walk stopped), client focus gained. Expect the hold done released=focusLost (not nextAction) before 100 ticks; focus lost emulated=true windowChanged=false, showing=none when the client's pause on lost focus is off and showing=net.minecraft.client.gui.GuiIngameMenu when it is on; focus gained done, or refused noRealFocus when the real window had no focus. With the pause on and the real window without focus, the game itself keeps the pause menu open (it reopens it every frame), so the hold is refused screenOpen and the focus lost record's screen already names the pause menu: recorded as it stands. Until the game takes focus back, later queued keys and clicks are refused noFocus, so run it after the cards that queue input or right before a leave of the world. Ends with V47_FOCUS_END.",
+    "description": "Emulated focus loss during a walk (1.9.0). client key key.forward hold 100, client focus lost 20 ticks in, PLAYER_INSPECT 5 and 45 ticks after (the walk stopped: the second reading may be a few hundredths of a block further, 0.04 on the campaign's runs, since the player still glides a little after the key is let go and the client sends its position only after a move of more than about 0.03 blocks; a walk that went on would be blocks further), client focus gained. Expect the hold done released=focusLost (not nextAction) before 100 ticks; focus lost emulated=true windowChanged=false, showing=none when the client's pause on lost focus is off and showing=net.minecraft.client.gui.GuiIngameMenu when it is on; focus gained done, or refused noRealFocus when the real window had no focus. With the pause on and the real window without focus, the game itself keeps the pause menu open (it reopens it every frame), so the hold is refused screenOpen and the focus lost record's screen already names the pause menu: recorded as it stands. Until the game takes focus back, later queued keys and clicks are refused noFocus, so run it after the cards that queue input or right before a leave of the world. Ends with V47_FOCUS_END.",
     "stopOnFailure": true,
     "commands": [
       "tp @s 0.5 100 0.5 0 0",
@@ -426,11 +426,35 @@
       }
     ]
   },
-  "v47_routes": {
-    "description": "Click routes (1.9.0). Faces the zombie and attacks three times, 25 ticks apart (past its hurt immunity): route=binding (as 1.8.0), route=event (also Forge's MouseInputEvent), route=queue (a real button press in the mouse queue; on Cleanroom done or refused routeUnavailable). Expect three attack records with route=binding, route=event, route=queue and target=entity, and ENTITY_DAMAGE for each click that reached the game. Ends with V47_ROUTES_END. The first attack waits 21 ticks after the teleport: a teleport to the spot the client last reported leaves the server reading the caller as in the air for up to 20 ticks, which changes an attack (no sweep, no critical hit).",
+  "v47_keyup_glide": {
+    "description": "The comparison for v47_focus_walk's small further reading (1.9.0): a walk ended by a plain key-up, with no focus loss. client key key.forward hold 40 (the binding route; it ends by itself), PLAYER_INSPECT 45 ticks after the request (about 5 ticks after the release) and 40 ticks after that (about 45 after the release), the same spacing as v47_focus_walk's two readings after the loss. Expect the hold done released=done heldTicks=40; the two readings' posZ differ by no more than a few hundredths of a block (v47_focus_walk read 4.77 then 4.81). The release tick is read from the hold's own record and compared with the readings' worldTick. Ends with V47_KEYUP_END.",
     "stopOnFailure": true,
     "commands": [
       "tp @s 0.5 100 0.5 0 0",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 5
+      },
+      "devtool client key key.forward hold 40",
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 45
+      },
+      {
+        "command": "devtool inspect player",
+        "delayTicks": 40
+      },
+      {
+        "command": "devtool mark V47_KEYUP_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_routes": {
+    "description": "Click routes (1.9.0). The caller is moved to 0.5 100 5.5 facing south (yaw 0), 3 blocks from the zombie at its west side (as v47_face_attack: past about 5 blocks in open air the entity pick misses), so face must turn about 90 degrees: expect the face record's startYaw about 0 and endYaw about 90. Faces the zombie and attacks three times, 25 ticks apart (past its hurt immunity): route=binding (as 1.8.0), route=event (also Forge's MouseInputEvent), route=queue (a real button press in the mouse queue; on Cleanroom done or refused routeUnavailable). Expect three attack records with route=binding, route=event, route=queue and target=entity, and ENTITY_DAMAGE for each click that reached the game. Ends with V47_ROUTES_END. The first attack waits 21 ticks after the teleport: a teleport to the spot the client last reported leaves the server reading the caller as in the air for up to 20 ticks, which changes an attack (no sweep, no critical hit).",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 5.5 0 0",
       "devtool log entity_damage on radius 16",
       {
         "command": "devtool client face @e[tag=v47_zombie]",
@@ -623,11 +647,12 @@
     ]
   },
   "v47_console_platform": {
-    "description": "Console run on the isolated server: builds the scene floor at y 99 near the spawn so the console teleports land on stone (the world is flat; the player must be online, since only a player loads chunks). Expect V47_CONSOLE_PLATFORM.",
+    "description": "Console run on the isolated server: moves the one player (@p) into the test area first, since the isolated flat world spawns it far from 0 0 and only a player loads chunks, waits for the chunks there, builds the scene floor at y 99 so the console teleports land on stone, and puts the player on it at 0.5 100 0.5. Quiet (quiet true in the file), so its own teleports send no [Server: Teleported line to the operator client before the loud console run the card counts. Expect AWAIT outcome=satisfied and V47_CONSOLE_PLATFORM.",
     "stopOnFailure": true,
-    "quiet": false,
+    "quiet": true,
     "result": true,
     "commands": [
+      "tp @p 0.5 101 0.5 0 0",
       "devtool await chunks -8 -6 8 18 200",
       {
         "command": "fill -6 100 -4 6 107 16 minecraft:air",
@@ -641,11 +666,12 @@
           "commands.fill.failed"
         ]
       },
+      "tp @p 0.5 100 0.5 0 0",
       "devtool mark V47_CONSOLE_PLATFORM"
     ]
   },
   "v47_panel_cue": {
-    "description": "The prompt panel with a quiet run (1.9.0), quiet true in the file. Fifteen teleports (nested v47_quiet_tp, quiet by inheritance), a cue V47_PANEL_READ panel sound (its sound shows a subtitle when subtitles are on), picture v47_panel_cue 20 ticks later (hide=toasts: expect the panel on the right with the label, no chat line over it or near it, below any potion icons, above the subtitle), then checkpoint ack (answered=cue) and picture v47_panel_after_ack (expect no panel). CHECKPOINT action=cue form=panel. Ends with V47_PANEL_CUE_END.",
+    "description": "The prompt panel with a quiet run (1.9.0), quiet true in the file. Fifteen teleports (nested v47_quiet_tp, quiet by inheritance), a cue V47_PANEL_READ panel sound (its sound, block.note.pling, has no subtitle in 1.12.2, so no subtitle shows even with subtitles on; the panel beside a subtitle is v47_panel_subtitle), picture v47_panel_cue 20 ticks later (hide=toasts: expect the panel on the right with the label, no chat line over it or near it, below any potion icons, no subtitle), then checkpoint ack (answered=cue) and picture v47_panel_after_ack (expect no panel). CHECKPOINT action=cue form=panel. Ends with V47_PANEL_CUE_END.",
     "stopOnFailure": true,
     "quiet": true,
     "commands": [
@@ -665,6 +691,63 @@
       },
       {
         "command": "devtool mark V47_PANEL_CUE_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_panel_subtitle": {
+    "description": "The panel and a subtitle together (1.9.0), quiet true; for a client with subtitles on (options.txt showSubtitles:true). The cue's own sound (block.note.pling) has no subtitle in 1.12.2's sounds.json, so a note block harp sound, which has one ('Note Block plays'), is played to the caller right after a cue V47_PANEL_SUB panel sound. Picture v47_panel_subtitle 10 ticks later (hide=toasts: expect the panel on the right and the subtitle at the bottom right, the panel above it, not over it). Then ack. Ends with V47_PANEL_SUB_END.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "devtool checkpoint cue V47_PANEL_SUB panel sound",
+      "playsound minecraft:block.note.harp master @s",
+      {
+        "command": "devtool screenshot v47_panel_subtitle 0 hide=toasts",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool checkpoint ack",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool mark V47_PANEL_SUB_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v47_panel_f1": {
+    "description": "The panel and F1 (1.9.0), quiet true; for a development client whose run/options.txt puts the spectator outline binding on F1 for this launch only (key_key.spectatorOutlines:59; no other binding is on F1, and the binding does nothing outside spectator mode). A cue V47_PANEL_F1 panel; picture v47_panel_f1_shown 10 ticks later (no hide: the panel and the HUD); then client key key.spectatorOutlines press route=queue, so the keyboard queue carries a real F1 key-down that the game reads with no screen open and toggles its own hide-GUI setting, as a person's F1 does; picture v47_panel_f1_hidden 5 ticks after the press (expect no panel, no hotbar, no crosshair, no hand); the same press again; picture v47_panel_f1_back 5 ticks later (the HUD and the panel back). Expect each press's record step=key result=done binding=key.spectatorOutlines keyCode=59 route=queue with pressedTick and releasedTick, and the three SCREENSHOT ... action=saved records. Then ack. Ends with V47_PANEL_F1_END.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "devtool checkpoint cue V47_PANEL_F1 panel",
+      {
+        "command": "devtool screenshot v47_panel_f1_shown 0",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool client key key.spectatorOutlines press route=queue",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool screenshot v47_panel_f1_hidden 0",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client key key.spectatorOutlines press route=queue",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool screenshot v47_panel_f1_back 0",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool checkpoint ack",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool mark V47_PANEL_F1_END",
         "delayTicks": 5
       }
     ]
@@ -701,7 +784,7 @@
     ]
   },
   "v47_sidebar": {
-    "description": "The panel beside a scoreboard sidebar (1.9.0), quiet true. A sidebar objective v47side with 5 lines, a cue V47_PANEL_SIDEBAR, picture v47_panel_sidebar5 (hide=chat,toasts: the panel above or below the sidebar, never over it); then 15 lines, picture v47_panel_sidebar15 (the panel above, below or beside it, never over it). Then ack and the objective removed. Ends with V47_SIDEBAR_END.",
+    "description": "The panel beside a scoreboard sidebar (1.9.0), quiet true. A sidebar objective v47side with 5 lines, a cue V47_PANEL_SIDEBAR, picture v47_panel_sidebar5 (hide=chat,toasts: the panel above or below the sidebar, never over it); the ten more lines are set only 20 ticks after that picture's request (set in the same tick, they reached the client before the picture was taken, which then showed 15 lines); then 15 lines, picture v47_panel_sidebar15 (the panel above, below or beside it, never over it). Then ack and the objective removed. Ends with V47_SIDEBAR_END.",
     "stopOnFailure": true,
     "quiet": true,
     "commands": [
@@ -722,7 +805,10 @@
         "command": "devtool screenshot v47_panel_sidebar5 0 hide=chat,toasts",
         "delayTicks": 10
       },
-      "scoreboard players set Foxtrot v47side 6",
+      {
+        "command": "scoreboard players set Foxtrot v47side 6",
+        "delayTicks": 20
+      },
       "scoreboard players set Golf v47side 7",
       "scoreboard players set Hotel v47side 8",
       "scoreboard players set India v47side 9",
@@ -828,6 +914,17 @@
         "delayTicks": 20
       },
       "devtool mark V47_CUE_OLD_END"
+    ]
+  },
+  "v47_old_sample_items": {
+    "description": "Items for a sample of 1.8.0 steps on a client older than 1.9.0 (isolated old-client session: a 1.9.0 server, a 1.8.0 client), run through the server's inbox so the caller is the inbox operator. Server commands only: the caller at 0.5 100 0.5 facing south, its inventory cleared, stone 8 in hotbar slot 0 (for client tooltip 0), a shield in hotbar slot 1 (for client select 1, client use, client hold use 10 and client drop). Expect V47_OLD_SAMPLE_READY.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      "replaceitem entity @s slot.hotbar.0 minecraft:stone 8",
+      "replaceitem entity @s slot.hotbar.1 minecraft:shield",
+      "devtool mark V47_OLD_SAMPLE_READY"
     ]
   },
   "v47_strict_setup": {
@@ -1448,6 +1545,152 @@
       "devtool mark V47_RL_END"
     ]
   },
+  "v47_spartan_bash_binding": {
+    "description": "The control for v47_spartan_bash (1.9.0, compatibility profile): the same raised-shield scene with the attack by the binding route, which posts no input event. An iron shield (spartanshields:shield_basic_iron) in hotbar slot 0; a pig v47bash with AI, slowed so it stays put, 2 blocks ahead; client hold use 40 (the shield raised), then 10 ticks later client attack route=binding keepHold=true. The press is counted on the attack binding as on the event route, and vanilla drains it while a hand is active; only Forge's InputEvent.MouseInputEvent is missing. Expect the attack's record route=binding (with taken), the use hold done released=done heldTicks=40, no ENTITY_DAMAGE on v47bash and the pig's position equal between the two ENTITY_INSPECT records (posZ 2.50: no bash). Run before or after v47_spartan_bash in the same session; the bash there pushes the pig about 4 blocks. Ends with V47_BASH_BINDING_END. The shield is raised 25 ticks after the teleport, as in v47_spartan_bash.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      "kill @e[tag=v47_bash]",
+      "replaceitem entity @s slot.hotbar.0 spartanshields:shield_basic_iron",
+      "summon minecraft:pig 0.5 100 2.5 {CustomName:\"v47bash\",PersistenceRequired:1b,Silent:1b,Tags:[\"v47_fx\",\"v47_bash\"]}",
+      "effect @e[tag=v47_bash] minecraft:slowness 1000000 6 true",
+      "devtool log entity_damage on radius 16",
+      {
+        "command": "devtool client select 0",
+        "delayTicks": 21
+      },
+      {
+        "command": "devtool client face @e[tag=v47_bash]",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_bash]",
+        "delayTicks": 2
+      },
+      "devtool client hold use 40",
+      {
+        "command": "devtool client attack route=binding keepHold=true",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_bash]",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool log entity_damage off",
+        "delayTicks": 30
+      },
+      "kill @e[tag=v47_bash]",
+      "devtool mark V47_BASH_BINDING_END"
+    ]
+  },
+  "v47_rlcombat_web": {
+    "description": "RLCombat's own attack path told apart from vanilla's (1.9.0; compatibility profile, or the development client with RLCombat, FermiumBooter and ReachFix). A diamond sword (vanilla) in hotbar slot 0; a cobweb at 0 101 1, in the line of sight; a zombie v47rl (no AI, helmet) 2 blocks ahead, behind the web. A cobweb has a selection box but no collision box. Vanilla's pick (and ReachFix's replacement of it, which ray traces blocks the same way) stops at the web, so a vanilla click hits the web; a creative player with a sword cannot break it, and no attack reaches the zombie. RLCombat's click, which runs only from Forge's MouseEvent, ray traces past blocks without a collision box ('Swing Through Passable Blocks', default true), finds the zombie, cancels the MouseEvent and sends its own attack packet. client attack (route=binding: no MouseEvent), then 25 ticks later client attack route=queue (a real button press: Forge posts the MouseEvent). Expect: after the binding click no ENTITY_DAMAGE on v47rl and its health 20.00; after the queued click ENTITY_DAMAGE on v47rl and a lower health; BLOCK_INSPECT minecraft:web at 0 101 1 after each click. The two clicks differ only if RLCombat's MouseEvent path ran; equal results (both without damage) mean it did not. Ends with V47_RL_WEB_END. The first click waits more than 21 ticks after the teleport.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      "kill @e[tag=v47_rl]",
+      "replaceitem entity @s slot.hotbar.0 minecraft:diamond_sword",
+      {
+        "command": "setblock 0 101 1 minecraft:air",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      "setblock 0 101 1 minecraft:web",
+      "summon minecraft:zombie 0.5 100 2.5 {CustomName:\"v47rl\",NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v47_fx\",\"v47_rl\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+      "devtool log entity_damage on radius 16",
+      {
+        "command": "devtool client select 0",
+        "delayTicks": 21
+      },
+      {
+        "command": "devtool client face @e[tag=v47_rl]",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_rl]",
+        "delayTicks": 2
+      },
+      "devtool inspect block 0 101 1",
+      {
+        "command": "devtool client attack route=binding",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_rl]",
+        "delayTicks": 10
+      },
+      "devtool inspect block 0 101 1",
+      {
+        "command": "devtool client attack route=queue",
+        "delayTicks": 15
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_rl]",
+        "delayTicks": 10
+      },
+      "devtool inspect block 0 101 1",
+      "devtool log entity_damage off",
+      "kill @e[tag=v47_rl]",
+      "setblock 0 101 1 minecraft:air",
+      "devtool mark V47_RL_WEB_END"
+    ]
+  },
+  "v47_rlcombat_offhand": {
+    "description": "RLCombat's offhand attack, which only its MouseEvent path makes (1.9.0; compatibility profile, or the development client with RLCombat, FermiumBooter and ReachFix). An empty main hand (hotbar slot 0 selected, empty), an iron sword (vanilla) in the off hand, a zombie v47rl (no AI, helmet) 2 blocks ahead. RLCombat attacks with the off-hand weapon on a right click read from Forge's MouseEvent ('Enable Offhand Attack', default true; ItemSword is in its default off-hand list); vanilla's right click on a zombie with an empty hand and a sword does nothing to it. client use (route=binding), 25 ticks later client use route=event (Forge's MouseInputEvent only, not the MouseEvent), 25 ticks later client use route=queue (a real right button press: Forge posts the MouseEvent). Expect no ENTITY_DAMAGE on v47rl and health 20.00 after the first two, and ENTITY_DAMAGE on v47rl (an off-hand hit, weaker by RLCombat's 'Offhand Efficiency') with a lower health after the queued one. The clicks differ only if RLCombat's MouseEvent path ran. Ends with V47_RL_OFF_END. The first click waits more than 21 ticks after the teleport.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 0.5 100 0.5 0 0",
+      "clear @s",
+      "kill @e[tag=v47_rl]",
+      "replaceitem entity @s slot.weapon.offhand minecraft:iron_sword",
+      "summon minecraft:zombie 0.5 100 2.5 {CustomName:\"v47rl\",NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v47_fx\",\"v47_rl\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+      "devtool log entity_damage on radius 16",
+      {
+        "command": "devtool client select 0",
+        "delayTicks": 21
+      },
+      {
+        "command": "devtool client face @e[tag=v47_rl]",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_rl]",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool client use",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_rl]",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool client use route=event",
+        "delayTicks": 15
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_rl]",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool client use route=queue",
+        "delayTicks": 15
+      },
+      {
+        "command": "devtool inspect entity @e[tag=v47_rl]",
+        "delayTicks": 10
+      },
+      "devtool log entity_damage off",
+      "kill @e[tag=v47_rl]",
+      "clear @s",
+      "devtool mark V47_RL_OFF_END"
+    ]
+  },
   "v47_sort_chest_open": {
     "description": "A chest in disorder for Inventory Tweaks' sort button (compatibility profile): dirt 5 in slot 0, stone 3 in slot 4, dirt 7 in slot 9, stone 2 in slot 13, opened by the caller, then client screen. Expect SCREEN_BUTTON records for Inventory Tweaks' buttons on the chest screen (labels s, h, v and ...). Ends with V47_SORT_OPEN.",
     "stopOnFailure": true,
@@ -1531,7 +1774,7 @@
     ]
   },
   "v47_q_check": {
-    "description": "Question save, part 2 (the development client after Uppers was taken out of run/mods, after open ... onQuestion=confirm): the block Forge removed. Expect BLOCK_INSPECT at 0 100 3 with block=minecraft:air, and V47_Q_CHECKED.",
+    "description": "Question save, part 2 (the development client after Uppers was taken out of run/mods, after open ... onQuestion=confirm): where the missing block was. Forge keeps a missing block as an invisible stand-in that acts as air but keeps its old name (GameData's BlockDummyAir), so it reads as its old id, without its tile entity data. Expect BLOCK_INSPECT at 0 100 3 with block=uppers:upper and no tile entity, and V47_Q_CHECKED.",
     "stopOnFailure": true,
     "commands": [
       "tp @s 0.5 101 0.5 0 0",
