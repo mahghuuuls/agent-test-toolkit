@@ -70,13 +70,25 @@ class ToleratedFailureTest {
     }
 
     @Test
-    @DisplayName("the built-in tolerated keys still work without being declared")
+    @DisplayName("a removal command's built-in tolerance still works without being declared")
     void builtInToleranceSurvives() {
-        CommandOutcome outcome = CommandOutcomes.classify(
-                0, CommandOutcomes.KEY_SELECTOR_NOT_FOUND, Collections.<String>emptySet());
+        CommandOutcome outcome = CommandOutcomes.classify(0, CommandOutcomes.KEY_SELECTOR_NOT_FOUND,
+                Collections.<String>emptySet(), "kill", new String[] {"@e[tag=probe]"});
 
-        assertTrue(outcome.succeeded(),
-                "a selector matching nothing is still success, declaration or not");
+        assertTrue(outcome.succeeded(), "a kill matching nothing is still success, declaration or not");
+        assertEquals(CommandOutcome.SOURCE_BUILT_IN, outcome.getToleratedSource());
+    }
+
+    @Test
+    @DisplayName("a declared key is counted as declared even where the table would tolerate it")
+    void declaredComesFirst() {
+        CommandOutcome outcome = CommandOutcomes.classify(0, EFFECT_NOT_ACTIVE,
+                Collections.singleton(EFFECT_NOT_ACTIVE), "effect", new String[] {"@s", "clear"});
+
+        assertTrue(outcome.succeeded());
+        assertEquals(CommandOutcome.SOURCE_DECLARED, outcome.getToleratedSource());
+        assertEquals(CommandOutcome.SOURCE_BUILT_IN, CommandOutcomes.classify(0, EFFECT_NOT_ACTIVE,
+                Collections.<String>emptySet(), "effect", new String[] {"@s", "clear"}).getToleratedSource());
     }
 
     @Test

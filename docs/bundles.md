@@ -44,9 +44,19 @@ That command may now fail **with that key only**. Any other failure, including a
 
 **Finding the key.** Run the command once and read the `ERROR` record. Its `detail` field is the key.
 
-**A tolerated failure is not a silent success.** The outcome is recorded as successful, with a note naming the tolerated key, so a reader can still tell that the command did nothing. Each tolerated command also writes one `TOLERATED` record with the bundle, its hash, the command's index, its text after placeholder substitution, and the `key`. `BUNDLE_END` counts them in `tolerated`. `executed` and `failed` keep their meaning: a tolerated command is executed and not failed.
+**A tolerated failure is not a silent success.** The outcome is recorded as successful, with a note naming the tolerated key, so a reader can still tell that the command did nothing. Each tolerated command also writes one `TOLERATED` record with the bundle, its hash, the command's index, its text after placeholder substitution, the `key`, and from 1.10.0 its `source`: `declared` when the step declared the key, `builtIn` for the list below. `BUNDLE_END` counts them in `tolerated`, and from 1.10.0 splits the count into `toleratedBuiltIn` and `toleratedDeclared`. A declared key is counted as declared even when the list also covers it. `executed` and `failed` keep their meaning: a tolerated command is executed and not failed.
 
-Three keys are tolerated for every command without being declared, because their no-op case is universal: `commands.generic.selector.notFound`, `commands.generic.entity.notFound`, `commands.generic.player.notFound`. So is `commands.clear.failure`. You do not need to declare those. They still write a `TOLERATED` record.
+| Command | Tolerated without a declaration when it fails with |
+| --- | --- |
+| `kill` | any of the keys below |
+| `clear` | any of the keys below |
+| `effect <target> clear` | any of the keys below |
+| `scoreboard players reset` | any of the keys below |
+| `scoreboard players tag <target> remove` | any of the keys below |
+
+The keys: `commands.generic.selector.notFound`, `commands.generic.entity.notFound`, `commands.generic.player.notFound`, `commands.clear.failure`, `commands.effect.failure.notActive`, `commands.effect.failure.notActive.all`. Each means only that nothing matched or there was nothing to remove. These commands remove something, so a teardown run twice is already where it wanted to be; they still write a `TOLERATED` record, with `source=builtIn`.
+
+Every other command that matches nothing fails unless its step declares the key: `testfor`, `execute`, `tp`, `teleport`, `give`, and any command not in the table, another mod's included. A check that matches nothing has given its answer, and it is reported. Changed in 1.10.0: up to 1.9.0 the first three keys and `commands.clear.failure` were tolerated for every command, so a `testfor` or an `execute` that matched nothing passed. A bundle that relied on that declares the key on the step: `{ "command": "tp @e[tag=probe] 0 64 0", "toleratedFailures": ["commands.generic.selector.notFound"] }`.
 
 Two vanilla keys you will often want to declare, because they are the second run of an idempotent setup:
 
@@ -79,6 +89,7 @@ The toolkit's own failure keys are tolerated the same way, by declaring them:
 | `devtool.client.noTarget` | `client face` found no single loaded entity in your dimension, or the block is not loaded (1.9.0) |
 | `devtool.baubles.absent` | Baubles is not installed |
 | `devtool.baubles.rejected` | A bauble slot refused the item |
+| `devtool.baubles.unsupported` | The installed Baubles provider cannot be driven: one of its methods failed, named in the message and in an `ERROR` record's `detail` (1.10.0) |
 | `devtool.find.unknownBlock` | `devtool find block` names no block the game knows (1.8.0) |
 | `devtool.find.badState` | `devtool find block` asks a state the block cannot have: a property it lacks, a value it cannot take, or a property the world does not store, such as a fence's sides (1.8.0) |
 | `devtool.find.tooLarge` | The `devtool find block` box covers more than 1024 chunks (1.8.0) |
@@ -174,7 +185,7 @@ Rules that keep this a lookup and not a language:
 
 ## Result files
 
-A bundle with `"result": true` leaves one JSON file per run: `run/config/devtool/results/<bundle>-<startTick>.json`. It has a `schemaVersion`, the bundle name and hash, the session and operator, start and end ticks, the `BUNDLE_END` counters including `tolerated`, and arrays `assertions`, `failures`, `markers`, `checkpoints`, `awaits`, `toleratedSteps` (one entry per `TOLERATED` record), and `steps` when traced. From 1.6.0 it also says which run it is: `channel` and `caller` from `BUNDLE_START`, `requestId` when an inbox request started the run (or the run it is nested in), and `startedAtMillis` (wall-clock milliseconds, a number) and `world` (the save folder, left out when there is none), noted when the run started. Two runs of a bundle at the same tick share a file name and the later overwrites the earlier; these fields say which run the file is. Every entry is the fields of one log record, copied as strings. Apart from `startedAtMillis`, `world` and the operator bound at the start, which no record of this run carries, nothing in the file is not also in `latest.log`; it exists so tooling can read a run without scraping prose, and the log remains the authority.
+A bundle with `"result": true` leaves one JSON file per run: `run/config/devtool/results/<bundle>-<startTick>.json`. It has a `schemaVersion`, the bundle name and hash, the session and operator, start and end ticks, the `BUNDLE_END` counters including `tolerated` (from 1.10.0 also `toleratedBuiltIn` and `toleratedDeclared`), and arrays `assertions`, `failures`, `markers`, `checkpoints`, `awaits`, `toleratedSteps` (one entry per `TOLERATED` record), and `steps` when traced. From 1.6.0 it also says which run it is: `channel` and `caller` from `BUNDLE_START`, `requestId` when an inbox request started the run (or the run it is nested in), and `startedAtMillis` (wall-clock milliseconds, a number) and `world` (the save folder, left out when there is none), noted when the run started. Two runs of a bundle at the same tick share a file name and the later overwrites the earlier; these fields say which run the file is. Every entry is the fields of one log record, copied as strings. Apart from `startedAtMillis`, `world` and the operator bound at the start, which no record of this run carries, nothing in the file is not also in `latest.log`; it exists so tooling can read a run without scraping prose, and the log remains the authority.
 
 A file that cannot be written is an `ERROR` record and nothing more. It never changes the bundle's outcome.
 

@@ -129,7 +129,7 @@ public final class CommandRunner {
             // Selector expansion failing lands here. Sending the message keeps the caller
             // informed; the key is read from the exception rather than from what was sent.
             send(sender, e.getMessage(), e.getErrorObjects());
-            return CommandOutcomes.classify(0, e.getMessage(), tolerated);
+            return CommandOutcomes.classify(0, e.getMessage(), tolerated, command.getName(), args);
         }
     }
 
@@ -176,7 +176,9 @@ public final class CommandRunner {
         }
 
         sender.setCommandStat(CommandResultStats.Type.SUCCESS_COUNT, successes);
-        return CommandOutcomes.classify(successes, lastFailureKey, tolerated);
+        // The registered name, not the typed one, so an alias is judged as its command; the
+        // arguments as the command saw them, with any selector restored above.
+        return CommandOutcomes.classify(successes, lastFailureKey, tolerated, command.getName(), args);
     }
 
     /**

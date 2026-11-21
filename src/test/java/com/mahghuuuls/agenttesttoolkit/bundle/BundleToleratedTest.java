@@ -38,7 +38,11 @@ class BundleToleratedTest {
         }
     };
 
-    /** Commands starting "nobody" fail as vanilla does when a selector matches no one. */
+    /**
+     * Commands whose selector names the tag "nobody" fail as vanilla does when a selector matches
+     * no one, and an effect clear fails as it does with no effect on; both are classified with
+     * the command's name and arguments, as the runner passes them.
+     */
     private static final class VanillaLike implements CommandDispatcher {
         @Override
         public CommandOutcome dispatch(String command) {
@@ -47,11 +51,13 @@ class BundleToleratedTest {
 
         @Override
         public CommandOutcome dispatch(String command, Collection<String> tolerated) {
-            if (command.startsWith("nobody")) {
-                return CommandOutcomes.classify(0, CommandOutcomes.KEY_SELECTOR_NOT_FOUND, tolerated);
+            String[] parts = command.split(" ");
+            String[] args = Arrays.copyOfRange(parts, 1, parts.length);
+            if (command.contains("tag=nobody")) {
+                return CommandOutcomes.classify(0, CommandOutcomes.KEY_SELECTOR_NOT_FOUND, tolerated, parts[0], args);
             }
-            if (command.startsWith("effect clear")) {
-                return CommandOutcomes.classify(0, "commands.effect.failure.notActive.all", tolerated);
+            if (command.startsWith("effect") && command.endsWith("clear")) {
+                return CommandOutcomes.classify(0, "commands.effect.failure.notActive.all", tolerated, parts[0], args);
             }
             if (command.startsWith("handled")) {
                 return CommandOutcome.success("handled by another mod");
@@ -104,18 +110,21 @@ class BundleToleratedTest {
     @Test
     @DisplayName("A selector matching nobody writes TOLERATED with the key, and BUNDLE_END counts it")
     void builtInToleranceIsRecorded() {
-        run(new BundleCommand("nobody kill", 0), new BundleCommand("mark", 0));
+        run(new BundleCommand("kill @e[tag=nobody]", 0), new BundleCommand("mark", 0));
 
         List<String> tolerated = recordsOfType("TOLERATED");
         assertEquals(1, tolerated.size(), ToolkitLog.capturedForTesting().toString());
         assertTrue(tolerated.get(0).contains("key=" + CommandOutcomes.KEY_SELECTOR_NOT_FOUND),
                 tolerated.get(0));
+        assertTrue(tolerated.get(0).contains("source=builtIn"), tolerated.get(0));
         assertTrue(tolerated.get(0).contains("index=0"), tolerated.get(0));
         assertTrue(tolerated.get(0).contains("bundle=tolerance"), tolerated.get(0));
         String end = endRecord();
         assertTrue(end.contains("executed=2"), end);
         assertTrue(end.contains("failed=0"), end);
         assertTrue(end.contains("tolerated=1"), end);
+        assertTrue(end.contains("toleratedBuiltIn=1"), end);
+        assertTrue(end.contains("toleratedDeclared=0"), end);
 
         // The tolerated step is visible before the mark that follows it.
         List<String> all = ToolkitLog.capturedForTesting();
@@ -139,19 +148,69 @@ class BundleToleratedTest {
     @DisplayName("A tolerated outcome without a key is refused")
     void toleratedNeedsKey() {
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
-                () -> CommandOutcome.tolerated(null, "note"));
+                () -> CommandOutcome.tolerated(null, "note", CommandOutcome.SOURCE_DECLARED));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> CommandOutcome.tolerated("x.y", "note", "other"), "neither built in nor declared");
     }
 
     @Test
     @DisplayName("A declared tolerated key is named on its record")
     void declaredToleranceIsRecorded() {
-        run(new BundleCommand("effect clear", 0,
+        run(new BundleCommand("effect @s clear", 0,
                 Collections.singletonList("commands.effect.failure.notActive.all")));
 
         List<String> tolerated = recordsOfType("TOLERATED");
         assertEquals(1, tolerated.size(), ToolkitLog.capturedForTesting().toString());
         assertTrue(tolerated.get(0).contains("key=commands.effect.failure.notActive.all"),
                 tolerated.get(0));
+        // Declared first: the table would also tolerate it, but the author said so.
+        assertTrue(tolerated.get(0).contains("source=declared"), tolerated.get(0));
+        assertTrue(endRecord().contains("toleratedDeclared=1"), endRecord());
+        assertTrue(endRecord().contains("toleratedBuiltIn=0"), endRecord());
+    }
+
+    @Test
+    @DisplayName("testfor matching nothing stops the bundle with the key; kill and effect clear are built in")
+    void checkFailsRemovalsTolerated() {
+        run(new BundleCommand("kill @e[tag=nobody]", 0), new BundleCommand("effect @s clear", 0),
+                new BundleCommand("testfor @e[tag=nobody]", 0), new BundleCommand("mark", 0));
+
+        List<String> tolerated = recordsOfType("TOLERATED");
+        assertEquals(2, tolerated.size(), ToolkitLog.capturedForTesting().toString());
+        for (String record : tolerated) {
+            assertTrue(record.contains("source=builtIn"), record);
+        }
+        List<String> errors = recordsOfType("ERROR");
+        assertEquals(1, errors.size(), errors.toString());
+        assertTrue(errors.get(0).contains("detail=" + CommandOutcomes.KEY_SELECTOR_NOT_FOUND), errors.get(0));
+        assertTrue(errors.get(0).contains("index=2"), errors.get(0));
+        assertTrue(recordsOfType("MARK").isEmpty(), "stopOnFailure stopped before the mark");
+        String end = endRecord();
+        assertTrue(end.contains("failed=1"), end);
+        assertTrue(end.contains("toleratedBuiltIn=2"), end);
+        assertTrue(end.contains("toleratedDeclared=0"), end);
+        assertTrue(end.contains("tolerated=2"), end);
+    }
+
+    @Test
+    @DisplayName("tp matching nothing is tolerated only when declared, and then as declared; execute fails")
+    void tpNeedsDeclaration() {
+        run(new BundleCommand("tp @e[tag=nobody] 0 64 0", 0,
+                Collections.singletonList(CommandOutcomes.KEY_SELECTOR_NOT_FOUND)));
+        assertTrue(recordsOfType("TOLERATED").get(0).contains("source=declared"),
+                ToolkitLog.capturedForTesting().toString());
+        assertTrue(endRecord().contains("failed=0"), endRecord());
+        ToolkitLog.stopCaptureForTesting();
+        ToolkitLog.startCaptureForTesting();
+
+        run(new BundleCommand("tp @e[tag=nobody] 0 64 0", 0));
+        assertTrue(endRecord().contains("failed=1"), endRecord());
+        ToolkitLog.stopCaptureForTesting();
+        ToolkitLog.startCaptureForTesting();
+
+        run(new BundleCommand("execute @e[tag=nobody] ~ ~ ~ say hi", 0));
+        assertTrue(endRecord().contains("failed=1"), endRecord());
+        assertTrue(recordsOfType("TOLERATED").isEmpty(), ToolkitLog.capturedForTesting().toString());
     }
 
     @Test
@@ -197,10 +256,12 @@ class BundleToleratedTest {
     @Test
     @DisplayName("The classifier marks exactly the tolerated outcomes")
     void classifierMarksTolerance() {
-        assertEquals(CommandOutcomes.KEY_SELECTOR_NOT_FOUND,
-                CommandOutcomes.classify(0, CommandOutcomes.KEY_SELECTOR_NOT_FOUND).getToleratedKey());
-        assertEquals(CommandOutcomes.KEY_CLEAR_NOTHING,
-                CommandOutcomes.classify(0, CommandOutcomes.KEY_CLEAR_NOTHING).getToleratedKey());
+        assertEquals(CommandOutcomes.KEY_SELECTOR_NOT_FOUND, CommandOutcomes.classify(0,
+                CommandOutcomes.KEY_SELECTOR_NOT_FOUND, null, "kill", new String[] {"@e"}).getToleratedKey());
+        assertEquals(CommandOutcomes.KEY_CLEAR_NOTHING, CommandOutcomes.classify(0,
+                CommandOutcomes.KEY_CLEAR_NOTHING, null, "clear", new String[] {"@p"}).getToleratedKey());
+        assertEquals(null, CommandOutcomes.classify(0, CommandOutcomes.KEY_SELECTOR_NOT_FOUND).getToleratedKey(),
+                "without the command, nothing is built in");
         assertEquals("x.y", CommandOutcomes.classify(0, "x.y",
                 Collections.singletonList("x.y")).getToleratedKey());
         assertEquals(null, CommandOutcomes.classify(1, null).getToleratedKey());

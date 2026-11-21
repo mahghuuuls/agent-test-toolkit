@@ -113,6 +113,8 @@ public final class BundleResultWriter {
                     copy(root, fields, "executed");
                     copy(root, fields, "failed");
                     copy(root, fields, "tolerated");
+                    copy(root, fields, "toleratedBuiltIn");
+                    copy(root, fields, "toleratedDeclared");
                     copy(root, fields, "total");
                     copy(root, fields, "stoppedEarly");
                     copy(root, fields, "durationTicks");

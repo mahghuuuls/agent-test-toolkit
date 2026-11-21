@@ -29,11 +29,11 @@
   },
 
   "v12_undeclared_still_halts": {
-    "description": "The same empty reset with no declaration must still halt, proving the default is unchanged for every bundle written before this feature.",
+    "description": "An undeclared failure must still halt. Removing one effect the player does not have fails with commands.effect.failure.notActive; from 1.10.0 only the clear form of effect is tolerated without a declaration, so this step still proves that an undeclared failure stops the bundle. The player must not have Speed when it runs, or the step succeeds and the bundle does not halt.",
     "stopOnFailure": true,
     "commands": [
       "devtool mark V12_UNDECLARED_BEFORE",
-      "effect @p clear",
+      "effect @p minecraft:speed 0",
       "devtool mark V12_UNDECLARED_SHOULD_NOT_APPEAR"
     ]
   }

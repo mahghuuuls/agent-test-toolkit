@@ -71,7 +71,8 @@ public final class InboxResult {
      * end record written at server stop.
      */
     public static InboxResult run(InboxRequest request, String bundle, String hash, int executed,
-                                  int failed, int tolerated, int total, boolean stoppedEarly,
+                                  int failed, int tolerated, int toleratedBuiltIn, int toleratedDeclared,
+                                  int total, boolean stoppedEarly,
                                   int durationTicks, boolean senderLost, boolean discarded,
                                   String firstFailure) {
         boolean clean = !discarded && failed == 0 && !senderLost;
@@ -84,6 +85,8 @@ public final class InboxResult {
                 .with("executed", executed)
                 .with("failed", failed)
                 .with("tolerated", tolerated)
+                .with("toleratedBuiltIn", toleratedBuiltIn)
+                .with("toleratedDeclared", toleratedDeclared)
                 .with("total", total)
                 .with("stoppedEarly", discarded || stoppedEarly)
                 .with("durationTicks", durationTicks)

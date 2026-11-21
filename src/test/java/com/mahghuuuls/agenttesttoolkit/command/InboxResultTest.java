@@ -107,8 +107,44 @@ class InboxResultTest {
         assertEquals(0, doc.get("failed").getAsInt());
         assertFalse(doc.has("reason"));
         assertEquals(0, doc.get("tolerated").getAsInt());
+        assertEquals(0, doc.get("toleratedBuiltIn").getAsInt());
+        assertEquals(0, doc.get("toleratedDeclared").getAsInt());
         assertFalse(doc.has("discardedOnServerStop"));
         assertFalse(doc.has("resultFile"), "the bundle wrote no result file");
+    }
+
+    @Test
+    @DisplayName("a run's answer counts built-in and declared tolerances apart, beside the total")
+    void runCountsToleranceSources(@TempDir File dir) throws Exception {
+        final String notFound = CommandOutcomes.KEY_SELECTOR_NOT_FOUND;
+        List<BundleCommand> list = Arrays.asList(
+                new BundleCommand("kill @e[tag=nothing_here]", 0),
+                new BundleCommand("tp @e[tag=nothing_here] 0 64 0", 0, java.util.Collections.singletonList(notFound)),
+                new BundleCommand("effect @s clear", 0));
+        BundleExecution execution = new BundleExecution(new BundleDefinition("inbox_target", null, true, list),
+                new CommandDispatcher() {
+                    @Override
+                    public CommandOutcome dispatch(String command) {
+                        return dispatch(command, java.util.Collections.<String>emptySet());
+                    }
+
+                    @Override
+                    public CommandOutcome dispatch(String command, java.util.Collection<String> tolerated) {
+                        String[] parts = command.split(" ");
+                        String key = parts[0].equals("effect") ? CommandOutcomes.KEY_EFFECT_NOT_ACTIVE_ALL : notFound;
+                        return CommandOutcomes.classify(0, key, tolerated, parts[0],
+                                Arrays.copyOfRange(parts, 1, parts.length));
+                    }
+                }, CONTEXT);
+        BundleRecorder.recordStart(execution);
+        execution.advance(new BundleRecorder());
+        InboxDispatch.answerRun(InboxRequest.parse("r9", "run inbox_target"), execution, false, dir);
+
+        JsonObject doc = read(new File(dir, "r9.result.json"));
+        assertEquals("done", doc.get("outcome").getAsString());
+        assertEquals(3, doc.get("tolerated").getAsInt());
+        assertEquals(2, doc.get("toleratedBuiltIn").getAsInt());
+        assertEquals(1, doc.get("toleratedDeclared").getAsInt());
     }
 
     @Test

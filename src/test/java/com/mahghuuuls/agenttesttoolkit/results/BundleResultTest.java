@@ -76,8 +76,10 @@ class BundleResultTest {
                 ToolkitLog.write(LogRecord.of(EventType.MARK).add("label", command.substring(5)));
             }
             if (command.startsWith("nobody")) {
+                // A kill whose selector matched no one: tolerated by the built-in table.
                 return com.mahghuuuls.agenttesttoolkit.command.CommandOutcomes.classify(0,
-                        "commands.generic.selector.notFound");
+                        "commands.generic.selector.notFound", java.util.Collections.<String>emptySet(),
+                        "kill", new String[] {"@e[tag=nobody]"});
             }
             return command.equals("bad") ? CommandOutcome.failure("no such command") : CommandOutcome.success();
         }
@@ -94,10 +96,14 @@ class BundleResultTest {
         JsonObject doc = new JsonParser().parse(
                 new String(Files.readAllBytes(files[0].toPath()), Charset.forName("UTF-8"))).getAsJsonObject();
         assertEquals("1", doc.get("tolerated").getAsString());
+        assertEquals("1", doc.get("toleratedBuiltIn").getAsString());
+        assertEquals("0", doc.get("toleratedDeclared").getAsString());
         assertEquals("0", doc.get("failed").getAsString());
         assertEquals(1, doc.getAsJsonArray("toleratedSteps").size());
         assertEquals("commands.generic.selector.notFound",
                 doc.getAsJsonArray("toleratedSteps").get(0).getAsJsonObject().get("key").getAsString());
+        assertEquals("builtIn",
+                doc.getAsJsonArray("toleratedSteps").get(0).getAsJsonObject().get("source").getAsString());
     }
 
     private static BundleExecution run(BundleDefinition definition, BundleResultCollector sink) {

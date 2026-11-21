@@ -410,7 +410,7 @@ Every claimed request except a reused id gets exactly one `<id>.result.json`, wr
 - `rootShadowed`
 - the name of an exception that escaped while the request ran
 
-A `run` is answered when its bundle ends, with the bundle's `BUNDLE_END` counters (`bundle`, `hash`, `executed`, `failed`, `tolerated`, `total`, `stoppedEarly`, `durationTicks`), `senderLost` or `discardedOnServerStop` when they apply, `firstFailure`, the failing key or message of the first command that failed, from 1.9.0 `detail` when that failure names a step to run first (an unbound placeholder: the key, then the step), and from 1.6.0 `resultFile`, the name of the bundle's result file when it has `"result": true` and the file was written (it is on disk before this answer appears). For a vanilla command it is often the translation key, such as `commands.fill.failed`.
+A `run` is answered when its bundle ends, with the bundle's `BUNDLE_END` counters (`bundle`, `hash`, `executed`, `failed`, `tolerated`, from 1.10.0 `toleratedBuiltIn` and `toleratedDeclared`, `total`, `stoppedEarly`, `durationTicks`), `senderLost` or `discardedOnServerStop` when they apply, `firstFailure`, the failing key or message of the first command that failed, from 1.9.0 `detail` when that failure names a step to run first (an unbound placeholder: the key, then the step), and from 1.6.0 `resultFile`, the name of the bundle's result file when it has `"result": true` and the file was written (it is on disk before this answer appears). For a vanilla command it is often the translation key, such as `commands.fill.failed`.
 
 The log differs in one detail: when a command fails, the `INBOX action=failed` record's `reason` is the command's own message, where the result file says `commandFailed` and puts the message in `detail`.
 
@@ -532,10 +532,11 @@ Available only when Baubles is installed. Baubles is optional: the toolkit loads
 | `devtool baubles set <slot> <item> [count] [meta] [player]` | Put one item in a bauble slot |
 | `devtool baubles clear <slot\|all> [player]` | Empty one slot, or all of them |
 
-- Slots are numbered from 0. With Baubles 1.5.2 they are `amulet`, `ring`, `ring`, `belt`, `head`, `body`, `charm`.
+- Slots are numbered from 0. With Baubles 1.5.2 they are `amulet`, `ring`, `ring`, `belt`, `head`, `body`, `charm`. From 1.10.0 the commands also work with Bubbles, which names each slot's type itself: a Baubles type is written by its name alone (`ring`), another mod's in full (`somemod:wing`).
 - A slot holds one item, as the Baubles screen allows, so a count other than 1 is refused, and so is an item the slot does not accept. Both write a `BAUBLES` record with `outcome=rejected` and fail with `devtool.baubles.rejected`; nothing is forced. Tolerating that key in a bundle therefore also hides a mistyped count. Replacing an item is allowed and recorded.
-- Both commands call the bauble's equip and unequip hooks, as the Baubles screen does, unless Baubles has its events blocked. A mod that grants a bonus on equip behaves as it would for a player. Baubles' own `/baubles` command skips those hooks.
+- Both commands call the bauble's equip and unequip hooks once each, as the Baubles screen does, none when the new item equals the old one, and none while official Baubles has its events blocked. A mod that grants a bonus on equip behaves as it would for a player. Baubles' own `/baubles` command skips those hooks.
 - `clear` on empty slots succeeds, so `clear all` is safe in a teardown bundle.
+- A Baubles provider the toolkit cannot drive fails with `devtool.baubles.unsupported`, naming the method that failed (1.10.0).
 - Each change writes a `BAUBLES` record.
 
 Building the toolkit with `-Pdev_runtime_baubles=true` puts Baubles on its development runtime. That is for developing the toolkit; to test your own mod with Baubles, install Baubles like any other mod.

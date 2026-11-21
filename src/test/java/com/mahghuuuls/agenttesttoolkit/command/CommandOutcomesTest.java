@@ -31,25 +31,39 @@ class CommandOutcomesTest {
         assertTrue(CommandOutcomes.classify(7, null).succeeded());
     }
 
+    private static final String[] KILL_ARGS = {"@e[name=probe]"};
+
     @Test
-    @DisplayName("a selector that matched nothing is a success, not a failure")
+    @DisplayName("a kill whose selector matched nothing is a success, not a failure")
     void selectorMatchedNothingSucceeds() {
-        // Owner decision, 2026-08-04. Vanilla raises PlayerNotFoundException from
-        // CommandHandler itself when it expands a selector to an empty list, so a teardown
-        // bundle ending in kill @e[name=...] would otherwise halt on its second run under the
-        // default stopOnFailure. A command that runs and affects nothing has still run.
-        CommandOutcome outcome =
-                CommandOutcomes.classify(0, CommandOutcomes.KEY_SELECTOR_NOT_FOUND);
+        // Vanilla raises PlayerNotFoundException from CommandHandler itself when it expands a
+        // selector to an empty list, so a teardown bundle ending in kill @e[name=...] would
+        // otherwise halt on its second run under the default stopOnFailure.
+        CommandOutcome outcome = CommandOutcomes.classify(0, CommandOutcomes.KEY_SELECTOR_NOT_FOUND,
+                java.util.Collections.<String>emptySet(), "kill", KILL_ARGS);
 
         assertTrue(outcome.succeeded());
+        assertEquals(CommandOutcome.SOURCE_BUILT_IN, outcome.getToleratedSource());
         assertNotNull(outcome.getDetail(), "the empty match is still worth recording");
     }
 
     @Test
-    @DisplayName("entity and player not-found are tolerated the same way")
+    @DisplayName("entity and player not-found are tolerated the same way for a kill")
     void entityAndPlayerNotFoundSucceed() {
-        assertTrue(CommandOutcomes.classify(0, CommandOutcomes.KEY_ENTITY_NOT_FOUND).succeeded());
-        assertTrue(CommandOutcomes.classify(0, CommandOutcomes.KEY_PLAYER_NOT_FOUND).succeeded());
+        assertTrue(CommandOutcomes.classify(0, CommandOutcomes.KEY_ENTITY_NOT_FOUND,
+                java.util.Collections.<String>emptySet(), "kill", KILL_ARGS).succeeded());
+        assertTrue(CommandOutcomes.classify(0, CommandOutcomes.KEY_PLAYER_NOT_FOUND,
+                java.util.Collections.<String>emptySet(), "kill", KILL_ARGS).succeeded());
+    }
+
+    @Test
+    @DisplayName("a check command that matched nothing fails, and so does a command the classifier is not told")
+    void checkMatchingNothingFails() {
+        CommandOutcome testfor = CommandOutcomes.classify(0, CommandOutcomes.KEY_SELECTOR_NOT_FOUND,
+                java.util.Collections.<String>emptySet(), "testfor", new String[] {"@e[tag=nothing_here]"});
+        assertFalse(testfor.succeeded());
+        assertEquals(CommandOutcomes.KEY_SELECTOR_NOT_FOUND, testfor.getDetail(), "the key is the failure's detail");
+        assertFalse(CommandOutcomes.classify(0, CommandOutcomes.KEY_SELECTOR_NOT_FOUND).succeeded());
     }
 
     @Test
@@ -97,19 +111,5 @@ class CommandOutcomesTest {
         // A multi-target command can message about one missing target and still act on others.
         // The count wins in that case.
         assertTrue(CommandOutcomes.classify(3, CommandOutcomes.KEY_ENTITY_NOT_FOUND).succeeded());
-    }
-
-    @Test
-    @DisplayName("the tolerated set is exactly three keys")
-    void toleratedSetIsClosed() {
-        assertTrue(CommandOutcomes.isMatchedNothing(CommandOutcomes.KEY_SELECTOR_NOT_FOUND));
-        assertTrue(CommandOutcomes.isMatchedNothing(CommandOutcomes.KEY_ENTITY_NOT_FOUND));
-        assertTrue(CommandOutcomes.isMatchedNothing(CommandOutcomes.KEY_PLAYER_NOT_FOUND));
-
-        assertFalse(CommandOutcomes.isMatchedNothing(CommandOutcomes.KEY_COMMAND_NOT_FOUND));
-        assertFalse(CommandOutcomes.isMatchedNothing(CommandOutcomes.KEY_NO_PERMISSION));
-        assertFalse(CommandOutcomes.isMatchedNothing(null));
-        assertFalse(CommandOutcomes.isMatchedNothing("notFound"));
-        assertFalse(CommandOutcomes.isMatchedNothing("commands.generic.entity.notFound.extra"));
     }
 }

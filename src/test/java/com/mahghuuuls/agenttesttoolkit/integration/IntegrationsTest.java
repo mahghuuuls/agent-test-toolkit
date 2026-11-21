@@ -86,9 +86,10 @@ class IntegrationsTest {
     }
 
     @Test
-    @DisplayName("the two failure keys are failures, tolerable when declared")
+    @DisplayName("the three failure keys are failures, tolerable when declared")
     void keys() {
-        for (String key : Arrays.asList(CommandOutcomes.KEY_BAUBLES_ABSENT, CommandOutcomes.KEY_BAUBLES_REJECTED)) {
+        for (String key : Arrays.asList(CommandOutcomes.KEY_BAUBLES_ABSENT, CommandOutcomes.KEY_BAUBLES_REJECTED,
+                CommandOutcomes.KEY_BAUBLES_UNSUPPORTED)) {
             assertTrue(key.startsWith("devtool.baubles."), key);
             assertFalse(CommandOutcomes.classify(0, key).succeeded(), key);
             CommandOutcome declared = CommandOutcomes.classify(0, key, Collections.singleton(key));
@@ -97,7 +98,7 @@ class IntegrationsTest {
     }
 
     @Test
-    @DisplayName("the two keys have chat translations")
+    @DisplayName("the three keys have chat translations")
     void keysTranslated() {
         java.io.InputStream in = IntegrationsTest.class.getResourceAsStream("/assets/agenttesttoolkit/lang/en_us.lang");
         java.util.Scanner scanner = new java.util.Scanner(in, "UTF-8").useDelimiter("\\A");
@@ -105,6 +106,7 @@ class IntegrationsTest {
         scanner.close();
         assertTrue(text.contains("\ndevtool.baubles.absent=[DevToolkit] "));
         assertTrue(text.contains("\ndevtool.baubles.rejected=[DevToolkit] "));
+        assertTrue(text.contains("\ndevtool.baubles.unsupported=[DevToolkit] "));
         assertTrue(text.contains("\ndevtool.screenshot.noClient=[DevToolkit] "));
     }
 }

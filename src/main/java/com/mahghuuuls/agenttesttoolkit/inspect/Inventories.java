@@ -1,7 +1,9 @@
 package com.mahghuuuls.agenttesttoolkit.inspect;
 
+import com.mahghuuuls.agenttesttoolkit.integration.BaublesBridge;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
+import net.minecraft.command.CommandException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.Item;
@@ -52,12 +54,13 @@ public final class Inventories {
     private Inventories() {
     }
 
-    public static List<LogRecord> inventory(EntityPlayer player) {
+    /** @param baubles the Baubles bridge, or null when Baubles is not installed */
+    public static List<LogRecord> inventory(EntityPlayer player, BaublesBridge baubles) throws CommandException {
         List<Slot> slots = new ArrayList<Slot>();
         collect(slots, SECTION_MAIN, player.inventory.mainInventory);
         collect(slots, SECTION_ARMOR, player.inventory.armorInventory);
         collect(slots, SECTION_OFFHAND, player.inventory.offHandInventory);
-        collectBaubles(slots, player);
+        collectBaubles(slots, player, baubles);
 
         List<LogRecord> records = new ArrayList<LogRecord>();
         if (slots.isEmpty()) {
@@ -88,9 +91,8 @@ public final class Inventories {
     }
 
     /** Occupied bauble slots, through the bridge, when Baubles is installed (REQ-189). */
-    private static void collectBaubles(List<Slot> into, EntityPlayer player) {
-        com.mahghuuuls.agenttesttoolkit.integration.BaublesBridge baubles =
-                com.mahghuuuls.agenttesttoolkit.integration.Integrations.baubles();
+    private static void collectBaubles(List<Slot> into, EntityPlayer player, BaublesBridge baubles)
+            throws CommandException {
         if (baubles == null) {
             return;
         }
@@ -101,7 +103,7 @@ public final class Inventories {
             }
             ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
             into.add(new Slot(SECTION_BAUBLES, i, id == null ? null : id.toString(), stack.getCount(),
-                    stack.getMetadata(), stack.hasTagCompound(), baubles.slotType(i)));
+                    stack.getMetadata(), stack.hasTagCompound(), baubles.slotType(player, i)));
         }
     }
 

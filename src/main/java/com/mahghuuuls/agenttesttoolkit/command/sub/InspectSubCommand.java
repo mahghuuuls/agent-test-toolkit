@@ -160,7 +160,7 @@ public final class InspectSubCommand implements SubCommand {
         }
 
         // One record per occupied slot, so the confirmation is sent once rather than per line.
-        List<LogRecord> records = Inventories.inventory(player);
+        List<LogRecord> records = Inventories.inventory(player, BaublesAccess.bridge());
         for (LogRecord record : records) {
             write(record, sender);
         }

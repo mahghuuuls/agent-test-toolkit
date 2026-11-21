@@ -69,7 +69,8 @@ class PackageRulesTest {
             "client/screen/ScreenTargets.java", "client/menu/ConfirmScreens.java", "client/menu/ModListChoice.java",
             "client/FrameHide.java", "inbox/HideSet.java", "client/menu/QuestionAnswers.java",
             "client/PanelLayout.java", "wait/PromptPanels.java", "client/PressStages.java", "client/QueueChoice.java",
-            "client/TooltipCapture.java"};
+            "client/TooltipCapture.java", "integration/baubles/BaubleEquipCalls.java",
+            "command/BuiltInTolerance.java"};
 
     /**
      * The roots a source file may import from. Another loader's or mod's classes are reached by
@@ -79,6 +80,25 @@ class PackageRulesTest {
     private static final String[] IMPORT_ROOTS = {"java.", "javax.", "net.minecraft.", "net.minecraftforge.",
             "com.mahghuuuls.agenttesttoolkit.", "com.google.", "com.mojang.", "io.netty.", "org.apache.", "org.lwjgl."};
     private static final Pattern IMPORT = Pattern.compile("(?m)^import\\s+(?:static\\s+)?([\\w.]+)");
+    /**
+     * Baubles' API written out in the code rather than imported. Only the bridge's package may
+     * use it at all, since a provider of that API may lack any part of it.
+     */
+    private static final Pattern BAUBLES_API_REFERENCE = Pattern.compile("\\bbaubles\\.api\\.");
+    /**
+     * The per-slot type that only some Baubles providers have. Never a compile reference, so the
+     * toolkit loads on a provider without it; it is reached by reflection, by method name.
+     */
+    private static final Pattern BAUBLE_TYPE_REFERENCE = Pattern.compile("\\bIBaubleType\\b");
+    /** A direct call to the event flag only official Baubles has; on another provider the call does not link. */
+    private static final Pattern EVENT_FLAG_CALL = Pattern.compile("\\.\\s*isEventBlocked\\s*\\(");
+    private static final Pattern COMMENT = Pattern.compile("(?s)/\\*.*?\\*/|//[^\\n]*");
+    /**
+     * Asking for the Baubles bridge. Only the command code's one access point may, so every
+     * caller gets the bridge that records an unsupported provider and none can forget to.
+     */
+    private static final Pattern BRIDGE_LOOKUP = Pattern.compile("\\bIntegrations\\s*\\.\\s*baubles\\s*\\(");
+    private static final String BRIDGE_ACCESS = "command/sub/BaublesAccess.java";
 
     /** The rule broken by a file at this path, relative to the toolkit's package, with this text. */
     static List<String> violations(String path, String text) {
@@ -113,6 +133,20 @@ class PackageRulesTest {
             if (LOAD_BY_NAME.matcher(code).find()) {
                 out.add(unixPath + ": a pure decision loads a class by name");
             }
+        }
+        // Quoted text and comments name things without using them, so they are left out here.
+        String code = COMMENT.matcher(STRING_LITERAL.matcher(text).replaceAll("\"\"")).replaceAll(" ");
+        if (!unixPath.startsWith("integration/baubles/") && BAUBLES_API_REFERENCE.matcher(code).find()) {
+            out.add(unixPath + ": uses baubles.api outside the bridge");
+        }
+        if (BAUBLE_TYPE_REFERENCE.matcher(code).find()) {
+            out.add(unixPath + ": references IBaubleType");
+        }
+        if (EVENT_FLAG_CALL.matcher(code).find()) {
+            out.add(unixPath + ": calls isEventBlocked directly");
+        }
+        if (!BRIDGE_ACCESS.equals(unixPath) && BRIDGE_LOOKUP.matcher(code).find()) {
+            out.add(unixPath + ": asks Integrations for the Baubles bridge instead of " + BRIDGE_ACCESS);
         }
         Matcher imported = IMPORT.matcher(text);
         while (imported.find()) {
@@ -224,5 +258,28 @@ class PackageRulesTest {
                 "Class<?> window = Class.forName(\"com.cleanroommc.client.sdl.Window\");").isEmpty(), "but reached by name");
         assertFalse(violations("command/sub/BaublesSubCommand.java", "import baubles.api.BaublesApi;").isEmpty());
         assertTrue(violations("integration/baubles/BaublesBridgeImpl.java", "import baubles.api.BaublesApi;").isEmpty());
+        assertFalse(violations("inspect/Inventories.java",
+                "Object h = baubles.api.BaublesApi.getBaublesHandler(player);").isEmpty(), "baubles.api written out");
+        assertTrue(violations("integration/baubles/BaublesBridgeImpl.java",
+                "Object h = baubles.api.BaublesApi.getBaublesHandler(player);").isEmpty(), "inside the bridge");
+        assertFalse(violations("integration/baubles/BaublesBridgeImpl.java",
+                "import baubles.api.IBaubleType;").isEmpty(), "the per-slot type, even in the bridge");
+        assertFalse(violations("integration/baubles/ProviderMethods.java",
+                "IBaubleType type = handler.getSlotType(0);").isEmpty(), "the per-slot type, written out");
+        assertFalse(violations("integration/baubles/BaublesBridgeImpl.java",
+                "boolean events = !handler.isEventBlocked();").isEmpty(), "the event flag called directly");
+        assertTrue(violations("integration/baubles/ProviderMethods.java",
+                "static final String IS_EVENT_BLOCKED = \"isEventBlocked\"; // not handler.isEventBlocked()").isEmpty(),
+                "the method named as text or in a comment is not a call");
+        assertTrue(violations("integration/baubles/ProviderMethods.java",
+                "/* the provider's IBaubleType */ Method m = type.getMethod(\"getSlotType\", int.class);").isEmpty(),
+                "the type named in a comment is not a reference");
+        assertFalse(violations("inspect/Inventories.java",
+                "BaublesBridge b = com.mahghuuuls.agenttesttoolkit.integration.Integrations.baubles();").isEmpty(),
+                "a caller asking for the bridge itself");
+        assertFalse(violations("command/sub/BaublesSubCommand.java",
+                "BaublesBridge baubles = Integrations.baubles();").isEmpty(), "even a command");
+        assertTrue(violations(BRIDGE_ACCESS, "BaublesBridge bridge = Integrations.baubles();").isEmpty(),
+                "the one access point");
     }
 }

@@ -132,7 +132,7 @@ public final class BundleRecorder implements BundleExecution.Listener {
      */
     @Override
     public void onCommandTolerated(BundleExecution execution, int index, String command,
-                                   String key) {
+                                   String key, String source) {
         LogRecord record = RecordContext.stamp(
                 LogRecord.of(EventType.TOLERATED), execution.getContext());
         SessionStamp.apply(record);
@@ -141,6 +141,9 @@ public final class BundleRecorder implements BundleExecution.Listener {
         record.add("index", index);
         record.add("command", command);
         record.add("key", key);
+        // Built in or declared, so a reader can tell a removal that found nothing from a
+        // failure the author said to expect.
+        record.add("source", source);
         ToolkitLog.write(record);
     }
 
@@ -186,6 +189,8 @@ public final class BundleRecorder implements BundleExecution.Listener {
             record.add("executed", execution.getExecuted());
             record.add("failed", execution.getFailed());
             record.add("tolerated", execution.getTolerated());
+            record.add("toleratedBuiltIn", execution.getToleratedBuiltIn());
+            record.add("toleratedDeclared", execution.getToleratedDeclared());
             record.add("total", execution.getTotal());
             record.add("stoppedEarly", true);
             record.add("discardedOnServerStop", true);
@@ -228,6 +233,9 @@ public final class BundleRecorder implements BundleExecution.Listener {
         record.add("executed", execution.getExecuted());
         record.add("failed", execution.getFailed());
         record.add("tolerated", execution.getTolerated());
+        // The total split by where the tolerance came from; the two always add up to it.
+        record.add("toleratedBuiltIn", execution.getToleratedBuiltIn());
+        record.add("toleratedDeclared", execution.getToleratedDeclared());
         record.add("total", execution.getTotal());
         record.add("stoppedEarly", execution.isStoppedEarly());
         record.add("durationTicks", execution.getDurationTicks());

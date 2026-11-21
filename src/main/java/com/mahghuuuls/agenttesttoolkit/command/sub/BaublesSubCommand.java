@@ -4,7 +4,6 @@ import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.integration.BaublesBridge;
-import com.mahghuuuls.agenttesttoolkit.integration.Integrations;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
@@ -33,6 +32,7 @@ public final class BaublesSubCommand implements SubCommand {
 
     public static final String KEY_ABSENT = "devtool.baubles.absent";
     public static final String KEY_REJECTED = "devtool.baubles.rejected";
+    public static final String KEY_UNSUPPORTED = BaublesBridge.KEY_UNSUPPORTED;
 
     @Override
     public String getName() {
@@ -57,7 +57,7 @@ public final class BaublesSubCommand implements SubCommand {
 
     @Override
     public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-        BaublesBridge baubles = Integrations.baubles();
+        BaublesBridge baubles = BaublesAccess.bridge();
         if (baubles == null) {
             ToolkitLog.error("Baubles is not installed", args.length == 0 ? null : args[0]);
             throw new CommandException(KEY_ABSENT, "devtool baubles");
@@ -115,7 +115,8 @@ public final class BaublesSubCommand implements SubCommand {
         if (!acceptable) {
             record.add("outcome", "rejected");
             ToolkitLog.write(record);
-            throw new CommandException(KEY_REJECTED, id(item) + " in " + baubles.slotType(slot) + " slot " + slot);
+            throw new CommandException(KEY_REJECTED,
+                    id(item) + " in " + baubles.slotType(player, slot) + " slot " + slot);
         }
         baubles.set(player, slot, stack);
         record.add("outcome", "set");
@@ -156,11 +157,11 @@ public final class BaublesSubCommand implements SubCommand {
     }
 
     private static LogRecord begin(ICommandSender sender, String action, EntityPlayer player, int slot,
-                                   BaublesBridge baubles) {
+                                   BaublesBridge baubles) throws CommandException {
         LogRecord record = RecordContext.stamp(LogRecord.of(EventType.BAUBLES), sender);
         SessionStamp.apply(record);
         return record.add("action", action).add("player", player.getName())
-                .add("slot", slot).add("slotType", baubles.slotType(slot));
+                .add("slot", slot).add("slotType", baubles.slotType(player, slot));
     }
 
     private static String id(Item item) {

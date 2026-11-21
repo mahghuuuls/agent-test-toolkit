@@ -55,7 +55,19 @@ public final class ToolkitChannel {
         void receive(PromptPanelMessage message);
     }
 
+    /** What the server does with a picture report. Server thread, current player. */
+    public interface ReportReceiver {
+        void receive(EntityPlayerMP player, ScreenshotReport report);
+    }
+
+    /** What the client does with a notice. Installed only on a client. Network thread. */
+    public interface NoticeReceiver {
+        void receive(ToolkitNotice notice);
+    }
+
     private static volatile SimpleNetworkWrapper channel;
+    private static volatile ReportReceiver reportReceiver;
+    private static volatile NoticeReceiver noticeReceiver;
     private static volatile ClientReceiver receiver;
     private static volatile ActionReceiver actionReceiver;
     private static volatile PlayerActionReceiver playerActionReceiver;
@@ -79,7 +91,25 @@ public final class ToolkitChannel {
         wrapper.registerMessage(new PromptPanelMessage.Handler(), PromptPanelMessage.class, 7, Side.CLIENT);
         wrapper.registerMessage(new InputRequest.Handler(), InputRequest.class, 8, Side.CLIENT);
         wrapper.registerMessage(new ScreenRequest.Handler(), ScreenRequest.class, 9, Side.CLIENT);
+        wrapper.registerMessage(new ScreenshotReport.Handler(), ScreenshotReport.class, 10, Side.SERVER);
+        wrapper.registerMessage(new ToolkitNotice.Handler(), ToolkitNotice.class, 11, Side.CLIENT);
         channel = wrapper;
+    }
+
+    public static void setReportReceiver(ReportReceiver receiver) {
+        reportReceiver = receiver;
+    }
+
+    static ReportReceiver reportReceiver() {
+        return reportReceiver;
+    }
+
+    public static void setNoticeReceiver(NoticeReceiver receiver) {
+        noticeReceiver = receiver;
+    }
+
+    static NoticeReceiver noticeReceiver() {
+        return noticeReceiver;
     }
 
     public static void setPlayerActionReceiver(PlayerActionReceiver receiver) {
@@ -193,6 +223,12 @@ public final class ToolkitChannel {
      */
     public static final int[] VERSION_1_9_0 = {1, 9, 0};
 
+    /**
+     * 1.10.0: a client that reads notices and reports its saved pictures. An older client has no
+     * handler for a notice and would drop the connection on one, and was never asked to report.
+     */
+    public static final int[] VERSION_1_10_0 = {1, 10, 0};
+
     /** A version as a person reads it, such as {@code 1.9.0}. */
     public static String versionText(int[] version) {
         StringBuilder out = new StringBuilder();
@@ -277,6 +313,30 @@ public final class ToolkitChannel {
     /** Whether a client that said hello with this version reads the 1.9.0 messages; null is no hello. */
     public static boolean readsNewMessages(String helloVersion) {
         return helloVersion != null && atLeast(helloVersion, VERSION_1_9_0);
+    }
+
+    /**
+     * Sends a notice, only to a client that said hello with 1.10.0 or later: an older one has no
+     * handler for it and would drop the connection. False when it was not sent.
+     */
+    public static boolean send(ToolkitNotice notice, EntityPlayerMP player) {
+        if (!readsNoticesAndSendsReports(ClientCapabilities.helloVersion(player))) {
+            return false;
+        }
+        channel.sendTo(notice, player);
+        return true;
+    }
+
+    /**
+     * Whether a client that said hello with this version reads notices and sends picture reports;
+     * null is no hello. The server also ignores a picture report from a client this says no to.
+     *
+     * <p>The other direction holds as well: a 1.10.0 client sends a {@link ScreenshotReport} only
+     * to a server whose hello said 1.10.0 or newer, since an older server has no handler for it
+     * and would drop the connection on it.
+     */
+    public static boolean readsNoticesAndSendsReports(String helloVersion) {
+        return helloVersion != null && atLeast(helloVersion, VERSION_1_10_0);
     }
 
     /** Server to client: the server's hello. The caller has checked {@link #clientSpeaksActions}. */

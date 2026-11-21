@@ -19,14 +19,15 @@ import com.mahghuuuls.agenttesttoolkit.bundle.PlaceholderException;
  * of zero therefore covers four different situations, and only the translation key separates
  * them.
  *
- * <p>Three keys mean a selector matched nothing. Those count as <b>success</b>: a command that
- * runs and affects nothing has still run. Without this a teardown bundle ending in
- * {@code kill @e[name=...]} would halt on its second run, since {@code stopOnFailure} defaults
- * to true; the toolkit exists to remove exactly that kind of repeated manual fiddling.
+ * <p>A key the step declared is tolerated, whatever the command. Without a declaration, a key
+ * that means only that nothing matched is tolerated for the removal commands of
+ * {@link BuiltInTolerance}, so a teardown that ends in {@code kill @e[name=...]} does not halt on
+ * its second run under the default {@code stopOnFailure}. For any other command, a check such as
+ * {@code testfor} or {@code execute} above all, matching nothing is the answer, and it fails.
  *
  * <p>Everything else returning zero is a failure: unknown command, missing permission, and bad
  * syntax all count. Note that {@code commands.generic.notFound} means "no such command" and is
- * <b>not</b> in the tolerated set despite the similar name, so the keys are compared exactly
+ * <b>not</b> a "nothing matched" key despite the similar name, so the keys are compared exactly
  * rather than by prefix.
  */
 public final class CommandOutcomes {
@@ -47,6 +48,10 @@ public final class CommandOutcomes {
      * to remove.
      */
     public static final String KEY_CLEAR_NOTHING = "commands.clear.failure";
+    /** Vanilla's "that effect is not active", from removing one named effect. */
+    public static final String KEY_EFFECT_NOT_ACTIVE = "commands.effect.failure.notActive";
+    /** Vanilla's "no effect is active", from {@code effect <target> clear}. */
+    public static final String KEY_EFFECT_NOT_ACTIVE_ALL = "commands.effect.failure.notActive.all";
 
     /** Vanilla's "no such command". Similar name, opposite meaning; must stay a failure. */
     public static final String KEY_COMMAND_NOT_FOUND = "commands.generic.notFound";
@@ -70,11 +75,14 @@ public final class CommandOutcomes {
     public static final String KEY_SCREENSHOT_NO_CLIENT = com.mahghuuuls.agenttesttoolkit.command.sub.ScreenshotSubCommand.KEY_NO_CLIENT;
     public static final String KEY_BAUBLES_ABSENT = com.mahghuuuls.agenttesttoolkit.command.sub.BaublesSubCommand.KEY_ABSENT;
     public static final String KEY_BAUBLES_REJECTED = com.mahghuuuls.agenttesttoolkit.command.sub.BaublesSubCommand.KEY_REJECTED;
+    public static final String KEY_BAUBLES_UNSUPPORTED = com.mahghuuuls.agenttesttoolkit.command.sub.BaublesSubCommand.KEY_UNSUPPORTED;
 
     private CommandOutcomes() {
     }
 
     /**
+     * A command the caller does not name: only a positive count succeeds.
+     *
      * @param executionCount what {@code executeCommand} returned; above zero means at least one
      *                       successful execution
      * @param translationKey the key of the last message sent to the sender, or null
@@ -85,47 +93,59 @@ public final class CommandOutcomes {
 
     /**
      * As {@link #classify(int, String)}, plus failures the bundle author declared they expect.
-     *
-     * <p>The built-in tolerated set covers no-op cases that are universal: a selector matching
-     * nobody, an already empty inventory. It grew by one key each time somebody was bitten,
-     * which does not scale and leaves the next person to discover the next key. A declared set
-     * moves the decision to the author, who knows what their command is for.
-     *
-     * <p>Declared keys are matched against the raw translation key <b>before</b> it is described,
-     * because {@link #describe} rewrites two of them into prose. Matching after would make
-     * those two untolerable by accident rather than by decision.
-     *
-     * @param declared translation keys this command is permitted to fail with. Anything else is
-     *                 still a failure, including on this same command, so a typo is not silenced
+     * Without the command's name nothing is tolerated by the built-in table; see
+     * {@link #classify(int, String, java.util.Collection, String, String[])}.
      */
     public static CommandOutcome classify(int executionCount, String translationKey,
                                           java.util.Collection<String> declared) {
+        return classify(executionCount, translationKey, declared, null, null);
+    }
+
+    /**
+     * Classifies a dispatched command from its count, its failure key, the keys its step
+     * declared, and the command itself.
+     *
+     * <p>Declared keys come first, so a step that declares a key the table would also tolerate
+     * is counted as declared: the author's statement is the more specific one. They are matched
+     * against the raw translation key <b>before</b> it is described, because {@link #describe}
+     * rewrites two of them into prose. Matching after would make those two untolerable by
+     * accident rather than by decision.
+     *
+     * @param declared    translation keys this command is permitted to fail with. Anything else is
+     *                    still a failure, including on this same command, so a typo is not silenced
+     * @param commandName the command's registered name, such as {@code kill}; null when unknown
+     * @param args        the arguments it ran with; null when unknown
+     */
+    public static CommandOutcome classify(int executionCount, String translationKey,
+                                          java.util.Collection<String> declared,
+                                          String commandName, String[] args) {
         if (executionCount > 0) {
             return CommandOutcome.success();
         }
         if (translationKey != null && declared != null && declared.contains(translationKey)) {
             // Named rather than summarised. A reader must be able to tell a tolerated failure
             // from a command that simply worked, and to see which failure was expected.
-            return CommandOutcome.tolerated(translationKey, "tolerated failure: " + translationKey);
+            return CommandOutcome.tolerated(translationKey, "tolerated failure: " + translationKey,
+                    CommandOutcome.SOURCE_DECLARED);
         }
-        if (isMatchedNothing(translationKey)) {
+        if (BuiltInTolerance.tolerates(commandName, args, translationKey)) {
             // Recorded as a note rather than discarded. An agent looking at a bundle that
-            // "worked" but changed nothing needs to see that the selector was empty.
-            return CommandOutcome.tolerated(translationKey, "selector matched nothing");
-        }
-        if (KEY_CLEAR_NOTHING.equals(translationKey)) {
-            // Kept separate from the selector cases so the note stays accurate: nothing was
-            // cleared, which is not the same as a selector matching nobody.
-            return CommandOutcome.tolerated(translationKey, "nothing to clear");
+            // "worked" but changed nothing needs to see that there was nothing to remove.
+            return CommandOutcome.tolerated(translationKey, builtInNote(translationKey),
+                    CommandOutcome.SOURCE_BUILT_IN);
         }
         return CommandOutcome.failure(describe(translationKey));
     }
 
-    /** True when vanilla's error was only that a selector or name matched no one. */
-    public static boolean isMatchedNothing(String translationKey) {
-        return KEY_SELECTOR_NOT_FOUND.equals(translationKey)
-                || KEY_ENTITY_NOT_FOUND.equals(translationKey)
-                || KEY_PLAYER_NOT_FOUND.equals(translationKey);
+    /** The note says what was absent: no one matched, nothing was in the inventory, no effect was on. */
+    private static String builtInNote(String translationKey) {
+        if (KEY_CLEAR_NOTHING.equals(translationKey)) {
+            return "nothing to clear";
+        }
+        if (KEY_EFFECT_NOT_ACTIVE.equals(translationKey) || KEY_EFFECT_NOT_ACTIVE_ALL.equals(translationKey)) {
+            return "no effect to clear";
+        }
+        return "selector matched nothing";
     }
 
     private static String describe(String translationKey) {

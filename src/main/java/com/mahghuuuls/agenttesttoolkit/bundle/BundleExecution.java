@@ -58,12 +58,14 @@ public final class BundleExecution implements QuietScope.Run {
         }
 
         /**
-         * Called when a command failed with a key the toolkit tolerates, built in or declared,
-         * so the bundle went on. A default no-op so listeners that predate it keep compiling;
-         * the recorder writes the record that makes a tolerated step visible.
+         * Called when a command failed with a key the toolkit tolerates, so the bundle went on.
+         * A default no-op so listeners that predate it keep compiling; the recorder writes the
+         * record that makes a tolerated step visible.
+         *
+         * @param source {@link CommandOutcome#SOURCE_BUILT_IN} or {@link CommandOutcome#SOURCE_DECLARED}
          */
         default void onCommandTolerated(BundleExecution execution, int index, String command,
-                                        String key) {
+                                        String key, String source) {
         }
 
         /** Called only for a genuine command failure, never for a command that ran and
@@ -101,6 +103,8 @@ public final class BundleExecution implements QuietScope.Run {
     private int executed;
     private int failed;
     private int tolerated;
+    private int toleratedBuiltIn;
+    private int toleratedDeclared;
     private int ticksElapsed;
 
     /**
@@ -310,8 +314,8 @@ public final class BundleExecution implements QuietScope.Run {
             if (outcome != WaitOutcome.SATISFIED) {
                 String key = outcome == WaitOutcome.TIMED_OUT ? KEY_WAIT_TIMEOUT : KEY_WAIT_CANCELLED;
                 if (commands.get(waitIndex).getToleratedFailures().contains(key)) {
-                    tolerated++;
-                    listener.onCommandTolerated(this, waitIndex, command, key);
+                    countTolerated(CommandOutcome.SOURCE_DECLARED);
+                    listener.onCommandTolerated(this, waitIndex, command, key, CommandOutcome.SOURCE_DECLARED);
                 } else {
                     failed++;
                     noteFailure(key);
@@ -353,8 +357,9 @@ public final class BundleExecution implements QuietScope.Run {
                     dueTick = ticksElapsed + commands.get(position).getDelayTicks();
                 }
                 if (command.getToleratedFailures().contains(e.getKey())) {
-                    tolerated++;
-                    listener.onCommandTolerated(this, index, command.getCommand(), e.getKey());
+                    countTolerated(CommandOutcome.SOURCE_DECLARED);
+                    listener.onCommandTolerated(this, index, command.getCommand(), e.getKey(),
+                            CommandOutcome.SOURCE_DECLARED);
                     continue;
                 }
                 failed++;
@@ -397,8 +402,9 @@ public final class BundleExecution implements QuietScope.Run {
 
             if (outcome == null || outcome.succeeded()) {
                 if (outcome != null && outcome.getToleratedKey() != null) {
-                    tolerated++;
-                    listener.onCommandTolerated(this, index, text, outcome.getToleratedKey());
+                    countTolerated(outcome.getToleratedSource());
+                    listener.onCommandTolerated(this, index, text, outcome.getToleratedKey(),
+                            outcome.getToleratedSource());
                 }
                 continue;
             }
@@ -691,6 +697,26 @@ public final class BundleExecution implements QuietScope.Run {
      * among {@link #getFailed()}. */
     public int getTolerated() {
         return tolerated;
+    }
+
+    /** Tolerated failures of the built-in removal commands; with {@link #getToleratedDeclared()}, {@link #getTolerated()}. */
+    public int getToleratedBuiltIn() {
+        return toleratedBuiltIn;
+    }
+
+    /** Tolerated failures whose key the step declared. */
+    public int getToleratedDeclared() {
+        return toleratedDeclared;
+    }
+
+    /** One tolerated failure, counted in the total and under its source, so the three always agree. */
+    private void countTolerated(String source) {
+        tolerated++;
+        if (CommandOutcome.SOURCE_BUILT_IN.equals(source)) {
+            toleratedBuiltIn++;
+        } else {
+            toleratedDeclared++;
+        }
     }
 
     /** The bundle's full length, so the number skipped after an early stop is derivable. */

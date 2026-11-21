@@ -25,6 +25,7 @@ devtool.client.busy=[DevToolkit] No client action: %s is about to leave on a rec
 devtool.client.noTarget=[DevToolkit] No turn: %s has no single loaded target for face in their dimension
 devtool.baubles.absent=[DevToolkit] Baubles is not installed: %s
 devtool.baubles.rejected=[DevToolkit] Baubles refused %s
+devtool.baubles.unsupported=[DevToolkit] This Baubles provider cannot be driven; its method failed: %s
 devtool.find.unknownBlock=[DevToolkit] No such block to find: %s
 devtool.find.badState=[DevToolkit] That block cannot have that state: %s
 devtool.find.tooLarge=[DevToolkit] The search box covers %s chunks; the most is 1024

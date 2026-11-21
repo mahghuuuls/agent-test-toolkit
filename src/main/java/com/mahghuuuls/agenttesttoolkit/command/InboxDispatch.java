@@ -131,6 +131,7 @@ public final class InboxDispatch implements InboxRequestHandler {
                           File directory) {
         InboxResult.run(request, execution.getBundleName(), execution.getHash(),
                 execution.getExecuted(), execution.getFailed(), execution.getTolerated(),
+                execution.getToleratedBuiltIn(), execution.getToleratedDeclared(),
                 execution.getTotal(), execution.isStoppedEarly(), execution.getDurationTicks(),
                 execution.isSenderLost(), discarded, execution.getFirstFailure())
                 // The step to run first, for a failure that names one, so the agent reads it here.
