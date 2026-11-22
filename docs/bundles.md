@@ -222,7 +222,7 @@ Names shipped with the toolkit are prefixed `example_` so they can never collide
 
 A command fails when it raises an error: an unknown command, bad syntax, a missing permission, a selector that cannot be parsed.
 
-A command that runs and changes nothing has **succeeded**. That distinction matters most in teardown bundles, which are meant to be re-runnable:
+A removal command that finds nothing to remove has **succeeded** (the table under tolerated failures lists them; any other command that matches nothing fails from 1.10.0). That distinction matters most in teardown bundles, which are meant to be re-runnable:
 
 ```
 kill @e[name=test_dummy]

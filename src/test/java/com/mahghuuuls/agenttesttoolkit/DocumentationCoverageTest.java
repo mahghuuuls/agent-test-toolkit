@@ -280,9 +280,9 @@ class DocumentationCoverageTest {
         for (String needed : new String[] {"wait=done", "client await", "expect="}) {
             assertTrue(examples.contains(needed), "the worked examples show " + needed);
         }
-        int unreleased = changelog.indexOf("## Unreleased (1.10.0)");
+        int unreleased = changelog.indexOf("## 1.10.0");
         int previous = changelog.indexOf("## 1.9.0");
-        assertTrue(unreleased > 0 && previous > unreleased, "the changelog's unreleased section comes first");
+        assertTrue(unreleased > 0 && previous > unreleased, "the changelog's 1.10.0 section comes first");
         String section = changelog.substring(unreleased, previous);
         int changed = section.indexOf("### Changed");
         assertTrue(changed > 0 && section.substring(changed).contains("`scoreboard players tag <target> remove`")

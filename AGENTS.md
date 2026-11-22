@@ -996,7 +996,7 @@ At every server start, after `WORLD`, the toolkit also re-reads bundles and conf
 
 ### What counts as a bundle failure
 
-A command fails when the game raises an error: unknown command, bad syntax, missing permission, unparseable selector. **A command that runs and changes nothing has succeeded.**
+A command fails when the game raises an error: unknown command, bad syntax, missing permission, unparseable selector. **A removal command that finds nothing to remove (`kill`, `clear`, `effect <target> clear`, the two scoreboard removals) passes, with a `TOLERATED` record; from 1.10.0 any other command that matches nothing, `testfor` included, fails unless its step declares the key.**
 
 Read `BUNDLE_END` rather than assuming. `executed`, `failed` and `stoppedEarly` are the fields that tell you whether your setup actually happened.
 

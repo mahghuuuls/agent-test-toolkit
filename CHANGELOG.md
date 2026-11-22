@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased (1.10.0)
+## 1.10.0
+
+The theme is results you can trust: a check that matches nothing now fails, a bundle can wait for the client's answer and name the entity a click should hit, and it can read and check one NBT value. It also fixes the Baubles commands on Bubbles, adds an option and a key to hide the chat history, and keeps routine inbox replies out of the chat. The items came from other projects' test sessions with the toolkit and from the developer.
 
 ### Fixed
 
@@ -8,17 +10,18 @@
 
 ### Added
 
-- **Waiting for the client.** In a bundle, the player actions (`select`, `use`, `attack`, `hold`, `drop`, `inventory`, `tooltip`), `client key ... press|hold`, `look`, `face`, `view` and the screen steps (`screen`, `click`, `scroll`, `tooltip container`) take `wait=started|done` and `waitTicks=<1-1200>`; `reconnect`, `respawn`, `close`, `quit` and `focus` do not. The bundle pauses until the client answers, and a refused or failed step fails with `devtool.client.actionFailed` and the client's reason; a hold cut short fails with `devtool.client.releasedEarly`. `devtool client await <use|attack|binding>` waits for a running hold. The wait writes `AWAIT condition=client`.
+- **Waiting for the client.** In a bundle, the player actions (`select`, `use`, `attack`, `hold`, `drop`, `inventory`, `tooltip`), `client key ... press|hold`, `look`, `face`, `view` and the screen steps (`screen`, `click`, `scroll`, `tooltip container`) take `wait=started|done` and `waitTicks=<1-1200>`; `reconnect`, `respawn`, `close`, `quit` and `focus` do not. The bundle pauses until the client answers, and a refused or failed step fails with `devtool.client.actionFailed` and the client's reason; a hold cut short fails with `devtool.client.releasedEarly`; no answer in time fails with `devtool.wait.timeout`. `devtool client await <use|attack|binding>` waits for a running hold. The wait writes `AWAIT condition=client`. A waited step means the client has finished it, not that the server already sees its effect: after `client select 1 wait=done` the new held slot reaches the server a few ticks later, so give a server read right after it a few ticks of `delayTicks`.
 - **The expected target.** `client attack`, `use`, `hold` and `face` take `expect=<selector|uuid>`. A click on another entity fails with `devtool.client.wrongTarget`, on a dying one with `devtool.client.targetDead`; none or several matches are refused at once (`devtool.client.noTarget`, `devtool.client.ambiguousTarget`). Entity targets in the client records add `alive` and `health`.
 - **`devtool assert entity <selector|uuid> health <n>`** checks any living entity's health at two decimals.
 - **Picture reports.** A 1.10.0 client reports every picture asked with `devtool screenshot`, and the server writes `SCREENSHOT side=SERVER action=saved` or `action=failed` for each. A picture taken through a client step's `screenshot=` is not reported. `devtool await screenshot <label> [timeoutTicks]` pauses a bundle until the picture is saved, or fails with `devtool.screenshot.failed`. An older client is refused at once with `devtool.screenshot.noReport`.
-- **Hiding the chat history.** The client option `client.hideChatHistory` and the key binding "Toggle chat history" (unbound by default) hide the chat lines in play and in the chat screen while the typed line still shows. Each change writes `CLIENT_OPTION`. While hidden, a toolkit failure line also shows in the prompt panel.
+- **Hiding the chat history.** The client option `client.hideChatHistory` and the key binding "Toggle chat history" (unbound by default) hide the chat lines in play and in the chat screen while the typed line still shows. The option is read at game start, and the key changes it until the game closes. The lines still reach `latest.log`, and showing the history again shows the lines that arrived while it was hidden. Each change writes `CLIENT_OPTION`. While hidden, a toolkit failure line also shows in the prompt panel.
 - **A late failure line.** A client step a single inbox request sent, which its client reports refused or failed after the request was answered, shows one red chat line when the report arrives.
 - **One NBT value by path.** `devtool nbt entity|block|held ... path=<path>` writes one value as the new `NBT_VALUE` record, with paths such as `tag.ench[0].lvl` or `ForgeCaps."modid:cap".value`; for the held item the path reads the whole saved stack. `devtool assert nbt entity|block|held ... <path> <value>` compares it: as numbers at two decimals when both are numbers, otherwise as exact text.
 - **A radius filter that follows.** `devtool log <category> on radius <n> follow` centres the filter on the player who turned it on, wherever they are at each event. While that player is offline nothing is recorded, and the new `LOGGING filter=paused reason=playerGone` record says so.
 - **Why a connect or an open failed.** A client request channel `connect` or `open` that ends on the Disconnected screen (`connectFailed`, `loadFailed`) records the screen's `disconnectTitle` and `disconnectMessage` and `waitedMs`.
 - **Which client answered.** The server's `CLIENT_ACTION action=requested` and `action=reported` records carry `playerUuid` and `connection`, so two clients, or one client before and after a rejoin, are told apart.
 - **Tolerance records say where a tolerance came from.** `TOLERATED` carries `source=builtIn` or `source=declared`; `BUNDLE_END`, the result file and the inbox answer add `toleratedBuiltIn` and `toleratedDeclared` beside `tolerated`.
+- **Three new record types**, `CLIENT_OPTION`, `NBT_VALUE` and `LOGGING`, for 59 in total.
 
 ### Changed
 
@@ -31,6 +34,13 @@
 - **`effect <target> clear` passes when there is nothing to clear.** Its `commands.effect.failure.notActive` and `notActive.all` failures are now tolerated without a declaration, as the other removal commands' are.
 - **A wait can fail with a key.** `AWAIT` gains `outcome=failed` with `key`: a client step's wait adds `detail`, and a picture's wait adds `label`, `requestTick` and `saved`.
 - **The `devtool.client.noTarget` message** now reads "No step: ... has no single loaded target for face or expect", since `expect=` uses it too. The key is unchanged.
+
+### Compatibility
+
+- **A 1.9.0 client on a 1.10.0 server** works as before, and `wait=`, `client await` and `expect=` on `attack`, `use` and `hold` work with it. Its records carry no `alive` or `health`; `face ... expect=` is refused at once with `devtool.client.expectNeedsNewClient`, and `await screenshot` with `devtool.screenshot.noReport`.
+- **A 1.10.0 client on a 1.9.0 server** stays connected, and its steps and screenshots work there; the server's records carry none of the new fields.
+- **Baubles and Bubbles.** The bauble commands were checked with official Baubles 1.5.2 and with Bubbles 2.4.10, on Cleanroom.
+- **Beside chat mods** (seen on Cleanroom): with Gnetum 1.4.3 and Universal Tweaks 1.21.0 installed, the hidden chat history shows no line in play and only the typed line in the open chat screen. With Gnetum, a screenshot's `hide=chat` still leaves the chat in the picture, as in 1.9.0; the hidden history does not.
 
 ## 1.9.0
 

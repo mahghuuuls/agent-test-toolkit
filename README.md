@@ -60,7 +60,7 @@ Named lists of commands in JSON, under `config/devtool/bundles/`, scanned recurs
 ```
 
 - **Per command tick delays**: the toolkit waits, then runs that command. Measured from the previous command finishing, so inserting a command shifts what follows rather than compressing the gaps.
-- **Stop on failure**, on by default. A failure means the game raised a command error; a command that runs and changes nothing has succeeded, so neither a `kill` matching nothing nor a `clear` on an empty inventory halts a teardown on its second run.
+- **Stop on failure**, on by default. A failure means the game raised a command error. A command that only removes things and finds nothing to remove is tolerated, so neither a `kill` matching nothing nor a `clear` on an empty inventory halts a teardown on its second run; from 1.10.0 any other command that matches nothing, such as `testfor`, fails unless the step declares the key.
 - **Nesting.** A bundle can run another. The parent waits, and the child's failure counts as one failed command. Cycles are refused by name before anything runs.
 - **`BUNDLE_START` and `BUNDLE_END`** in the log, so events your setup caused can be told apart from events of the test that followed. Both carry a hash of the bundle's text, and every load writes `BUNDLE_SOURCE` with the file's SHA-256, so a log line proves which text a run came from. `BUNDLE_START` also says who started the run and through which channel: chat, console, command block, join, inbox, or another bundle.
 - **Tolerated failures, on the record.** Declare the failure key a command may end with, such as `commands.fill.failed` on a second run, and the bundle carries on. Each tolerated step writes a `TOLERATED` record, so it never reads as a command that simply worked.
@@ -98,7 +98,7 @@ Nine categories, all off by default:
 /devtool log status
 ```
 
-Each can be narrowed to the dimension's arena or to a radius anchored where you stood when you applied it. One filter per category.
+Each can be narrowed to the dimension's arena or to a radius anchored where you stood when you applied it, or, from 1.10.0 with `follow`, centred on you wherever you are. One filter per category.
 
 An excluded event and an event that never happened look identical in the log. So every change to what is being recorded writes its own `LOG_CONFIG` record, as does `log status`, and each one carries the full enabled set. Any single line tells you what was being watched at that moment, without needing chat or the command history.
 
@@ -191,7 +191,7 @@ Put a mark before each step you ask a human to perform. Then a missing record me
 
 ## Configuration
 
-`config/devtool/devtool.cfg`. Arena defaults and construction block, the NBT truncation limit, whether a bundle runs when an operator joins, whether spawn logging includes dropped items, whether the command inbox may be opened, whether it opens by itself at your own join, and how long it waits for you across a reconnect, whether your client allows client actions, whether it reads client request channel requests, and optional client defaults: brightness, music, master, weather, hostile, friendly and ambient volume, and keeping the game running when its window loses focus.
+`config/devtool/devtool.cfg`. Arena defaults and construction block, the NBT truncation limit, whether a bundle runs when an operator joins, whether spawn logging includes dropped items, whether the command inbox may be opened, whether it opens by itself at your own join, and how long it waits for you across a reconnect, whether your client allows client actions, whether it reads client request channel requests, and optional client defaults: brightness, music, master, weather, hostile, friendly and ambient volume, keeping the game running when its window loses focus, and dismissing the tutorial's hints; whether a development dedicated server gives you operator rights at your own join from the same game folder, and whether your client hides the chat history (from 1.10.0; the "Toggle chat history" key, unbound by default, switches it while the game runs).
 
 Everything that could change your world or your settings without being asked is off until you turn it on.
 
@@ -244,9 +244,9 @@ The build is reproducible from a given commit. Building the same revision twice 
 
 ## Requirements
 
-Minecraft 1.12.2 with Forge. Everything the toolkit records happens on the server, so that is where it needs to be installed. In singleplayer that means installing it normally. The optional client defaults, screenshots, client actions, the client request channel and the inbox opening at a local join to a dedicated server are the only parts that need it on a client, and they need it installed there too. A client without the toolkit can still join a server that has it.
+Minecraft 1.12.2 with Forge. Everything the toolkit records happens on the server, so that is where it needs to be installed. In singleplayer that means installing it normally. The optional client defaults, the chat history option, screenshots, client actions, the client request channel and the inbox opening at a local join to a dedicated server are the only parts that need it on a client, and they need it installed there too. A client without the toolkit can still join a server that has it.
 
-Baubles is optional. When it is installed, the toolkit loads after it and adds bauble slots to inventory inspection; without it, nothing else changes.
+Baubles is optional. When it is installed, the toolkit loads after it and adds bauble slots to inventory inspection; without it, nothing else changes. From 1.10.0 the bauble commands and slots also work with Bubbles, a reimplementation of Baubles.
 
 Every subcommand needs permission level 2, typed or inside a bundle. Start with `/devtool help`.
 
