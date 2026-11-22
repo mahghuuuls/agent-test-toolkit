@@ -37,14 +37,16 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void applyClientDefaults() {
         MinecraftForge.EVENT_BUS.register(this);
+        // The lifecycle steps' executor is made first: it knows the server's version, which the
+        // screenshot taker reads before it reports a picture. Registered after the taker, as before.
+        com.mahghuuuls.agenttesttoolkit.client.ClientActionExecutor executor =
+                new com.mahghuuuls.agenttesttoolkit.client.ClientActionExecutor();
         // The client-only handlers besides this class (rule 12): screenshots on request.
         com.mahghuuuls.agenttesttoolkit.client.ScreenshotTaker taker =
-                new com.mahghuuuls.agenttesttoolkit.client.ScreenshotTaker();
+                new com.mahghuuuls.agenttesttoolkit.client.ScreenshotTaker(executor);
         com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setClientReceiver(taker);
         MinecraftForge.EVENT_BUS.register(taker);
         // And the lifecycle steps of ARC-022, the same way.
-        com.mahghuuuls.agenttesttoolkit.client.ClientActionExecutor executor =
-                new com.mahghuuuls.agenttesttoolkit.client.ClientActionExecutor();
         com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setActionReceiver(executor);
         MinecraftForge.EVENT_BUS.register(executor);
         // And the small player actions, which wait while a reconnect runs.

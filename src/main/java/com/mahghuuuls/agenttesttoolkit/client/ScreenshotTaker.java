@@ -4,6 +4,7 @@ import com.mahghuuuls.agenttesttoolkit.inbox.HideSet;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
+import com.mahghuuuls.agenttesttoolkit.net.ScreenshotReport;
 import com.mahghuuuls.agenttesttoolkit.net.ScreenshotRequest;
 import com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel;
 import net.minecraft.client.Minecraft;
@@ -26,6 +27,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * ticks; the capture happens at the end of a render tick, on the main thread with the frame
  * just drawn, so an open GUI such as the inventory is in the picture. Client-only: registered
  * through {@code ClientProxy} and never referenced from shared code (rule 12).
+ *
+ * <p>A picture the server asked for with {@code devtool screenshot} is reported back after its
+ * record, saved or failed, to a server that said hello with 1.10.0 or later, so a bundle can wait
+ * for it. An older server has no handler for the report and would drop the connection on it.
+ * Pictures taken after a client step and at a menu are not reported.
  */
 public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
 
@@ -45,6 +51,8 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
         void taken(boolean saved, String file, String reason);
     }
 
+    /** Tells which server version this connection said hello with, for the picture reports. */
+    private final ClientActionExecutor server;
     private final ConcurrentLinkedQueue<Pending> incoming = new ConcurrentLinkedQueue<Pending>();
     /** Client thread only. */
     private final List<Pending> pending = new ArrayList<Pending>();
@@ -60,18 +68,31 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
         final ScreenshotRequest request;
         /** Asked on this client, at a menu: not tied to a world, so a leave does not end it. */
         final Taken local;
+        /** Asked by the server's screenshot command, so the server is told how it went. */
+        final boolean reported;
         int remaining;
 
-        Pending(ScreenshotRequest request, Taken local) {
+        Pending(ScreenshotRequest request, Taken local, boolean reported) {
             this.request = request;
             this.local = local;
+            this.reported = reported;
             this.remaining = request.getDelayTicks();
         }
     }
 
+    public ScreenshotTaker(ClientActionExecutor server) {
+        this.server = server;
+    }
+
+    /** A picture the server's screenshot command asked for; its outcome is reported back. */
     @Override
     public void receive(ScreenshotRequest request) {
-        incoming.add(new Pending(request, null));
+        incoming.add(new Pending(request, null, true));
+    }
+
+    /** A picture a client step asked for after itself; its record is written, and nothing reported. */
+    public void takeAfterStep(ScreenshotRequest request) {
+        incoming.add(new Pending(request, null, false));
     }
 
     /**
@@ -79,7 +100,7 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
      * screen. Told to {@code taken} once it is saved or failed.
      */
     public void takeLocal(ScreenshotRequest request, Taken taken) {
-        incoming.add(new Pending(request, taken));
+        incoming.add(new Pending(request, taken, false));
     }
 
     @SubscribeEvent
@@ -194,7 +215,7 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
         armedFor = null;
     }
 
-    private static void failed(Pending p, String reason) {
+    private void failed(Pending p, String reason) {
         ToolkitLog.write(LogRecord.of(EventType.SCREENSHOT)
                 .add("side", "CLIENT")
                 .add("label", p.request.getLabel())
@@ -204,6 +225,23 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
         if (p.local != null) {
             p.local.taken(false, null, reason);
         }
+        report(p, false, null, reason);
+    }
+
+    /**
+     * Tells the server how a picture it asked for went, after the client's record: only for its
+     * screenshot command's requests, and only to a server of this connection at 1.10.0 or later.
+     * The frame's tick is the client world's, as the key steps' ticks are.
+     */
+    private void report(Pending p, boolean saved, String file, String reason) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (!p.reported || mc.getConnection() == null
+                || !ToolkitChannel.readsNoticesAndSendsReports(server.connectedServerVersion())) {
+            return;
+        }
+        long frameTick = mc.world == null ? -1L : mc.world.getTotalWorldTime();
+        ToolkitChannel.sendToServer(new ScreenshotReport(p.request.getLabel(), p.request.getRequestTick(), file,
+                saved, frameTick, reason));
     }
 
     private void capture(Pending p, boolean toastsLeftOut) {
@@ -257,5 +295,6 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
         if (p.local != null) {
             p.local.taken(saved, file, reason);
         }
+        report(p, saved, file, reason);
     }
 }

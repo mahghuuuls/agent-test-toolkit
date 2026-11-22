@@ -15,6 +15,7 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
@@ -379,7 +380,7 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver, T
         fields.put("screenshot", asked.screenshot());
         // What the picture leaves out is on the server's request record and the client's
         // SCREENSHOT record; the report's fields are full for a long tooltip.
-        screenshots.receive(new ScreenshotRequest(asked.screenshot(), asked.screenshotDelay(), asked.requestTick(),
+        screenshots.takeAfterStep(new ScreenshotRequest(asked.screenshot(), asked.screenshotDelay(), asked.requestTick(),
                 asked.screenshotHide()));
     }
 
@@ -397,7 +398,11 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver, T
         return null;
     }
 
-    /** What the crosshair is on: a block with its face, an entity, or nothing in reach. */
+    /**
+     * What the crosshair is on: a block with its face, an entity, or nothing in reach. For an
+     * entity, also whether it is alive as this client sees it (not dead, and for a living one health
+     * above zero, so a mob in its death animation is not), and a living one's health.
+     */
     static void describeTarget(Minecraft mc, RayTraceResult hit, Map<String, String> fields) {
         if (hit == null || hit.typeOfHit == RayTraceResult.Type.MISS) {
             fields.put("target", "miss");
@@ -410,6 +415,12 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver, T
             fields.put("entityId", String.valueOf(entity.getEntityId()));
             fields.put("entityType", type == null ? entity.getClass().getSimpleName() : type.toString());
             fields.put("entityUuid", entity.getUniqueID().toString());
+            boolean living = entity instanceof EntityLivingBase;
+            float health = living ? ((EntityLivingBase) entity).getHealth() : 0.0F;
+            fields.put("alive", String.valueOf(!entity.isDead && (!living || health > 0.0F)));
+            if (living) {
+                fields.put("health", String.format(java.util.Locale.ROOT, "%.2f", health));
+            }
             return;
         }
         BlockPos pos = hit.getBlockPos();
@@ -468,8 +479,10 @@ public final class PlayerInput implements ToolkitChannel.PlayerActionReceiver, T
         record.add("requestTick", asked.requestTick());
         ToolkitLog.write(record);
         if (mc.getConnection() != null) {
+            // Only the fields this server reads: an older one drops a report with a name it does not know.
             ToolkitChannel.sendToServer(new ClientActionReport(asked.step(), result, reason, screen, showing,
-                    asked.token(), asked.requestTick()).withFields(TooltipLines.forReport(fields)));
+                    asked.token(), asked.requestTick()).withFields(ClientActionReport.fieldsFor(
+                    executor.connectedServerVersion(), TooltipLines.forReport(fields))));
         }
     }
 }

@@ -50,10 +50,20 @@ class ReportAndNoticeMessagesTest {
         assertTrue(saved.isSaved());
         assertEquals(98765L, saved.getFrameClientTick());
 
-        ScreenshotReport failed = wireReport(new ScreenshotReport("shot-b", 7L, null, false, 0L));
+        ScreenshotReport failed = wireReport(new ScreenshotReport("shot-b", 7L, null, false, 0L, "queueFull"));
         assertTrue(failed.isValid());
         assertEquals("", failed.getFile(), "no file is written as empty");
         assertFalse(failed.isSaved());
+        assertEquals("queueFull", failed.getReason(), "a failure's reason survives the wire");
+        assertEquals("", wireReport(new ScreenshotReport("shot_c", 8L, "screenshots/shot_c-8.png", true, 1L)).getReason(),
+                "a saved picture has none");
+        assertFalse(new ScreenshotReport("a", 1L, "", false, 0L, "bad\nreason").isValid(),
+                "a control character in the reason");
+        char[] longReason = new char[ScreenshotReport.MAX_REASON + 40];
+        java.util.Arrays.fill(longReason, 'E');
+        ScreenshotReport cut = new ScreenshotReport("a", 1L, "", false, 0L, new String(longReason));
+        assertTrue(cut.isValid(), "a long exception name is cut, not a reason to drop the report");
+        assertEquals(ScreenshotReport.MAX_REASON, cut.getReason().length());
     }
 
     @Test

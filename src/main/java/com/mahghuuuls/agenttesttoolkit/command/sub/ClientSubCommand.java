@@ -1,7 +1,10 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.BundleExecution;
+import com.mahghuuuls.agenttesttoolkit.bundle.Bundles;
 import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
+import com.mahghuuuls.agenttesttoolkit.inbox.ClientWaitOptions;
 import com.mahghuuuls.agenttesttoolkit.inbox.InboxGate;
 import com.mahghuuuls.agenttesttoolkit.inbox.InputOptions;
 import com.mahghuuuls.agenttesttoolkit.inbox.PlayerActionOptions;
@@ -20,6 +23,9 @@ import com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel;
 import com.mahghuuuls.agenttesttoolkit.state.PendingRejoin;
 import com.mahghuuuls.agenttesttoolkit.state.SessionStamp;
 import com.mahghuuuls.agenttesttoolkit.state.ToolkitState;
+import com.mahghuuuls.agenttesttoolkit.wait.ClientActionWait;
+import com.mahghuuuls.agenttesttoolkit.wait.ClientReports;
+import com.mahghuuuls.agenttesttoolkit.wait.ClientWaitDecision;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
@@ -63,6 +69,20 @@ public final class ClientSubCommand implements SubCommand {
     public static final String KEY_NO_TARGET = "devtool.client.noTarget";
     /** The reason in the server's record of that refusal. */
     static final String REASON_NO_TARGET = "noTarget";
+    /** Failure key for an {@code expect} that matches several loaded entities in the sender's dimension. */
+    public static final String KEY_AMBIGUOUS_TARGET = "devtool.client.ambiguousTarget";
+    /** The reason in the server's record of that refusal. */
+    static final String REASON_AMBIGUOUS_TARGET = "ambiguousTarget";
+    /**
+     * Failure key for {@code face ... expect=} asked of a client older than 1.10.0: such a client
+     * does not report what the view faces after the turn, so the check could only ever fail.
+     */
+    public static final String KEY_EXPECT_NEEDS_NEW_CLIENT = "devtool.client.expectNeedsNewClient";
+    /**
+     * Failure key for {@code wait=}, {@code expect=} or {@code client await} outside a bundle: only a
+     * bundle can pause for the answer, and a typed command must not block the server.
+     */
+    public static final String KEY_WAIT_OUTSIDE_BUNDLE = "devtool.client.waitOutsideBundle";
 
     private static final SecureRandom RANDOM = new SecureRandom();
     /** The reconnect's last word: leave as Save and Quit does, logging the player out. */
@@ -91,7 +111,9 @@ public final class ClientSubCommand implements SubCommand {
                 + " | click <slot <n> [left|right|shift|key=<1-9>]|button <id|label=<text>>|at <x> <y> [left|right]>"
                 + " | scroll <amount> | tooltip container <slot> [advanced] [shift] [ctrl] [alt]>"
                 + " [expect=<screen class>] [delay=<ticks>] [screenshot=<label>]"
-                + " [screenshotDelay=<ticks>] [screenshotHide=chat|hud|toasts[,...]]";
+                + " [screenshotDelay=<ticks>] [screenshotHide=chat|hud|toasts[,...]]"
+                + " [wait=started|done] [waitTicks=<1-1200>] [expect=<selector|uuid>]"
+                + " | await <use|attack|binding> [waitTicks]";
     }
 
     @Override
@@ -103,6 +125,10 @@ public final class ClientSubCommand implements SubCommand {
     public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
         if (args.length < 1) {
             throw new WrongUsageException("/devtool " + getUsage());
+        }
+        if (ClientWaitOptions.AWAIT.equals(args[0].toLowerCase(java.util.Locale.ROOT))) {
+            executeAwait(sender, args);
+            return;
         }
         ClientStepRoute route = ClientStepRoute.of(args);
         if (route == null) {
@@ -182,12 +208,14 @@ public final class ClientSubCommand implements SubCommand {
         EntityPlayerMP player = requireOwnPlayer(sender);
         PlayerActionOptions action = route.action;
         String step = action.getStep();
+        BundleExecution run = waitingRun(player, route);
         refuseIfNeeded(player, route.gateStep(false));
 
         long requestTick = player.world.getTotalWorldTime();
         // Tells this request's answer from another of the same step asked in the same tick.
         String token = newToken();
         LogRecord record = requested(sender, player, step);
+        String expectUuid = expectedTarget(player.getServer(), player, route, record);
         if (action.getSlot() != PlayerActionOptions.NO_SLOT) {
             record.add("slot", action.getSlot());
         }
@@ -216,12 +244,14 @@ public final class ClientSubCommand implements SubCommand {
                 record.add("screenshotHide", action.getScreenshotHide());
             }
         }
+        addWait(record, route);
         record.add("requestTick", requestTick);
         ToolkitLog.write(record);
 
         ClientCapabilities.expectAction(player, step, requestTick, token);
         ToolkitChannel.send(new PlayerActionRequest(action, token, requestTick), player);
-        Replies.send(sender, "[DevToolkit] Asked your client to " + step + ".");
+        keepAndWait(run, player, route, step, token, requestTick, expectUuid);
+        Replies.send(sender, asked(step, route));
     }
 
     /**
@@ -299,16 +329,7 @@ public final class ClientSubCommand implements SubCommand {
             record.addBlockPos("target", pos.getX(), pos.getY(), pos.getZ());
             return options.blockAimPoint();
         }
-        List<Entity> found = new ArrayList<Entity>();
-        try {
-            for (Entity entity : EntityTarget.matchAll(server, player, options.getName())) {
-                if (entity.world == player.world && !entity.isDead) {
-                    found.add(entity);
-                }
-            }
-        } catch (CommandException unmatched) {
-            // A selector the engine cannot read finds nothing, the same as one that matches nothing.
-        }
+        List<Entity> found = loadedTargets(server, player, options.getName());
         if (found.size() != 1) {
             refuseNoTarget(player, record, found.size());
         }
@@ -320,16 +341,41 @@ public final class ClientSubCommand implements SubCommand {
         return new double[] {entity.posX, entity.posY + entity.getEyeHeight(), entity.posZ};
     }
 
+    /**
+     * Every entity a selector or UUID names that is loaded in the sender's dimension and not dead
+     * (any entity: a mob, an item, a minecart). A mob in its death animation is found only by its
+     * UUID: the UUID lookup returns it until it is removed, while a vanilla selector already skips
+     * it, so a selector naming only a dying mob finds nothing.
+     */
+    private static List<Entity> loadedTargets(MinecraftServer server, EntityPlayerMP player, String name) {
+        List<Entity> found = new ArrayList<Entity>();
+        try {
+            for (Entity entity : EntityTarget.matchAll(server, player, name)) {
+                if (entity.world == player.world && !entity.isDead) {
+                    found.add(entity);
+                }
+            }
+        } catch (CommandException unmatched) {
+            // A selector the engine cannot read finds nothing, the same as one that matches nothing.
+        }
+        return found;
+    }
+
     /** One record of the refusal, then the key a bundle can tolerate. */
     private static void refuseNoTarget(EntityPlayerMP player, LogRecord record, int matched) throws CommandException {
+        refuseTarget(player, record, matched, REASON_NO_TARGET, KEY_NO_TARGET);
+    }
+
+    private static void refuseTarget(EntityPlayerMP player, LogRecord record, int matched, String reason, String key)
+            throws CommandException {
         record.add("action", "refused");
         record.add("result", "refused");
-        record.add("reason", REASON_NO_TARGET);
+        record.add("reason", reason);
         record.add("matched", matched);
         // The tick the step was asked in, as on every other record of a request.
         record.add("requestTick", player.world.getTotalWorldTime());
         ToolkitLog.write(record);
-        throw new CommandException(KEY_NO_TARGET, player.getName());
+        throw new CommandException(key, player.getName());
     }
 
     /**
@@ -341,8 +387,17 @@ public final class ClientSubCommand implements SubCommand {
                                        List<String> words, NewStepMessage message) throws CommandException {
         EntityPlayerMP player = requireOwnPlayer(sender);
         String step = route.step;
+        BundleExecution run = waitingRun(player, route);
         ClientRequestGate.Step gateStep = route.gateStep(false);
         refuseIfNeeded(player, gateStep);
+        String helloVersion = ClientCapabilities.helloVersion(player);
+        String expectRefusal = expectRefusal(route, helloVersion);
+        if (expectRefusal != null) {
+            String detail = player.getName() + " (client toolkit " + (helloVersion == null ? "none" : helloVersion)
+                    + ", face with expect needs 1.10.0)";
+            ToolkitLog.error("Face with expect needs a newer toolkit on the client", detail);
+            throw new CommandException(expectRefusal, detail);
+        }
 
         long requestTick = player.world.getTotalWorldTime();
         String token = newToken();
@@ -352,7 +407,9 @@ public final class ClientSubCommand implements SubCommand {
             options.append(options.length() == 0 ? "" : " ").append(words.get(i));
         }
         record.add("options", options.toString());
+        String expectUuid = expectedTarget(server, player, route, record);
         message.prepare(server, player, record);
+        addWait(record, route);
         record.add("requestTick", requestTick);
 
         if (!message.send(player, token, requestTick)) {
@@ -363,7 +420,125 @@ public final class ClientSubCommand implements SubCommand {
         }
         ToolkitLog.write(record);
         ClientCapabilities.expectAction(player, step, requestTick, token);
-        Replies.send(sender, "[DevToolkit] Asked your client to " + step + ".");
+        keepAndWait(run, player, route, step, token, requestTick, expectUuid);
+        Replies.send(sender, asked(step, route));
+    }
+
+    /**
+     * The bundle run dispatching this step, which a waiting step needs; null outside a run. A step
+     * that waits, or expects a target, is refused outside a run before anything is sent.
+     */
+    private static BundleExecution waitingRun(EntityPlayerMP player, ClientStepRoute route) throws CommandException {
+        BundleExecution run = Bundles.scheduler().getCurrentExecution();
+        if (route.waits() && run == null) {
+            refuseOutsideBundle(player, route.step);
+        }
+        return run;
+    }
+
+    /**
+     * The refusal's key for a step whose {@code expect} this client cannot answer: a {@code face}
+     * with {@code expect}, asked of a client whose hello said a version older than 1.10.0, which does
+     * not report what the view faces. Null when the step may be sent. A click or hold reports its
+     * target from 1.7.0, so it is never refused here.
+     */
+    static String expectRefusal(ClientStepRoute route, String helloVersion) {
+        if (!InputOptions.FACE.equals(route.step) || route.wait.getExpect().isEmpty()) {
+            return null;
+        }
+        return helloVersion != null && ToolkitChannel.atLeast(helloVersion, ToolkitChannel.VERSION_1_10_0)
+                ? null : KEY_EXPECT_NEEDS_NEW_CLIENT;
+    }
+
+    private static void refuseOutsideBundle(EntityPlayerMP player, String step) throws CommandException {
+        ToolkitLog.error("A client wait needs a bundle (" + step + ")", player.getName());
+        throw new CommandException(KEY_WAIT_OUTSIDE_BUNDLE, player.getName());
+    }
+
+    /**
+     * Resolves {@code expect=} to exactly one loaded entity in the sender's dimension, as
+     * {@code face} resolves its target, and names it in the request's record; null without
+     * {@code expect}. None and several are refused at once, after the record says so.
+     */
+    private static String expectedTarget(MinecraftServer server, EntityPlayerMP player, ClientStepRoute route,
+                                         LogRecord record) throws CommandException {
+        if (route.wait.getExpect().isEmpty()) {
+            return null;
+        }
+        List<Entity> found = loadedTargets(server, player, route.wait.getExpect());
+        if (found.size() != 1) {
+            refuseTarget(player, record, found.size(),
+                    found.isEmpty() ? REASON_NO_TARGET : REASON_AMBIGUOUS_TARGET,
+                    found.isEmpty() ? KEY_NO_TARGET : KEY_AMBIGUOUS_TARGET);
+        }
+        Entity entity = found.get(0);
+        ResourceLocation type = EntityList.getKey(entity);
+        record.add("expectUuid", entity.getUniqueID().toString());
+        record.add("expectType", type == null ? entity.getClass().getSimpleName() : type.toString());
+        return entity.getUniqueID().toString();
+    }
+
+    /** The wait a request asked for, in its record, so the request says what the bundle will do. */
+    private static void addWait(LogRecord record, ClientStepRoute route) {
+        if (route.wait.waits()) {
+            record.add("wait", route.wait.getWait());
+            record.add("waitTicks", route.wait.getWaitTicks());
+        }
+    }
+
+    /**
+     * Inside a run, keeps the step so its answer can be waited on: when it waits now, and for a
+     * hold always, so a later {@code client await} can find it. Then parks the run on the answer
+     * when the step waits. Outside a run nothing is kept, and the step is exactly the step it was
+     * before waits existed.
+     */
+    private static void keepAndWait(BundleExecution run, EntityPlayerMP player, ClientStepRoute route, String step,
+                                    String token, long requestTick, String expectUuid) {
+        if (run == null || !route.keptInRun()) {
+            return;
+        }
+        ClientReports.sent(run, player.getUniqueID(), token, step, requestTick, route.heldInput(), expectUuid);
+        if (route.waits()) {
+            run.await(ClientActionWait.forToken(player.getUniqueID(), token, route.wait.getWait(), null),
+                    route.wait.getWaitTicks());
+        }
+    }
+
+    /** The reply to a request, which says how long a waiting step's bundle pauses for the answer. */
+    private static String asked(String step, ClientStepRoute route) {
+        return "[DevToolkit] Asked your client to " + step + "."
+                + (route.wait.waits() ? " Waiting up to " + route.wait.getWaitTicks() + " ticks for it to be "
+                + route.wait.getWait() + "." : "");
+    }
+
+    /**
+     * {@code client await <input> [waitTicks]}: parks the run until the latest hold of that input it
+     * started ends, judged as a step's own {@code wait=done}. Sends nothing to the client.
+     */
+    private static void executeAwait(ICommandSender sender, String[] args) throws CommandException {
+        EntityPlayerMP player = requireOwnPlayer(sender);
+        String[] words = args.clone();
+        words[0] = words[0].toLowerCase(java.util.Locale.ROOT);
+        ClientWaitOptions.Await await = ClientWaitOptions.parseAwait(words);
+        if (await == null) {
+            throw new WrongUsageException("/devtool client await <use|attack|binding> [waitTicks]");
+        }
+        BundleExecution run = Bundles.scheduler().getCurrentExecution();
+        if (run == null) {
+            refuseOutsideBundle(player, ClientWaitOptions.AWAIT);
+        }
+        String token = ClientReports.latestHold(run, player.getUniqueID(), await.getInput());
+        ClientActionWait wait = token == null ? null : ClientActionWait.forToken(player.getUniqueID(), token,
+                ClientWaitDecision.MODE_DONE, await.getInput());
+        if (wait == null) {
+            ToolkitLog.error("No hold to await", await.getInput());
+            throw new CommandException("[DevToolkit] No hold of " + await.getInput()
+                    + " was started in this bundle, so there is none to await (only the last "
+                    + ClientReports.MAX_STEPS + " steps a bundle sent are remembered).");
+        }
+        run.await(wait, await.getWaitTicks());
+        Replies.send(sender, "[DevToolkit] Waiting up to " + await.getWaitTicks() + " ticks for the hold of "
+                + await.getInput() + " to end.");
     }
 
     /**
@@ -427,6 +602,7 @@ public final class ClientSubCommand implements SubCommand {
         if (args.length <= 1) {
             java.util.List<String> steps = new java.util.ArrayList<String>(ClientActionRequest.STEPS);
             steps.addAll(PlayerActionOptions.STEPS);
+            steps.add(ClientWaitOptions.AWAIT);
             for (String step : InputOptions.STEPS) {
                 if (!steps.contains(step)) {
                     steps.add(step);

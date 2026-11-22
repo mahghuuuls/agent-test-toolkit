@@ -71,6 +71,11 @@ The toolkit's own failure keys are tolerated the same way, by declaring them:
 | --- | --- |
 | `devtool.wait.timeout` | A wait or an armed checkpoint ran out of time |
 | `devtool.wait.cancelled` | A wait became impossible, for example the caller changed dimension |
+| `devtool.client.actionFailed` | From 1.10.0, a step waiting on its client: the client refused, failed or left the action |
+| `devtool.client.releasedEarly` | From 1.10.0, a waiting hold or turn ended before its ticks ran out |
+| `devtool.client.wrongTarget` | From 1.10.0, a step with `expect=`: the client reported another entity under the crosshair, or none |
+| `devtool.client.targetDead` | From 1.10.0, a step with `expect=`: the client reported the expected entity dying or dead |
+| `devtool.screenshot.failed` | From 1.10.0, a picture waited on with `await screenshot` could not be saved |
 | `devtool.placeholder.unbound` | A placeholder has no value yet |
 | `devtool.placeholder.unsafe` | A placeholder's value could break the command |
 | `devtool.assert.failed` | An assertion did not match |
@@ -129,11 +134,27 @@ A bundle can pause until something is true. `devtool await chunks x1 z1 x2 z2 [t
 "fill 990 60 990 1010 62 1010 minecraft:stone"
 ```
 
-Every wait has a finite timeout: 200 ticks unless you say otherwise, never more than 12000. A wait ends in exactly one of three ways, and each writes an `AWAIT` record:
+Every wait has a finite timeout: 200 ticks unless you say otherwise, never more than 12000. A wait ends in exactly one of four ways, and each writes an `AWAIT` record:
 
 - **satisfied**: the bundle continues.
 - **timedOut**: the wait command fails with the key `devtool.wait.timeout`. `stopOnFailure` applies, and you can tolerate the key on that command if a timeout is acceptable.
 - **cancelled**: the wait became impossible, for example the caller changed dimension. The key is `devtool.wait.cancelled`.
+- **failed** (from 1.10.0): the awaited thing answered, and the answer fails the step with its own key, named as `key` in the record with a `detail`: a client that refused the action, a picture that was not saved. Tolerate that key on the command when the answer is acceptable.
+
+### Waiting for the client (from 1.10.0)
+
+A client step returns once it is sent. Add `wait=done` (or `wait=started`) and the bundle pauses until the client answers, and the answer becomes the step's success or failure; `expect=<selector|uuid>` on a click, a hold or a `face` also checks that the client hit that entity. `devtool client await <input>` comes back for a hold started earlier without a wait, and `devtool await screenshot <label>` waits until a picture the bundle asked for is saved:
+
+```json
+"devtool client key key.sneak hold 100 keepHold=true",
+"devtool client key key.forward hold 60 keepHold=true wait=done",
+"devtool client await key.sneak",
+"devtool client attack expect=@e[type=minecraft:zombie,c=1]",
+"devtool screenshot after 5",
+"devtool await screenshot after"
+```
+
+`waitTicks=<1-1200>` (default 200) counts from the request, so give a hold's ticks plus its `delay` and some margin. Outside a bundle these are refused with `devtool.client.waitOutsideBundle`. Every option, key and field is in `AGENTS.md`, Waiting for the client.
 
 A `delayTicks` on the command after a wait counts from the end of the wait. Outside a bundle, typed by hand, the command checks once, reports, and does not wait.
 

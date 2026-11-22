@@ -70,7 +70,7 @@ class PackageRulesTest {
             "client/FrameHide.java", "inbox/HideSet.java", "client/menu/QuestionAnswers.java",
             "client/PanelLayout.java", "wait/PromptPanels.java", "client/PressStages.java", "client/QueueChoice.java",
             "client/TooltipCapture.java", "integration/baubles/BaubleEquipCalls.java",
-            "command/BuiltInTolerance.java"};
+            "command/BuiltInTolerance.java", "wait/ClientWaitDecision.java", "inbox/ClientWaitOptions.java"};
 
     /**
      * The roots a source file may import from. Another loader's or mod's classes are reached by
@@ -200,7 +200,7 @@ class PackageRulesTest {
         assertEquals(new ArrayList<String>(), found);
         // The paths were read as the rules name them, so the rules were applied at all.
         assertTrue(clientFiles >= 5, "client files reached: " + clientFiles);
-        assertTrue(pureFiles >= 28, "pure files reached: " + pureFiles);
+        assertTrue(pureFiles >= 35, "pure files reached: " + pureFiles);
         assertTrue(new File(MAIN, "inbox/PlayerActionOptions.java").isFile(), "a pure class the list names exists");
     }
 
@@ -281,5 +281,15 @@ class PackageRulesTest {
                 "BaublesBridge baubles = Integrations.baubles();").isEmpty(), "even a command");
         assertTrue(violations(BRIDGE_ACCESS, "BaublesBridge bridge = Integrations.baubles();").isEmpty(),
                 "the one access point");
+        // The client answers; only the server waits, so the client code never reaches the waits.
+        assertFalse(violations("client/PlayerInput.java",
+                "import com.mahghuuuls.agenttesttoolkit.wait.ClientReports;").isEmpty(), "client to wait");
+        assertFalse(violations("client/ScreenshotTaker.java",
+                "com.mahghuuuls.agenttesttoolkit.bundle.Bundles.scheduler()").isEmpty(), "client to bundle");
+        assertFalse(violations("wait/ClientWaitDecision.java", "import net.minecraft.entity.Entity;").isEmpty(),
+                "the wait outcomes stay pure");
+        assertTrue(violations("wait/ClientReports.java",
+                "import com.mahghuuuls.agenttesttoolkit.net.ClientCapabilities;").isEmpty(),
+                "the waits listen to the client reports");
     }
 }

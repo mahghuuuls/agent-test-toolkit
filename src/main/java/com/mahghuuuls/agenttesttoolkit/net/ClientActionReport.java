@@ -46,10 +46,31 @@ public final class ClientActionReport implements IMessage {
     /** And each value at most this many characters. */
     static final int MAX_FIELD_VALUE = 256;
     /**
+     * The fields a server reads only from 1.10.0: whether the entity under the crosshair is alive,
+     * and its health. A server older than that drops a whole report carrying a name it does not
+     * know, so {@link #fieldsFor} leaves them out of a report to it.
+     */
+    static final java.util.List<String> FIELDS_FROM_1_10_0 = java.util.Collections.unmodifiableList(
+            java.util.Arrays.asList("alive", "health"));
+
+    /**
      * The extra fields a client may report. Fixed, so a client can neither overwrite a field the
      * server writes itself nor fill the record with names of its own.
      */
     static final java.util.Set<String> FIELD_NAMES = java.util.Collections.unmodifiableSet(fieldNames());
+
+    /**
+     * The fields of a report as a server that said hello with this version reads them: all of them
+     * from 1.10.0, without the newer ones before, or before any hello. The client's own record keeps
+     * every field either way.
+     */
+    public static java.util.Map<String, String> fieldsFor(String serverVersion, java.util.Map<String, String> fields) {
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<String, String>(fields);
+        if (serverVersion == null || !ToolkitChannel.atLeast(serverVersion, ToolkitChannel.VERSION_1_10_0)) {
+            out.keySet().removeAll(FIELDS_FROM_1_10_0);
+        }
+        return out;
+    }
 
     private static java.util.Set<String> fieldNames() {
         java.util.Set<String> names = new java.util.HashSet<String>(java.util.Arrays.asList(
@@ -65,6 +86,7 @@ public final class ClientActionReport implements IMessage {
                     // The screen steps: what the screen holds, what a click named and met.
                     "container", "buttons", "slots", "button", "label", "x", "y", "mouse", "cursor", "cursorCount",
                     "notches"));
+        names.addAll(FIELDS_FROM_1_10_0);
         // A tooltip's lines, as many as the client reports; its own record has more.
         for (int i = 1; i <= 20; i++) {
             names.add("line" + i);

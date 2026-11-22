@@ -6,7 +6,9 @@ import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
  * Something a bundle can park on until it holds, is impossible, or a deadline passes.
  *
  * <p>Polled once per server tick by the execution that owns it. A condition answers only
- * pending, satisfied, or cancelled; it never sleeps, never loops, and never holds a deadline.
+ * pending, satisfied, cancelled, or failed; it never sleeps, never loops, and never holds a
+ * deadline. Failed is for a condition that resolved with an answer the step must not pass, such
+ * as a client that refused the action a step waited for; it carries its own failure key.
  * The deadline belongs to the execution, which is what turns "still pending" into "timed
  * out" and records it as an ordinary command failure. Keeping the clock out of the condition
  * is what makes a condition testable without a game and a timeout impossible to forget.
@@ -19,20 +21,24 @@ public interface WaitCondition {
 
     /** What one poll found. */
     enum Status {
-        PENDING, SATISFIED, CANCELLED
+        PENDING, SATISFIED, CANCELLED, FAILED
     }
 
-    /** The answer to one poll: a status and, for a cancellation, why. */
+    /** The answer to one poll: a status and, for a cancellation, why; for a failure, its key and detail. */
     final class Poll {
-        private static final Poll PENDING = new Poll(Status.PENDING, null);
-        private static final Poll SATISFIED = new Poll(Status.SATISFIED, null);
+        private static final Poll PENDING = new Poll(Status.PENDING, null, null, null);
+        private static final Poll SATISFIED = new Poll(Status.SATISFIED, null, null, null);
 
         private final Status status;
         private final String reason;
+        private final String key;
+        private final String detail;
 
-        private Poll(Status status, String reason) {
+        private Poll(Status status, String reason, String key, String detail) {
             this.status = status;
             this.reason = reason;
+            this.key = key;
+            this.detail = detail;
         }
 
         public static Poll pending() {
@@ -45,7 +51,21 @@ public interface WaitCondition {
 
         /** @param reason a short machine-readable word, such as {@code dimensionChanged} */
         public static Poll cancelled(String reason) {
-            return new Poll(Status.CANCELLED, reason == null ? "cancelled" : reason);
+            return new Poll(Status.CANCELLED, reason == null ? "cancelled" : reason, null, null);
+        }
+
+        /**
+         * The condition resolved, and the step fails with this key, which the step may tolerate
+         * by declaration like any other.
+         *
+         * @param key    the failure key, such as {@code devtool.client.actionFailed}
+         * @param detail what a reader needs beside the key, such as {@code reason=screenOpen}; may be null
+         */
+        public static Poll failed(String key, String detail) {
+            if (key == null || key.isEmpty()) {
+                throw new IllegalArgumentException("a failed poll needs a key");
+            }
+            return new Poll(Status.FAILED, null, key, detail);
         }
 
         public Status getStatus() {
@@ -55,6 +75,16 @@ public interface WaitCondition {
         /** Null unless cancelled. */
         public String getReason() {
             return reason;
+        }
+
+        /** The failure key; null unless failed. */
+        public String getKey() {
+            return key;
+        }
+
+        /** What the failure adds to its key; null unless failed, and may be null then. */
+        public String getDetail() {
+            return detail;
         }
     }
 
@@ -69,7 +99,7 @@ public interface WaitCondition {
     String kind();
 
     /**
-     * Told once when the wait is over, whatever ended it: satisfied, cancelled, timed out,
+     * Told once when the wait is over, whatever ended it: satisfied, failed, cancelled, timed out,
      * the caller gone, or the server stopping. A condition that holds state elsewhere, such
      * as an armed checkpoint, releases it here. The default does nothing.
      */

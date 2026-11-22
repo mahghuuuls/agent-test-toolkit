@@ -13,30 +13,53 @@ import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
  *
  * <p>Carries the request's label and tick, so the server can tie it to the request it sent, the
  * file under the client's game folder (empty when none was written), whether it was saved, and
- * the client tick of the captured frame. Only a client at 1.10.0 or later sends one, and the
- * server ignores one from a client whose hello said an older version.
+ * the client tick of the captured frame, and for a failure the client's reason. Only a client at
+ * 1.10.0 or later sends one, and the server ignores one from a client whose hello said an older
+ * version.
  */
 public final class ScreenshotReport implements IMessage {
 
     /** The longest file path accepted; the client writes {@code screenshots/<label>-<tick>.png}. */
     static final int MAX_FILE = 128;
+    /** The longest reason accepted: a word, or an exception's simple name. */
+    static final int MAX_REASON = 128;
 
     private String label;
     private long requestTick;
     private String file = "";
     private boolean saved;
     private long frameClientTick;
+    private String reason = "";
 
     /** For Forge, which builds the message before reading it. */
     public ScreenshotReport() {
     }
 
+    /** A report without a reason, as for a saved picture. */
     public ScreenshotReport(String label, long requestTick, String file, boolean saved, long frameClientTick) {
+        this(label, requestTick, file, saved, frameClientTick, null);
+    }
+
+    /** @param reason why the picture was not saved, such as {@code noFile}; null or empty when it was */
+    public ScreenshotReport(String label, long requestTick, String file, boolean saved, long frameClientTick,
+                            String reason) {
         this.label = label;
         this.requestTick = requestTick;
         this.file = file == null ? "" : file;
         this.saved = saved;
         this.frameClientTick = frameClientTick;
+        this.reason = fitReason(reason);
+    }
+
+    /**
+     * A reason as a report carries it: empty for none, and cut to {@link #MAX_REASON} characters, so
+     * a long exception name shortens the reason rather than making the whole report invalid.
+     */
+    static String fitReason(String reason) {
+        if (reason == null) {
+            return "";
+        }
+        return reason.length() <= MAX_REASON ? reason : reason.substring(0, MAX_REASON);
     }
 
     /**
@@ -44,15 +67,20 @@ public final class ScreenshotReport implements IMessage {
      * characters, so a report cannot write an unreadable record line.
      */
     public boolean isValid() {
-        if (!ScreenshotRequest.isValidLabel(label) || file == null || file.length() > MAX_FILE) {
+        if (!ScreenshotRequest.isValidLabel(label) || file == null || file.length() > MAX_FILE
+                || reason == null || reason.length() > MAX_REASON) {
             return false;
         }
-        for (int i = 0; i < file.length(); i++) {
-            if (Character.isISOControl(file.charAt(i))) {
-                return false;
+        return !hasControlCharacter(file) && !hasControlCharacter(reason);
+    }
+
+    private static boolean hasControlCharacter(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.isISOControl(text.charAt(i))) {
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     /**
@@ -85,6 +113,11 @@ public final class ScreenshotReport implements IMessage {
         return frameClientTick;
     }
 
+    /** Why the picture was not saved; empty when it was, or when the client gave none. */
+    public String getReason() {
+        return reason;
+    }
+
     @Override
     public void fromBytes(ByteBuf buf) {
         label = ByteBufUtils.readUTF8String(buf);
@@ -92,6 +125,7 @@ public final class ScreenshotReport implements IMessage {
         file = ByteBufUtils.readUTF8String(buf);
         saved = buf.readBoolean();
         frameClientTick = buf.readLong();
+        reason = ByteBufUtils.readUTF8String(buf);
     }
 
     @Override
@@ -101,6 +135,7 @@ public final class ScreenshotReport implements IMessage {
         ByteBufUtils.writeUTF8String(buf, file);
         buf.writeBoolean(saved);
         buf.writeLong(frameClientTick);
+        ByteBufUtils.writeUTF8String(buf, reason);
     }
 
     /**

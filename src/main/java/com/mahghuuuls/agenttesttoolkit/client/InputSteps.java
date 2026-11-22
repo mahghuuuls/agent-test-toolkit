@@ -272,6 +272,14 @@ final class InputSteps {
         fields.put("endYaw", HeldInputs.angle(player.rotationYaw));
         fields.put("endPitch", HeldInputs.angle(player.rotationPitch));
         fields.put("turnTicks", "0");
+        if (InputOptions.FACE.equals(options.getStep())) {
+            try {
+                // What the view now faces, so the server can check it against the entity it expected.
+                PlayerInput.describeTarget(mc, mc.objectMouseOver, fields);
+            } catch (RuntimeException failure) {
+                // A modded target that cannot be read leaves the turn made and its record without a target.
+            }
+        }
         records.screenshotAfter(asked, fields);
         records.finish(mc, asked, "done", null, screen, null, fields);
     }

@@ -141,6 +141,16 @@ public final class InputOptions {
         return word != null && STEPS.contains(word);
     }
 
+    /** Whether a word names an entity as {@code face} takes one: a selector or a UUID. */
+    static boolean isEntityReference(String word) {
+        return word != null && (SELECTOR.matcher(word).matches() || UUID_TEXT.matcher(word).matches());
+    }
+
+    /** Whether a word is a key binding's name as {@code key} takes one. */
+    static boolean isBindingName(String word) {
+        return word != null && BINDING.matcher(word).matches();
+    }
+
     /**
      * Parses the words after {@code client}: the step first, then its own words, then options
      * written {@code key=value}. Null when they do not form one step.
@@ -222,7 +232,7 @@ public final class InputOptions {
             if (BLOCK.equals(words[1])) {
                 return readBlock(words);
             }
-            if (!SELECTOR.matcher(words[1]).matches() && !UUID_TEXT.matcher(words[1]).matches()) {
+            if (!isEntityReference(words[1])) {
                 return -1;
             }
             name = words[1];

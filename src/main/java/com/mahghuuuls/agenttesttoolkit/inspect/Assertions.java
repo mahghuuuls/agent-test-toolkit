@@ -163,11 +163,19 @@ public final class Assertions {
     }
 
     /**
-     * A player's current health. Equal when the two agree to the two decimals the records
-     * show, as an attribute's value is compared.
+     * A player's or any living entity's current health. Equal when the two agree to the two
+     * decimals the records show, as an attribute's value is compared.
      */
     public static Result health(double expected, double observed) {
         return attributeValue(expected, Double.valueOf(observed));
+    }
+
+    /**
+     * A health that could not be read because the entity is not loaded and the place it was last
+     * seen is not loaded either: neither pass nor fail.
+     */
+    public static Result healthUnloaded(double expected) {
+        return new Result(Outcome.UNLOADED, format(expected), "notFound", "region not loaded");
     }
 
     /**

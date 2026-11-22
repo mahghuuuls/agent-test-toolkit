@@ -48,6 +48,7 @@ import java.util.UUID;
  * assert entity &lt;uuid&gt; present|absent [at &lt;x&gt; &lt;y&gt; &lt;z&gt;]
  * assert entity &lt;uuid&gt; dimension &lt;d&gt;
  * assert entity &lt;uuid&gt; within &lt;r&gt; of &lt;x&gt; &lt;y&gt; &lt;z&gt;
+ * assert entity &lt;selector|uuid&gt; health &lt;n&gt;
  * assert player &lt;name&gt; dimension &lt;d&gt;
  * assert player &lt;name&gt; gamemode &lt;mode&gt;
  * assert attribute &lt;target&gt; &lt;attribute&gt; value &lt;n&gt;
@@ -77,6 +78,7 @@ public final class AssertSubCommand implements SubCommand {
     public String getUsage() {
         return "assert <entities count <n> within <r> [type <id>] [name <name>]"
                 + " | entity <uuid> <present|absent [at <x> <y> <z>] | dimension <d> | within <r> of <x> <y> <z>>"
+                + " | entity <selector|uuid> health <n>"
                 + " | player <name> <dimension <d> | gamemode <mode> | health <n>>"
                 + " | attribute <target> <attribute> <value <n> | modifier <uuid|name> [amount <n>]>>";
     }
@@ -193,6 +195,10 @@ public final class AssertSubCommand implements SubCommand {
         if (args.length < 3) {
             throw new WrongUsageException("/devtool assert entity <uuid> <present|absent|dimension|within> ...");
         }
+        if ("health".equals(args[2].toLowerCase(Locale.ROOT))) {
+            // Any living entity, found as the attribute assertions find their target.
+            return entityHealth(server, sender, args, record);
+        }
         UUID uuid;
         try {
             uuid = UUID.fromString(args[1]);
@@ -277,13 +283,9 @@ public final class AssertSubCommand implements SubCommand {
         if (args.length < 5) {
             throw new WrongUsageException(usage);
         }
-        Entity entity = EntityTarget.requireExactlyOne(server, sender, args[1]);
-        if (!(entity instanceof EntityLivingBase)) {
-            ToolkitLog.error("Target has no attributes", args[1] + " is " + EntityList.getKey(entity));
-            throw new CommandException("[DevToolkit] " + args[1] + " is not a living entity, so it has no attributes.");
-        }
+        EntityLivingBase entity = requireLiving(server, sender, args[1], "attributes");
         record.add("targetUuid", entity.getUniqueID().toString());
-        Attributes.Attribute observed = Attributes.read((EntityLivingBase) entity, args[2]);
+        Attributes.Attribute observed = Attributes.read(entity, args[2]);
         // The registry name as Minecraft knows it; lookup ignores case, so the typed text may differ.
         record.add("attribute", observed == null ? args[2] : observed.getName());
         String form = args[3].toLowerCase(Locale.ROOT);
@@ -303,6 +305,95 @@ public final class AssertSubCommand implements SubCommand {
                     observed == null ? null : observed.getModifiers());
         }
         throw new WrongUsageException(usage);
+    }
+
+    /**
+     * Exactly one loaded living entity, or the refusal the attribute assertions give: the resolver's
+     * own error for none or several, and a refusal naming what a non-living entity lacks.
+     */
+    private static EntityLivingBase requireLiving(MinecraftServer server, ICommandSender sender, String target,
+                                                  String lacks) throws CommandException {
+        Entity entity = EntityTarget.requireExactlyOne(server, sender, target);
+        if (!(entity instanceof EntityLivingBase)) {
+            ToolkitLog.error("Target has no " + lacks, target + " is " + EntityList.getKey(entity));
+            throw new CommandException("[DevToolkit] " + target + " is not a living entity, so it has no " + lacks + ".");
+        }
+        return (EntityLivingBase) entity;
+    }
+
+    /**
+     * {@code entity <selector|uuid> health <n>}: the current health of exactly one loaded living
+     * entity, at two decimals. A dying entity is still compared, with {@code dead=true} on the
+     * record. A UUID that no loaded entity has, where the place the fixture was last seen is not
+     * loaded, is {@code unloaded}: absence is never inferred from a place nobody can see.
+     */
+    private Assertions.Result entityHealth(MinecraftServer server, ICommandSender sender, String[] args,
+                                           LogRecord record) throws CommandException {
+        if (args.length != 4) {
+            throw new WrongUsageException("/devtool assert entity <selector|uuid> health <n>");
+        }
+        double expected = CommandBase.parseDouble(args[3]);
+        record.add("predicate", "entity.health");
+        if (EntityTarget.classify(args[1]) == EntityTarget.Form.UUID) {
+            String uuid = UUID.fromString(args[1]).toString();
+            ToolkitState.FixturePlace last = ToolkitState.getFixturePlace(uuid);
+            boolean lastPlaceLoaded = false;
+            if (last != null) {
+                WorldServer world = net.minecraftforge.common.DimensionManager.getWorld(last.dimension);
+                lastPlaceLoaded = world != null && world.isBlockLoaded(new BlockPos(last.x, last.y, last.z));
+            }
+            Assertions.Result unloaded = unloadedHealth(expected, uuid,
+                    server.getEntityFromUuid(UUID.fromString(uuid)) != null,
+                    last == null ? null : new int[] {last.dimension, last.x, last.y, last.z}, lastPlaceLoaded, record);
+            if (unloaded != null) {
+                return unloaded;
+            }
+        }
+        // None or several: the resolver's own refusal, as for the attribute assertions.
+        Entity entity = EntityTarget.requireExactlyOne(server, sender, args[1]);
+        ResourceLocation type = EntityList.getKey(entity);
+        boolean living = entity instanceof EntityLivingBase;
+        return livingHealth(expected, args[1], entity.getUniqueID().toString(),
+                type == null ? entity.getClass().getSimpleName() : type.toString(), living,
+                living ? ((EntityLivingBase) entity).getHealth() : 0.0F, entity.isDead, record);
+    }
+
+    /**
+     * The health assertion's answer when its UUID names no loaded entity: {@code unloaded}, with the
+     * place on the record, when a claimed fixture was last seen in a place that is not loaded now;
+     * null when the entity is loaded, or nobody knows where it was, so the resolver decides.
+     *
+     * @param lastPlace the fixture's last place as dimension, x, y, z; null when none is known
+     */
+    static Assertions.Result unloadedHealth(double expected, String uuid, boolean entityLoaded, int[] lastPlace,
+                                            boolean lastPlaceLoaded, LogRecord record) {
+        if (entityLoaded || lastPlace == null || lastPlaceLoaded) {
+            return null;
+        }
+        record.add("uuid", uuid);
+        record.addBlockPos("at", lastPlace[1], lastPlace[2], lastPlace[3]);
+        record.add("dimension", lastPlace[0]);
+        record.add("regionLoaded", false);
+        return Assertions.healthUnloaded(expected);
+    }
+
+    /**
+     * The health assertion's answer for the one entity found: refused as the attribute assertions
+     * refuse a non-living entity, otherwise its health compared, with {@code dead=true} on the record
+     * for an entity that is dead or at zero health in its death animation. Free of game types, so
+     * each branch is tested.
+     */
+    static Assertions.Result livingHealth(double expected, String target, String uuid, String type, boolean living,
+                                          float health, boolean isDead, LogRecord record) throws CommandException {
+        if (!living) {
+            ToolkitLog.error("Target has no health", target + " is " + type);
+            throw new CommandException("[DevToolkit] " + target + " is not a living entity, so it has no health.");
+        }
+        record.add("targetUuid", uuid);
+        if (isDead || health <= 0.0F) {
+            record.add("dead", true);
+        }
+        return Assertions.health(expected, health);
     }
 
     /** A modifier reference and the optional amount after it. */

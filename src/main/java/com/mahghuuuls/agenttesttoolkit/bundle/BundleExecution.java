@@ -26,7 +26,9 @@ public final class BundleExecution implements QuietScope.Run {
 
     /** How a wait ended. */
     public enum WaitOutcome {
-        SATISFIED, TIMED_OUT, CANCELLED
+        SATISFIED, TIMED_OUT, CANCELLED,
+        /** The condition resolved with an answer the step must not pass; its key fails the step. */
+        FAILED
     }
 
     /** Failure key for a wait whose deadline passed. Tolerable by declaration like any key. */
@@ -50,7 +52,7 @@ public final class BundleExecution implements QuietScope.Run {
          * Called when a wait ends, whatever the outcome, before any failure it causes is
          * reported. A default no-op for the same reason as {@link #onCommandStarting}.
          *
-         * @param reason null unless the outcome is cancelled
+         * @param reason null unless the outcome is cancelled, or for a failed one its failure key
          */
         default void onWaitEnded(BundleExecution execution, int index, String command,
                                  WaitCondition condition, WaitOutcome outcome, String reason,
@@ -268,7 +270,7 @@ public final class BundleExecution implements QuietScope.Run {
         }
 
         // Waiting on a condition. Polled once per tick; the deadline turns pending into a
-        // timeout. Either failure travels the same path as a thrown command error, so the
+        // timeout. Every failure travels the same path as a thrown command error, so the
         // stop rule and tolerated keys need no special case.
         if (wait != null) {
             WaitCondition.Poll poll = wait.poll(ticksElapsed - waitStartedTick);
@@ -279,6 +281,9 @@ public final class BundleExecution implements QuietScope.Run {
             } else if (poll.getStatus() == WaitCondition.Status.CANCELLED) {
                 outcome = WaitOutcome.CANCELLED;
                 reason = poll.getReason();
+            } else if (poll.getStatus() == WaitCondition.Status.FAILED) {
+                outcome = WaitOutcome.FAILED;
+                reason = poll.getKey();
             } else if (ticksElapsed >= waitDeadlineTick) {
                 outcome = WaitOutcome.TIMED_OUT;
             } else {
@@ -299,6 +304,9 @@ public final class BundleExecution implements QuietScope.Run {
             } else if (outcome == WaitOutcome.TIMED_OUT) {
                 dispatcher.report("[DevToolkit] Wait for " + kind + " timed out after " + waited
                         + " ticks: " + KEY_WAIT_TIMEOUT, true);
+            } else if (outcome == WaitOutcome.FAILED) {
+                dispatcher.report("[DevToolkit] Wait for " + kind + " failed after " + waited
+                        + " ticks: " + failureDetail(poll), true);
             } else {
                 dispatcher.report("[DevToolkit] Wait for " + kind + " cancelled after " + waited
                         + " ticks (" + reason + "): " + KEY_WAIT_CANCELLED, true);
@@ -312,15 +320,25 @@ public final class BundleExecution implements QuietScope.Run {
             }
 
             if (outcome != WaitOutcome.SATISFIED) {
-                String key = outcome == WaitOutcome.TIMED_OUT ? KEY_WAIT_TIMEOUT : KEY_WAIT_CANCELLED;
+                String key;
+                if (outcome == WaitOutcome.TIMED_OUT) {
+                    key = KEY_WAIT_TIMEOUT;
+                } else if (outcome == WaitOutcome.CANCELLED) {
+                    key = KEY_WAIT_CANCELLED;
+                } else {
+                    key = poll.getKey();
+                }
+                // The key alone for a timeout or cancellation; a failed condition's detail follows
+                // its key, so a reader matching on the key still finds it.
+                String detail = outcome == WaitOutcome.FAILED ? failureDetail(poll) : key;
                 if (commands.get(waitIndex).getToleratedFailures().contains(key)) {
                     countTolerated(CommandOutcome.SOURCE_DECLARED);
                     listener.onCommandTolerated(this, waitIndex, command, key, CommandOutcome.SOURCE_DECLARED);
                 } else {
                     failed++;
-                    noteFailure(key);
-                    listener.onCommandFailed(this, waitIndex, command, key);
-                    announceFailure(waitIndex, key);
+                    noteFailure(key, detail.equals(key) ? null : detail);
+                    listener.onCommandFailed(this, waitIndex, command, detail);
+                    announceFailure(waitIndex, detail);
                     if (stopOnFailure) {
                         stoppedEarly = true;
                         finished = true;
@@ -422,6 +440,12 @@ public final class BundleExecution implements QuietScope.Run {
 
         finished = true;
         finishWith(listener);
+    }
+
+    /** A failed poll's key, then its detail when it has one. */
+    private static String failureDetail(WaitCondition.Poll poll) {
+        return poll.getDetail() == null || poll.getDetail().isEmpty()
+                ? poll.getKey() : poll.getKey() + ": " + poll.getDetail();
     }
 
     /** Ends the run: the listener writes the end record, then the sink, if any, is told. */

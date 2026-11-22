@@ -83,10 +83,11 @@ public final class BundleRecorder implements BundleExecution.Listener {
      * execution to park, produces the same record shape as one inside a bundle. The bundle
      * fields are simply absent in that case rather than filled with a placeholder.
      *
-     * @param outcome  {@code satisfied}, {@code timedOut}, {@code cancelled}, or
-     *                 {@code pending} for a single check outside a bundle that found nothing
+     * @param outcome  {@code satisfied}, {@code timedOut}, {@code cancelled}, {@code failed},
+     *                 or {@code pending} for a single check outside a bundle that found nothing
      *                 ready
-     * @param reason   null unless cancelled
+     * @param reason   null unless cancelled; for {@code failed}, the failure key, written as
+     *                 {@code key} since it is a key and not a reason word
      */
     public static void recordAwait(RecordContext.Snapshot context, String bundle, String hash,
                                    int index, String command, WaitCondition condition,
@@ -103,7 +104,7 @@ public final class BundleRecorder implements BundleExecution.Listener {
         record.add("condition", condition.kind());
         record.add("outcome", outcome);
         if (reason != null) {
-            record.add("reason", reason);
+            record.add("failed".equals(outcome) ? "key" : "reason", reason);
         }
         record.add("waitedTicks", waitedTicks);
         record.add("timeoutTicks", timeoutTicks);
@@ -120,6 +121,8 @@ public final class BundleRecorder implements BundleExecution.Listener {
                 return "satisfied";
             case TIMED_OUT:
                 return "timedOut";
+            case FAILED:
+                return "failed";
             default:
                 return "cancelled";
         }

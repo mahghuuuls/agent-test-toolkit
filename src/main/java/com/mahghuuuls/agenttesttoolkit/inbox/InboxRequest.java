@@ -129,9 +129,7 @@ public final class InboxRequest {
                     && (("reconnect".equals(args[0]) && isReconnectArguments(args))
                     || (("respawn".equals(args[0]) || "close".equals(args[0]) || "quit".equals(args[0]))
                             && args.length == 1)
-                    || PlayerActionOptions.parse(args) != null
-                    || InputOptions.parse(args) != null
-                    || ScreenOptions.parse(args) != null);
+                    || isClientStep(args));
             if (!ok) {
                 return refused(id, line, verb, REASON_BAD_ARGUMENTS);
             }
@@ -154,6 +152,23 @@ public final class InboxRequest {
             return new InboxRequest(id, line, verb, null, REASON_VERB_NOT_ALLOWED, "use:" + join(args));
         }
         return refused(id, line, verb, REASON_VERB_NOT_ALLOWED);
+    }
+
+    /**
+     * A player action, an input or screen step, or {@code await}. A bundle wait's options are
+     * well formed here too, so the command itself says that they need a bundle rather than the
+     * inbox calling them bad arguments.
+     */
+    private static boolean isClientStep(String[] args) {
+        ClientWaitOptions wait = ClientWaitOptions.split(args);
+        if (wait == null) {
+            return false;
+        }
+        String[] words = wait.getWords();
+        return PlayerActionOptions.parse(words) != null
+                || InputOptions.parse(words) != null
+                || ScreenOptions.parse(words) != null
+                || ClientWaitOptions.parseAwait(args) != null;
     }
 
     /** After {@code reconnect}: an optional away time, then an optional {@code logout}, in that order. */

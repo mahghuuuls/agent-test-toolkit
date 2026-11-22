@@ -307,6 +307,100 @@ class BundleWaitTest {
         assertTrue(steps.get(1).contains("elapsedTicks=14"), steps.get(1));
     }
 
+    /** Fails with a key and detail on a given poll, as a client that refused the step's action does. */
+    private static final class FailingCondition implements WaitCondition {
+        private final int failOnPoll;
+        private int polls;
+        private boolean ended;
+
+        FailingCondition(int failOnPoll) {
+            this.failOnPoll = failOnPoll;
+        }
+
+        @Override
+        public Poll poll(int elapsedTicks) {
+            polls++;
+            return polls == failOnPoll ? Poll.failed("devtool.client.actionFailed", "result=refused reason=screenOpen")
+                    : Poll.pending();
+        }
+
+        @Override
+        public String kind() {
+            return "client";
+        }
+
+        @Override
+        public void ended() {
+            ended = true;
+        }
+
+        @Override
+        public void describe(LogRecord record) {
+            record.add("polls", polls);
+        }
+    }
+
+    @Test
+    @DisplayName("a failed poll is the step's command failure: its key and detail, the AWAIT record, and the stop rule")
+    void failedPollFailsTheStep() {
+        FailingCondition condition = new FailingCondition(2);
+        WaitingDispatcher dispatcher = new WaitingDispatcher(condition, 100);
+        BundleExecution execution =
+                run(dispatcher, true, Collections.<String>emptyList(), 0, new BundleRecorder());
+
+        assertEquals(Arrays.asList("before", "wait"), dispatcher.dispatched, "stopOnFailure stops at the step");
+        assertEquals(1, execution.getFailed());
+        assertTrue(execution.isStoppedEarly());
+        assertTrue(condition.ended, "the condition is told the wait is over");
+        assertEquals("devtool.client.actionFailed", execution.getFirstFailure());
+        assertEquals("devtool.client.actionFailed: result=refused reason=screenOpen", execution.getFirstFailureDetail());
+        String await = records("AWAIT").get(0);
+        assertTrue(await.contains("outcome=failed"), await);
+        assertTrue(await.contains("key=devtool.client.actionFailed"), await);
+        assertTrue(await.contains("condition=client"), await);
+        assertTrue(await.contains("waitedTicks=2"), await);
+        assertFalse(await.contains("reason="), "a failure key is not a reason word: " + await);
+        String error = records("ERROR").get(0);
+        assertTrue(error.contains("devtool.client.actionFailed: result=refused reason=screenOpen"), error);
+        assertTrue(error.contains("index=1"), error);
+        assertTrue(dispatcher.reports.get(0).startsWith("RED "), dispatcher.reports.toString());
+        assertTrue(dispatcher.reports.get(0).contains("failed after 2 ticks"), dispatcher.reports.toString());
+    }
+
+    @Test
+    @DisplayName("a failed poll's key declared in toleratedFailures is tolerated, and the bundle goes on")
+    void failedPollTolerated() {
+        WaitingDispatcher dispatcher = new WaitingDispatcher(new FailingCondition(1), 100);
+        BundleExecution execution = run(dispatcher, true,
+                Collections.singletonList("devtool.client.actionFailed"), 0, new BundleRecorder());
+
+        assertEquals(Arrays.asList("before", "wait", "after"), dispatcher.dispatched);
+        assertEquals(0, execution.getFailed());
+        assertEquals(1, execution.getToleratedDeclared());
+        assertTrue(records("AWAIT").get(0).contains("outcome=failed"), records("AWAIT").toString());
+        assertTrue(records("TOLERATED").get(0).contains("key=devtool.client.actionFailed"),
+                records("TOLERATED").toString());
+        assertTrue(records("ERROR").isEmpty(), records("ERROR").toString());
+    }
+
+    @Test
+    @DisplayName("a declared timeout key does not tolerate a failed poll, and a failed poll never waits for the deadline")
+    void failedPollIsItsOwnKey() {
+        WaitingDispatcher dispatcher = new WaitingDispatcher(new FailingCondition(1), 100);
+        BundleExecution execution = run(dispatcher, true,
+                Collections.singletonList(BundleExecution.KEY_WAIT_TIMEOUT), 0, new BundleRecorder());
+        assertEquals(1, execution.getFailed());
+        assertTrue(execution.getDurationTicks() < 100, "ended on the failing poll: " + execution.getDurationTicks());
+    }
+
+    @Test
+    @DisplayName("a failed poll needs a key")
+    void failedPollNeedsKey() {
+        assertThrows(IllegalArgumentException.class, () -> WaitCondition.Poll.failed(null, "x"));
+        assertThrows(IllegalArgumentException.class, () -> WaitCondition.Poll.failed("", "x"));
+        assertEquals(null, WaitCondition.Poll.failed("k", null).getReason(), "a failure has no cancellation reason");
+    }
+
     @Test
     @DisplayName("registering a wait needs a positive timeout and refuses a second wait")
     void awaitGuards() {

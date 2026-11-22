@@ -93,9 +93,9 @@ public class AgentTestToolkitMod {
         com.mahghuuuls.agenttesttoolkit.logging.PendingRecords.install(damageObserver);
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.fixture.FixtureRemovals());
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.net.ClientCapabilities.LogoutListener());
-        // A returning client's reconnect report resumes a suspended inbox (ARC-023). Wired here,
-        // so inbox does not depend on net.
-        com.mahghuuuls.agenttesttoolkit.net.ClientCapabilities.setReportListener(
+        // A returning client's reconnect report resumes a suspended inbox. Wired here, so inbox
+        // does not depend on net.
+        com.mahghuuuls.agenttesttoolkit.net.ClientCapabilities.addReportListener(
                 new com.mahghuuuls.agenttesttoolkit.net.ClientCapabilities.ReportListener() {
                     @Override
                     public void onReport(net.minecraft.entity.player.EntityPlayerMP player,
@@ -117,6 +117,13 @@ public class AgentTestToolkitMod {
                         }
                     }
                 });
+        // Bundle steps that wait on a client's answer read it from here; a player's tokens go when
+        // they leave, so a client that comes back never answers one from before.
+        com.mahghuuuls.agenttesttoolkit.wait.ClientReports.install();
+        MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.wait.ClientReports.LogoutListener());
+        // A 1.10.0 client's report of a requested picture: the server's record, and the waits.
+        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setReportReceiver(
+                new com.mahghuuuls.agenttesttoolkit.command.sub.ScreenshotSubCommand.ReportRecorder());
         MinecraftForge.EVENT_BUS.register(new JoinAutomation());
         MinecraftForge.EVENT_BUS.register(new OperatorLogoutListener());
         MinecraftForge.EVENT_BUS.register(new com.mahghuuuls.agenttesttoolkit.inbox.InboxPoller());

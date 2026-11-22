@@ -26,7 +26,10 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class ClientCapabilities {
 
-    /** Told about every report, after its record; the inbox installs one (ARC-023). */
+    /**
+     * Told about every accepted report, after its record. The inbox installs one for its
+     * reconnects, and the bundle waits one for the steps they wait on.
+     */
     public interface ReportListener {
         void onReport(EntityPlayerMP player, ClientActionReport report);
     }
@@ -81,13 +84,18 @@ public final class ClientCapabilities {
 
     /** How long after that login the reconnect's report may take before the player is not busy. */
     static final long RETURN_REPORT_GRACE_MILLIS = 10000L;
-    private static volatile ReportListener listener;
+    /** Every listener, told in the order installed; a list, so one listener never replaces another. */
+    private static final java.util.List<ReportListener> LISTENERS =
+            new java.util.concurrent.CopyOnWriteArrayList<ReportListener>();
 
     private ClientCapabilities() {
     }
 
-    public static void setReportListener(ReportListener reportListener) {
-        listener = reportListener;
+    /** Adds a listener told about every accepted report. Installed once each, at mod start. */
+    public static void addReportListener(ReportListener reportListener) {
+        if (reportListener != null) {
+            LISTENERS.add(reportListener);
+        }
     }
 
     /** The toolkit version this player's client said hello with; null before any hello. */
@@ -287,9 +295,13 @@ public final class ClientCapabilities {
             // it must come before the inbox says it resumed.
             recordReturn(player, report);
         }
-        ReportListener current = listener;
-        if (current != null) {
-            current.onReport(player, report);
+        for (ReportListener current : LISTENERS) {
+            try {
+                current.onReport(player, report);
+            } catch (RuntimeException e) {
+                // Contained, so one listener's failure cannot keep the report from the next.
+                ToolkitLog.error("Client report listener failed", player.getName() + ": " + e);
+            }
         }
     }
 
@@ -386,6 +398,6 @@ public final class ClientCapabilities {
         RECONNECT_ASKED.clear();
         RECONNECT_RETURNED.clear();
         LEAVING.clear();
-        listener = null;
+        LISTENERS.clear();
     }
 }

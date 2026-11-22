@@ -1,5 +1,7 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
+import com.mahghuuuls.agenttesttoolkit.bundle.BundleExecution;
+import com.mahghuuuls.agenttesttoolkit.bundle.Bundles;
 import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
@@ -9,9 +11,11 @@ import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
 import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.net.ClientCapabilities;
+import com.mahghuuuls.agenttesttoolkit.net.ScreenshotReport;
 import com.mahghuuuls.agenttesttoolkit.net.ScreenshotRequest;
 import com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel;
 import com.mahghuuuls.agenttesttoolkit.state.SessionStamp;
+import com.mahghuuuls.agenttesttoolkit.wait.ClientReports;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
@@ -31,6 +35,11 @@ public final class ScreenshotSubCommand implements SubCommand {
 
     /** Failure key for a target whose client cannot receive the request. Tolerable by declaration. */
     public static final String KEY_NO_CLIENT = "devtool.screenshot.noClient";
+    /**
+     * Failure key for a wait on a picture whose client cannot report it: one whose hello said a
+     * version older than 1.10.0, or none. Refused at once rather than left to time out.
+     */
+    public static final String KEY_NO_REPORT = "devtool.screenshot.noReport";
     private static final String HIDE_PREFIX = "hide=";
 
     @Override
@@ -69,6 +78,14 @@ public final class ScreenshotSubCommand implements SubCommand {
             return null;
         }
         return ClientRequestGate.versionArguments(player, helloVersion, needed, "this screenshot");
+    }
+
+    /**
+     * The refusal's key when a picture asked of a client that said hello with this version cannot
+     * be waited on, since that client never reports it; null when it can.
+     */
+    static String reportRefusal(String helloVersion) {
+        return ToolkitChannel.readsNoticesAndSendsReports(helloVersion) ? null : KEY_NO_REPORT;
     }
 
     @Override
@@ -129,7 +146,36 @@ public final class ScreenshotSubCommand implements SubCommand {
             record.add("hide", hide);
         }
         ToolkitLog.write(record);
+        BundleExecution run = Bundles.scheduler().getCurrentExecution();
+        if (run != null) {
+            // Kept for an await screenshot later in this run; a typed request keeps nothing.
+            ClientReports.requestedPicture(run, target.getUniqueID(), label, requestTick);
+        }
         Replies.send(sender, "[DevToolkit] Screenshot '" + label + "' requested from "
                 + target.getName() + (delay > 0 ? " in " + delay + " ticks." : "."));
+    }
+
+    /**
+     * Writes the server's record of a client's picture report and hands the report to the waits.
+     * Installed as the channel's report receiver at mod start; called on the server thread with the
+     * current player, only for a valid report from a 1.10.0 client or later.
+     */
+    public static final class ReportRecorder implements ToolkitChannel.ReportReceiver {
+        @Override
+        public void receive(EntityPlayerMP player, ScreenshotReport report) {
+            LogRecord record = RecordContext.stamp(LogRecord.of(EventType.SCREENSHOT), player);
+            SessionStamp.apply(record);
+            record.add("side", "SERVER");
+            record.add("action", report.isSaved() ? "saved" : "failed");
+            record.add("player", player.getName());
+            record.add("label", report.getLabel());
+            record.add("requestTick", report.getRequestTick());
+            record.add("file", report.getFile());
+            record.add("frameClientTick", report.getFrameClientTick());
+            record.add("reason", report.getReason());
+            ToolkitLog.write(record);
+            ClientReports.pictureReported(player.getUniqueID(), report.getLabel(), report.getRequestTick(),
+                    report.isSaved(), report.getFile(), report.getFrameClientTick(), report.getReason());
+        }
     }
 }

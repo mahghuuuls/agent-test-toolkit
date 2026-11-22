@@ -90,6 +90,11 @@ class DocumentationCoverageTest {
             }
         }
         assertTrue(keys.size() >= 10, "the scan found the keys: " + keys);
+        for (String known : new String[] {"devtool.client.actionFailed", "devtool.client.releasedEarly",
+                "devtool.client.wrongTarget", "devtool.client.targetDead", "devtool.client.ambiguousTarget",
+                "devtool.client.waitOutsideBundle", "devtool.client.expectNeedsNewClient", "devtool.screenshot.failed", "devtool.screenshot.noReport"}) {
+            assertTrue(keys.contains(known), "the scan found " + known);
+        }
         String agents = read(new File("AGENTS.md"));
         List<String> missing = new ArrayList<String>();
         for (String k : keys) {
@@ -195,7 +200,7 @@ class DocumentationCoverageTest {
         for (String known : new String[] {"localJoinNotHost", "placedBeforeStart", "notLocal",
                 "localJoinNotOperator", "stillAlive", "connectFailed", "openForAnother", "tokenMismatch",
                 "rejoinTimeout", "returnedOtherRoute", "wrongBundle", "changedHash", "notDeadYet",
-                "noDeathScreen"}) {
+                "noDeathScreen", "ambiguousTarget", "senderLost"}) {
             assertTrue(reasons.contains(known), "the scan found " + known + ": " + reasons);
         }
         assertEquals(new ArrayList<String>(), undocumented(reasons, read(new File("AGENTS.md"))));

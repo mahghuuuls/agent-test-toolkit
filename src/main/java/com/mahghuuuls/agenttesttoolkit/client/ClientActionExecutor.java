@@ -207,16 +207,29 @@ public final class ClientActionExecutor implements ToolkitChannel.ActionReceiver
 
     /** The version the server said hello with; read on the client thread when answering. */
     private volatile String serverVersion;
+    /**
+     * The version the server of the current connection said hello with; null before its hello and
+     * after a disconnect. Kept apart from {@link #serverVersion}, which a reconnect's answer still
+     * reads after the leave, so a message only a newer server reads is never sent to another one.
+     */
+    private volatile String connectedServerVersion;
 
     @Override
     public void serverHello(String version) {
         serverVersion = version;
+        connectedServerVersion = version;
         serverHello = true;
     }
 
     @SubscribeEvent
     public void onDisconnect(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
         serverHello = false;
+        connectedServerVersion = null;
+    }
+
+    /** The version the server of the current connection said hello with; null when it has not. */
+    public String connectedServerVersion() {
+        return connectedServerVersion;
     }
 
     /**
