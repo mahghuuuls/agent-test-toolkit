@@ -443,6 +443,8 @@ From 1.7.0 the toolkit can also take a few small player actions on your own clie
 
 **A click goes through the game's key bindings.** The toolkit counts one press of the key bound to use or attack, and the game turns that into its own click on its next tick, through the same code a mouse click reaches. So the game's and Forge's events of the click itself fire as for a person (the interact and attack events, the item use), and what the click does is the game's decision. What does not fire: the raw mouse input events (Forge's `MouseEvent` and `InputEvent.MouseInputEvent`), since no mouse button is pressed, and the key is not held down: one `attack` on a block breaks it in creative, and in survival breaks only a block that breaks at once, as one quick click does; it does not keep breaking the way a held button does. A key bound with a modifier (Ctrl, Shift or Alt) is not pressed, though the record still says `done`; keep the use and attack keys on plain mouse buttons. `result=done` means the toolkit made the input. What the game then did is read from the game's own records and the toolkit's inspections, such as `devtool inspect block` for a placed block or the target's health after an attack.
 
+**`client use` on the default route is a press the game turns into its own click, with no raw mouse event.** It counts one press of the use binding, so the game's own right-click code calls the interaction directly at its next tick, but no raw mouse event (`MouseEvent`, `InputEvent.MouseInputEvent`) is posted. A mod that acts only on those events does not hear it: RLCombat's off-hand attack needs `route=queue` (see [the click routes](#key-bindings-by-name-from-190)).
+
 **A delay and a screenshot with any action.** Add `delay=<ticks>` (0 to 1200) and the client waits that many ticks before it acts; one action waits at a time, and any newer action takes its place (the waiting one is refused `nextAction`); a waiting action never acts in another world: when the player leaves, it is refused `noWorld` (only the client's record has it then). Add `screenshot=<label>` and the same client takes a screenshot after the action, `screenshotDelay=<ticks>` (0 to 200, default 0) ticks after it, by the rules of `devtool screenshot`: the label is 1 to 48 letters, digits, `_` or `-`, the file is `screenshots/<label>-<requestTick>.png`, and the client writes its `SCREENSHOT side=CLIENT action=saved` record (the server writes no `SCREENSHOT action=requested` for it). The action's records name the label (`screenshot`) and the delay (`delay`). From 1.8.0 add `screenshotHide=chat|hud` to leave the chat lines or the HUD out of that picture, as `hide` does for `devtool screenshot`, and from 1.9.0 `toasts` or a comma list (`screenshotHide=chat,toasts`), which a client older than 1.9.0 is refused at once; it needs `screenshot=` (alone it is `badArguments` through the inbox and a usage error typed), it is named on the server's `action=requested` as `screenshotHide` and on the client's `SCREENSHOT` record as `hide`, and a client whose hello says it is older than 1.8.0 is refused the action at once with `devtool.client.noClient`. A refused action takes no screenshot. For `inventory`, the screenshot shows the inventory; for a `hold`, it counts from the input going down; for a `tooltip`, `screenshotDelay` is at most `showTicks` minus 2, so the picture is taken while the view shows (more is `badArguments`). The client's records carry no world tick: read the time from the server's `action=reported` `worldTick` against `requestTick`. Example: `client use screenshot=after_use`, `client attack delay=40`, `client hold use 20 screenshot=bow screenshotDelay=10`.
 
 **The tooltip view.** `tooltip` opens a view of your own inventory, drawn as the game draws it, without the recipe book button and the potion effects beside it (also in creative, where the game's own inventory key opens the creative tabs instead), and draws the game's tooltip of the chosen slot as if the mouse were over it: the hover highlight, the tooltip, and the lines and drawing that other mods add through Forge's tooltip events. The real mouse does not move. Nothing moves in this view through the game's own handling: clicks, drags, number keys and the drop key do nothing; another mod's own handlers on container screens are not blocked. Escape or the inventory key closes it early. Its one record is written when it closes: `slot`, `advanced`, `keys`, `showTicks`, `item`, `count`, `lines` (how many lines the tooltip has), `line1`, `line2` and on (formatting codes removed, at most 256 characters each), and `closed`: `done` (after `showTicks`), `person` (closed with nothing else showing: Escape, the inventory key, `client close`), `replaced` (another screen took its place), `died` or `left`. The client's own record has up to 200 lines; the report to the server, and so the server's `action=reported`, has the first 20 with `lines` still counting all, so that it fits one network message. In single player both records are in the same `latest.log`. With a dedicated server, read the client's own log for a longer tooltip (a development client and server started from one `run` folder share and roll one `latest.log`, so take the server's records from its console capture there). With `advanced` the tooltip is the advanced (F3+H) form. Add `screenshot=<label>` to save the drawn tooltip (`screenshotDelay` at most `showTicks` minus 2). Add `shift`, `ctrl` or `alt`, in any order, for the lines a mod shows only while those keys are held: the toolkit marks them held in the keyboard library's own key state, which the game and mods read, only while it builds and draws the tooltip, and restores it at once; no key is pressed anywhere else. The record names them (`keys`), and `keysSeen` says which of them the game read as held while it built the lines, through the same keyboard check mods use; with `keys` but an empty `keysSeen`, the trick did not take effect. Where this client's keyboard library does not allow it, the action is refused `modifierUnavailable`. Refused `emptySlot` for an empty slot, `screenOpen` while another screen is open (an `inventory` asked in the same tick counts as open), `noWorld`; `failed` with an exception's name when another mod's tooltip handler threw (the view is closed again), `failed reason=viewNotOpened` when another mod cancelled or replaced the view as it opened.
@@ -1385,6 +1387,8 @@ Your feature saves something when a player leaves and loads it when they come ba
     "description": "Mark, leave and come back after three seconds",
     "result": true,
     "commands": [
+      "devtool session start feat_rejoin",
+      "devtool session operator @s",
       "devtool mark BEFORE_LEAVE",
       "devtool client reconnect 3"
     ]
@@ -1392,13 +1396,31 @@ Your feature saves something when a player leaves and loads it when they come ba
 }
 ```
 
-**Your steps:** write `run feat_rejoin_check`, then, once its result is `done`, write `mark AFTER_RETURN` and `inspect player`. They wait while the client is away and run after it is back.
+**Your steps:** write `run feat_rejoin_check`, then, once its result is `done`, write `inspect player`. It waits while the client is away and runs after it is back. For checks that use `${operator.*}` after the return, run a second bundle that binds the operator again before using it:
+
+```json
+{
+  "feat_rejoin_after": {
+    "description": "Bind the returned player again, then check them by name",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool session operator @s",
+      "devtool mark AFTER_RETURN",
+      "devtool inspect player ${operator.name}",
+      "devtool assert player ${operator.name} dimension 0"
+    ]
+  }
+}
+```
+
+The operator binding ends when that player is logged out (`OPERATOR action=unbound reason=disconnect`): always on a dedicated server, and in single player only with `client reconnect 3 logout`. A single-player reconnect without `logout` does not log the player out, so the binding stays (see [A reconnect and the logout](#a-reconnect-and-the-logout)). Binding again after the return is the safe habit either way: when the binding ended, every `${operator.*}` without it fails with `devtool.placeholder.unbound`; when it did not, binding the same player again keeps that player bound and writes one more `OPERATOR action=bound`, with `replaced=<the same name>`. Run through the inbox, `@s` is the inbox operator, the player who came back. `session operator` needs an active session, which is why the first bundle starts one; the session survives a reconnect to the same world (`WORLD sameAsSession=true`), so the second bundle does not start it again (a second `session start` would replace the session and drop its fixture handles).
 
 **Then read back:**
 
 - `CLIENT_ACTION action=requested step=reconnect awaySeconds=3`, then `CLIENT_ACTION side=CLIENT result=left`.
 - `INBOX action=suspended reason=reconnect`, the server's own records of the leave (and in single player its stop and start, with `WORLD sameAsSession=true` when a session was active), then `CLIENT_ACTION side=CLIENT result=done awayMs=...` and `INBOX action=resumed`.
-- `MARK label=AFTER_RETURN` and the `PLAYER_INSPECT` after the resume.
+- The `PLAYER_INSPECT` after the resume; for `feat_rejoin_after`, `OPERATOR action=bound` before its `MARK label=AFTER_RETURN`, and earlier, on a dedicated server or with `logout`, `OPERATOR action=unbound reason=disconnect` at the leave.
 
 **What would fool you:** a `done` result file for the `run` says the bundle asked for the reconnect, not that the client came back; `INBOX action=resumed` says that. A reconnect refused by the client (`openToLan`, `realms`, `busy`) leaves the inbox listening and reports the reason. A client back after the deadline finds the inbox closed (`rejoinTimeout`). And `client.allowActions` lives on the client: on a dedicated server, set it in the client's configuration, not the server's.
 
@@ -1543,6 +1565,47 @@ From 1.10.0. Two holds that run together, each checked; a click on exactly the a
 - `ASSERT predicate=entity.health expected=9.00 observed=9.00 outcome=pass`: a bare hand does 1 damage to a pig, which has no armour. With a weapon, or a mob with armour, read `observed` once and use that.
 
 **What would fool you:** a chat or menu left open, which fails the first waiting hold with `devtool.client.actionFailed` and `reason=screenOpen` and stops the bundle there (that is the point: without `wait=` the rest would have run against a player who never moved); a hold longer than its `waitTicks`, which times out while the client is still holding (give `waitTicks` above the hold's ticks); and a second pig named probe: the selectors have no `c=1` on purpose, so instead of picking the nearer pig the `face` is refused at once with `devtool.client.noTarget` (and an `expect=` alone would be refused with `devtool.client.ambiguousTarget`, the assert as `assert attribute` refuses several). With `c=1` each would quietly take the nearest pig. With a 1.9.0 client the waits and the attack's `expect` work, the records carry no `alive` or `health`, and `await screenshot` is refused `devtool.screenshot.noReport` (a `face ... expect=` would be refused `devtool.client.expectNeedsNewClient`; this example's `face` has no `expect`).
+
+### N. Two clients, and one of them rejoins
+
+From 1.10.0. A feature that shows one player something another player does. The operator, client A, drives the test through the inbox; client B is a second player on the same development server, who leaves and rejoins in the middle. The question each time is which client and which connection a result came from.
+
+**Once, by the owner:** a dedicated development server and two development clients with toolkit 1.10.0, signed in with different names (here A is `Developer`, B is `Player2`), each launched from its own folder: two processes started from one folder write one `logs/latest.log` and one `screenshots` folder, as a client and a server do (see [Which process writes what](#which-process-writes-what)). B is a server operator too (`op Player2` at the server console), since every `devtool` command needs operator rights, and has `client.allowActions=true` in its own `devtool.cfg`. A opens the inbox, so A is the inbox operator.
+
+```json
+{
+  "two_b_picture": {
+    "description": "Ask client B for a picture and wait until B saved it",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool mark B_PICTURE",
+      "devtool screenshot b_view 5 Player2",
+      "devtool await screenshot b_view"
+    ]
+  }
+}
+```
+
+**Your steps:** write `run two_b_picture`. When its result is `done`, ask the person at B to type `/devtool client reconnect 3` in B's own chat. When B is back, write `run two_b_picture` again.
+
+The picture goes in a bundle because the inbox's own `screenshot` line takes no player: it always pictures the inbox operator. A bundle the inbox starts runs as A, and `devtool screenshot <label> <delay> <player>` names B. The reconnect has to be typed at B: a `client` step always acts on its sender's own client, and everything the inbox runs has A as its sender, so `client reconnect` from the inbox, or from a bundle it starts, would send A away.
+
+**Then read back** (all in the server's log):
+
+Each record below is named by its type and the fields to check; other fields sit between them.
+
+- The first run: a `SCREENSHOT` with `action=requested`, `label=b_view`, `target=Player2`, `requestTick=<T1>` and `file=screenshots/b_view-<T1>.png`; then a `SCREENSHOT` with `side=SERVER`, `action=saved`, `player=Player2`, `label=b_view` and `requestTick=<T1>`; then an `AWAIT` with `condition=screenshot`, `label=b_view`, `requestTick=<T1>` and `outcome=satisfied`. The file is in B's `screenshots` folder, not A's.
+- B's reconnect: a `CLIENT_ACTION` with `action=requested`, `player=Player2`, `playerUuid=<B>`, `connection=<n>` and `step=reconnect`; a `CLIENT_ACTION` with `action=reported`, `playerUuid=<B>`, `connection=<n>` and `result=left`; after the return a `CLIENT_ACTION` with `action=reported`, `playerUuid=<B>`, `connection=<m>` and `result=done`, and a `CLIENT_ACTION` with `action=returned`, `uuid=<B>` and `connection=<m>`. `<m>` is a new number: the server numbers every connection at its hello.
+- The second run: the same three records with `requestTick=<T2>`, later than `<T1>`.
+
+**How each result is tied to its client and connection:** a `CLIENT_ACTION` by `playerUuid` (the client) and `connection` (which connection of it); A's records carry A's UUID, B's carry B's, and B's records after the rejoin carry the new number. A `SCREENSHOT` record carries neither: it names the client by `target` on the request and `player` on the saved record, and the request by `requestTick`, B's world tick when it was asked, which the saved record repeats. Two pictures under one label are told apart only by `requestTick`, so read the pair with the same tick.
+
+**What would fool you:**
+
+- An answer from client A. `devtool screenshot b_view 5` without the name, or the inbox's `screenshot b_view`, pictures the sender, A (`target=Developer`), and `${operator.*}` names A, never B. A `client` step written in the inbox or in a bundle it starts acts on A: its `CLIENT_ACTION` has A's `playerUuid`. Check `target`, `player` and `playerUuid` before reading a result as B's.
+- A stale answer. A picture B had not taken when it left is failed on B's own client (`SCREENSHOT side=CLIENT action=failed reason=disconnected`, in B's log only) and never reaches the server, so no late `saved` appears for an old `requestTick`; a bundle still waiting on it ends `AWAIT outcome=cancelled reason=senderLost`. A respawn, close or quit B asked before leaving is forgotten at the logout, so an answer to it after the rejoin is dropped without a record. A `CLIENT_ACTION` with B's UUID and the old `connection` number therefore always comes from before the leave.
+- The inbox closing. Only its own operator's leave affects it: a reconnect A asked suspends it until A is back, any other leave of A closes it (`reason=operatorLeft`). B leaving and rejoining does neither.
 
 ## Limits
 

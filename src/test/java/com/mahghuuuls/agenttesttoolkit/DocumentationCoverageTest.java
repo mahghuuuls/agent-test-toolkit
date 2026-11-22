@@ -15,6 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -92,7 +93,8 @@ class DocumentationCoverageTest {
         assertTrue(keys.size() >= 10, "the scan found the keys: " + keys);
         for (String known : new String[] {"devtool.client.actionFailed", "devtool.client.releasedEarly",
                 "devtool.client.wrongTarget", "devtool.client.targetDead", "devtool.client.ambiguousTarget",
-                "devtool.client.waitOutsideBundle", "devtool.client.expectNeedsNewClient", "devtool.screenshot.failed", "devtool.screenshot.noReport"}) {
+                "devtool.client.waitOutsideBundle", "devtool.client.expectNeedsNewClient", "devtool.screenshot.failed", "devtool.screenshot.noReport",
+                "devtool.client.noTarget", "devtool.baubles.unsupported"}) {
             assertTrue(keys.contains(known), "the scan found " + known);
         }
         String agents = read(new File("AGENTS.md"));
@@ -200,7 +202,7 @@ class DocumentationCoverageTest {
         for (String known : new String[] {"localJoinNotHost", "placedBeforeStart", "notLocal",
                 "localJoinNotOperator", "stillAlive", "connectFailed", "openForAnother", "tokenMismatch",
                 "rejoinTimeout", "returnedOtherRoute", "wrongBundle", "changedHash", "notDeadYet",
-                "noDeathScreen", "ambiguousTarget", "senderLost"}) {
+                "noDeathScreen", "ambiguousTarget", "senderLost", "playerGone", "loadFailed"}) {
             assertTrue(reasons.contains(known), "the scan found " + known + ": " + reasons);
         }
         assertEquals(new ArrayList<String>(), undocumented(reasons, read(new File("AGENTS.md"))));
@@ -239,6 +241,80 @@ class DocumentationCoverageTest {
                 "`disconnectMessage`", "`playerUuid`"}) {
             assertTrue(logging.contains(needed), "docs/logging.md names " + needed);
         }
+    }
+
+    @Test
+    @DisplayName("the 1.10.0 manual: the built-in tolerance list and its change, example J rebinding the operator, the default use route, the two-client example, and the changelog's tolerance change")
+    void cycleManualDocumented() throws IOException {
+        String agents = read(new File("AGENTS.md"));
+        String commands = read(new File("docs/commands.md"));
+        String changelog = read(new File("CHANGELOG.md"));
+        assertTrue(agents.contains("`kill`; `clear`; `effect <target> clear`; `scoreboard players reset`; `scoreboard players tag <target> remove`")
+                && agents.contains("Changed in 1.10.0"), "AGENTS.md lists the built-in tolerance and names the change");
+        int exampleJ = agents.indexOf("### J. A reconnect in the middle of a test");
+        int exampleK = agents.indexOf("### K. ");
+        assertTrue(exampleJ > 0 && exampleK > exampleJ, "example J is found");
+        String j = agents.substring(exampleJ, exampleK);
+        assertTrue(j.contains("\"devtool session operator @s\",") && j.indexOf("devtool session operator @s")
+                < j.indexOf("${operator.name}"), "example J binds the operator before using it");
+        assertTrue(j.contains("reason=disconnect"), "example J says why");
+        assertTrue(j.indexOf("\"devtool session start ") >= 0
+                && j.indexOf("\"devtool session start ") < j.indexOf("\"devtool session operator @s\","),
+                "example J starts the session the operator binding needs");
+        assertTrue(j.contains("in single player only with `client reconnect 3 logout`")
+                && j.contains("does not log the player out, so the binding stays"),
+                "example J says a single-player reconnect without logout keeps the binding");
+        assertFalse(j.contains("in single player too"), "example J does not claim every reconnect unbinds");
+        for (String doc : new String[] {agents, commands}) {
+            assertTrue(doc.contains("calls the interaction directly") && doc.contains("RLCombat's off-hand attack"),
+                    "the default use route and RLCombat's route=queue");
+        }
+        int two = agents.indexOf("### N. Two clients, and one of them rejoins");
+        assertTrue(two > 0, "the two-client example");
+        String n = agents.substring(two, agents.indexOf("## Limits", two));
+        for (String needed : new String[] {"`playerUuid`", "`connection`", "target=Player2", "requestTick", "acts on its sender",
+                "What would fool you"}) {
+            assertTrue(n.contains(needed), "the two-client example names " + needed);
+        }
+        String examples = workedExamples(agents);
+        for (String needed : new String[] {"wait=done", "client await", "expect="}) {
+            assertTrue(examples.contains(needed), "the worked examples show " + needed);
+        }
+        int unreleased = changelog.indexOf("## Unreleased (1.10.0)");
+        int previous = changelog.indexOf("## 1.9.0");
+        assertTrue(unreleased > 0 && previous > unreleased, "the changelog's unreleased section comes first");
+        String section = changelog.substring(unreleased, previous);
+        int changed = section.indexOf("### Changed");
+        assertTrue(changed > 0 && section.substring(changed).contains("`scoreboard players tag <target> remove`")
+                && section.substring(changed).contains("`testfor`"), "the tolerance change is listed under Changed");
+    }
+
+    /** The worked examples' bodies: from their heading to the next top-level section. */
+    private static String workedExamples(String text) {
+        // A checkout may turn the line ends into CRLF; the headings are matched on LF.
+        String agents = text.replace("\r\n", "\n");
+        int start = agents.indexOf("\n## Worked examples\n");
+        assertTrue(start >= 0, "the worked examples section is found");
+        int end = agents.indexOf("\n## ", start + 1);
+        return agents.substring(start, end < 0 ? agents.length() : end);
+    }
+
+    private static final String[] COUNT_WORDS = {"zero", "one", "two", "three", "four", "five", "six", "seven",
+            "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+            "eighteen", "nineteen", "twenty"};
+
+    @Test
+    @DisplayName("README.md counts the worked examples AGENTS.md has")
+    void workedExampleCount() throws IOException {
+        Matcher heading = Pattern.compile("(?m)^### [A-Z]\\. ").matcher(workedExamples(read(new File("AGENTS.md"))));
+        int count = 0;
+        while (heading.find()) {
+            count++;
+        }
+        assertTrue(count >= 14 && count < COUNT_WORDS.length, "worked examples found: " + count);
+        String readme = read(new File("README.md"));
+        assertTrue(readme.contains(COUNT_WORDS[count] + " worked examples"),
+                "README.md says " + COUNT_WORDS[count] + " worked examples");
     }
 
     @Test

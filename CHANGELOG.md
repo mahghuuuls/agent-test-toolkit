@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased (1.10.0)
+
+### Fixed
+
+- **The Baubles commands work with Bubbles.** `devtool baubles set`, `baubles clear` and the bauble part of `inspect inventory` failed with Bubbles 2.4.10, a reimplementation of Baubles. The toolkit now calls only the Baubles methods the installed provider has, calls the item's equip and unequip code exactly once per change, and names slot types (`slotType=ring`) on both providers. A provider it cannot drive fails the command with `devtool.baubles.unsupported`.
+
+### Added
+
+- **Waiting for the client.** In a bundle, the player actions (`select`, `use`, `attack`, `hold`, `drop`, `inventory`, `tooltip`), `client key ... press|hold`, `look`, `face`, `view` and the screen steps (`screen`, `click`, `scroll`, `tooltip container`) take `wait=started|done` and `waitTicks=<1-1200>`; `reconnect`, `respawn`, `close`, `quit` and `focus` do not. The bundle pauses until the client answers, and a refused or failed step fails with `devtool.client.actionFailed` and the client's reason; a hold cut short fails with `devtool.client.releasedEarly`. `devtool client await <use|attack|binding>` waits for a running hold. The wait writes `AWAIT condition=client`.
+- **The expected target.** `client attack`, `use`, `hold` and `face` take `expect=<selector|uuid>`. A click on another entity fails with `devtool.client.wrongTarget`, on a dying one with `devtool.client.targetDead`; none or several matches are refused at once (`devtool.client.noTarget`, `devtool.client.ambiguousTarget`). Entity targets in the client records add `alive` and `health`.
+- **`devtool assert entity <selector|uuid> health <n>`** checks any living entity's health at two decimals.
+- **Picture reports.** A 1.10.0 client reports every picture asked with `devtool screenshot`, and the server writes `SCREENSHOT side=SERVER action=saved` or `action=failed` for each. A picture taken through a client step's `screenshot=` is not reported. `devtool await screenshot <label> [timeoutTicks]` pauses a bundle until the picture is saved, or fails with `devtool.screenshot.failed`. An older client is refused at once with `devtool.screenshot.noReport`.
+- **Hiding the chat history.** The client option `client.hideChatHistory` and the key binding "Toggle chat history" (unbound by default) hide the chat lines in play and in the chat screen while the typed line still shows. Each change writes `CLIENT_OPTION`. While hidden, a toolkit failure line also shows in the prompt panel.
+- **A late failure line.** A client step a single inbox request sent, which its client reports refused or failed after the request was answered, shows one red chat line when the report arrives.
+- **One NBT value by path.** `devtool nbt entity|block|held ... path=<path>` writes one value as the new `NBT_VALUE` record, with paths such as `tag.ench[0].lvl` or `ForgeCaps."modid:cap".value`; for the held item the path reads the whole saved stack. `devtool assert nbt entity|block|held ... <path> <value>` compares it: as numbers at two decimals when both are numbers, otherwise as exact text.
+- **A radius filter that follows.** `devtool log <category> on radius <n> follow` centres the filter on the player who turned it on, wherever they are at each event. While that player is offline nothing is recorded, and the new `LOGGING filter=paused reason=playerGone` record says so.
+- **Why a connect or an open failed.** A client request channel `connect` or `open` that ends on the Disconnected screen (`connectFailed`, `loadFailed`) records the screen's `disconnectTitle` and `disconnectMessage` and `waitedMs`.
+- **Which client answered.** The server's `CLIENT_ACTION action=requested` and `action=reported` records carry `playerUuid` and `connection`, so two clients, or one client before and after a rejoin, are told apart.
+- **Tolerance records say where a tolerance came from.** `TOLERATED` carries `source=builtIn` or `source=declared`; `BUNDLE_END`, the result file and the inbox answer add `toleratedBuiltIn` and `toleratedDeclared` beside `tolerated`.
+
+### Changed
+
+- **Only five commands pass on "nothing matched" without a declaration.** In 1.9.0 a failure that only said no entity or player was found, or nothing was there to clear, was tolerated for every command. Now such a failure is tolerated only for `kill`, `clear`, `effect <target> clear`, `scoreboard players reset` and `scoreboard players tag <target> remove`. `testfor`, `execute`, `tp`, `teleport`, `give` and every other command now fail on it unless the step declares the key in `toleratedFailures`.
+- **Raw `nbt` and `log ... radius <n>` refuse extra words.** 1.9.0 ignored words after the target or the radius, so a mistyped `path=` or `follow` gave an answer nobody asked for. Both are now refused, inbox requests included.
+- **`face` records name the target after the turn**, as the client sees it then.
+- **Quiet single inbox requests.** A successful inbox request other than `run` no longer sends a chat reply; its answer file and the log carry the result. `devtool checkpoint ack` sends no reply when every checkpoint it answers came from a quiet run. Failures still show one red line.
+- **A logout forgets unanswered lifecycle steps.** A respawn, close or quit that a player's client had not answered when the player logged out is forgotten, so an answer after a rejoin is dropped rather than taken. A reconnect's own request is still kept across the logout it causes.
+- **An equal bauble is not equipped again.** Setting a bauble slot to a stack equal to the one already there no longer calls the item's unequip and equip code, with official Baubles and with Bubbles.
+- **`effect <target> clear` passes when there is nothing to clear.** Its `commands.effect.failure.notActive` and `notActive.all` failures are now tolerated without a declaration, as the other removal commands' are.
+- **A wait can fail with a key.** `AWAIT` gains `outcome=failed` with `key`: a client step's wait adds `detail`, and a picture's wait adds `label`, `requestTick` and `saved`.
+- **The `devtool.client.noTarget` message** now reads "No step: ... has no single loaded target for face or expect", since `expect=` uses it too. The key is unchanged.
+
 ## 1.9.0
 
 The theme is fewer steps for the person at the keyboard: keys by name, turning the view, clicks that other mods hear, and work inside open screens and menus, so more of a test runs while the person only launches the game. It also fixes a reconnect that could freeze single player, keeps bundle output out of the chat, and shows the toolkit's prompts where the chat cannot cover them. The items came from other projects' test sessions with the toolkit and from the developer.
