@@ -34,6 +34,13 @@ import java.util.List;
  * ticks pass, for a panel sent with any (an armed checkpoint's, counted only while the game runs,
  * as the server's wait is; a cue's has none and stays until it is hidden); and when the client
  * leaves the server.
+ *
+ * <p>The panel also carries a failure notice while the chat history is hidden, since the failure's
+ * chat line cannot be seen then. A notice never replaces a checkpoint: a person may be waited on,
+ * so the checkpoint keeps the top of the panel and the notice goes under it, in red, and is the
+ * first thing cut when the screen is too short for both. One notice at a time, a newer one
+ * replacing it; it goes when its ticks pass (counted while paused too, as they are a reading time
+ * and not a wait), when the history is shown again, and when the client leaves the server.
  */
 public final class PromptPanel implements ToolkitChannel.PanelReceiver {
 
@@ -48,6 +55,10 @@ public final class PromptPanel implements ToolkitChannel.PanelReceiver {
 
     /** The panel shown now; client thread only. */
     private Shown shown;
+    /** The failure notice shown now, or null; client thread only. */
+    private String notice;
+    /** Ticks left for the notice. */
+    private int noticeTicks;
 
     private static final class Shown {
         final String token;
@@ -75,7 +86,30 @@ public final class PromptPanel implements ToolkitChannel.PanelReceiver {
         });
     }
 
-    private void apply(PromptPanelMessage message) {
+    /** Shows a failure notice under any checkpoint, for this many client ticks. Client thread. */
+    void showNotice(String text, int ticks) {
+        notice = text;
+        noticeTicks = ticks;
+    }
+
+    /** Takes the failure notice away, if one is shown. Client thread. */
+    void clearNotice() {
+        notice = null;
+        noticeTicks = 0;
+    }
+
+    /** The label of the checkpoint shown, or null. Client thread. */
+    String checkpointLabel() {
+        return shown == null ? null : shown.label;
+    }
+
+    /** The failure notice shown, or null. Client thread. */
+    String noticeText() {
+        return notice;
+    }
+
+    /** Shows or hides a checkpoint's panel as the server asked. Client thread. */
+    void apply(PromptPanelMessage message) {
         if (message.isShow()) {
             shown = new Shown(message);
         } else if (shown != null && message.hides(shown.token)) {
@@ -85,10 +119,16 @@ public final class PromptPanel implements ToolkitChannel.PanelReceiver {
 
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || shown == null) {
+        if (event.phase != TickEvent.Phase.END) {
             return;
         }
         Minecraft mc = Minecraft.getMinecraft();
+        if (notice != null && (mc.world == null || --noticeTicks <= 0)) {
+            clearNotice();
+        }
+        if (shown == null) {
+            return;
+        }
         if (mc.world == null) {
             shown = null;
             return;
@@ -109,6 +149,7 @@ public final class PromptPanel implements ToolkitChannel.PanelReceiver {
             @Override
             public void run() {
                 shown = null;
+                clearNotice();
             }
         });
     }
@@ -116,7 +157,8 @@ public final class PromptPanel implements ToolkitChannel.PanelReceiver {
     @SubscribeEvent
     public void onOverlay(RenderGameOverlayEvent.Post event) {
         Shown current = shown;
-        if (event.getType() != RenderGameOverlayEvent.ElementType.ALL || current == null) {
+        String currentNotice = notice;
+        if (event.getType() != RenderGameOverlayEvent.ElementType.ALL || (current == null && currentNotice == null)) {
             return;
         }
         Minecraft mc = Minecraft.getMinecraft();
@@ -130,11 +172,19 @@ public final class PromptPanel implements ToolkitChannel.PanelReceiver {
 
         int textWidth = Math.max(0, PanelLayout.maxWidth(screenWidth) - 2 * PAD - 2);
         List<String> rows = new ArrayList<String>();
-        for (String part : font.listFormattedStringToWidth(TextFormatting.BOLD + current.label, textWidth)) {
-            rows.add(TextFormatting.GOLD + "" + TextFormatting.BOLD + part);
+        if (current != null) {
+            for (String part : font.listFormattedStringToWidth(TextFormatting.BOLD + current.label, textWidth)) {
+                rows.add(TextFormatting.GOLD + "" + TextFormatting.BOLD + part);
+            }
+            for (String line : current.lines) {
+                rows.addAll(font.listFormattedStringToWidth(line, textWidth));
+            }
         }
-        for (String line : current.lines) {
-            rows.addAll(font.listFormattedStringToWidth(line, textWidth));
+        if (currentNotice != null) {
+            // Last, so a checkpoint keeps its rows when the panel cannot fit them all.
+            for (String part : font.listFormattedStringToWidth(currentNotice, textWidth)) {
+                rows.add(TextFormatting.RED + part);
+            }
         }
         int widest = 0;
         for (String row : rows) {

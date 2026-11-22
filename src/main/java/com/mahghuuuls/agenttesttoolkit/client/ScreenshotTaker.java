@@ -53,6 +53,8 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
 
     /** Tells which server version this connection said hello with, for the picture reports. */
     private final ClientActionExecutor server;
+    /** Whether the person keeps the chat history hidden; its lines are then left out of every frame. */
+    private final ChatHistory history;
     private final ConcurrentLinkedQueue<Pending> incoming = new ConcurrentLinkedQueue<Pending>();
     /** Client thread only. */
     private final List<Pending> pending = new ArrayList<Pending>();
@@ -80,8 +82,9 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
         }
     }
 
-    public ScreenshotTaker(ClientActionExecutor server) {
+    public ScreenshotTaker(ClientActionExecutor server, ChatHistory history) {
         this.server = server;
+        this.history = history;
     }
 
     /** A picture the server's screenshot command asked for; its outcome is reported back. */
@@ -162,13 +165,15 @@ public final class ScreenshotTaker implements ToolkitChannel.ClientReceiver {
 
     /**
      * Leaves chat out of the frame being drawn while it is armed: for {@code chat}, and for
-     * {@code hud}, which includes chat, also when an open screen keeps the HUD drawn. Forge's
-     * chat overlay returns before it ends its profiler section when cancelled, which only shows
-     * in the F3 profiler for that one frame.
+     * {@code hud}, which includes chat, also when an open screen keeps the HUD drawn. Also leaves
+     * it out of every frame while the person keeps the chat history hidden, in play and behind
+     * the open chat screen, which draws only the line being typed. The one handler for both, so
+     * neither reason can undo the other. Forge's chat overlay returns before it ends its profiler
+     * section when cancelled, which only shows in the F3 profiler.
      */
     @SubscribeEvent
     public void onChatOverlay(RenderGameOverlayEvent.Chat event) {
-        if (frame.cancelsChat()) {
+        if (frame.cancelsChat() || history.isHidden()) {
             event.setCanceled(true);
         }
     }

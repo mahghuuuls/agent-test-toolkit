@@ -34,3 +34,8 @@ devtool.find.unknownBlock=[DevToolkit] No such block to find: %s
 devtool.find.badState=[DevToolkit] That block cannot have that state: %s
 devtool.find.tooLarge=[DevToolkit] The search box covers %s chunks; the most is 1024
 devtool.fixture.notLoaded=[DevToolkit] Strict clear failed: %s fixture(s) not loaded; their handles are kept
+
+# The toolkit's key binding and its category in the Controls screen. The binding
+# is unbound until the person sets a key, so it takes none a pack already uses.
+key.categories.agenttesttoolkit=Agent Test Toolkit
+key.agenttesttoolkit.toggleChatHistory=Toggle chat history

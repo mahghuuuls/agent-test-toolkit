@@ -70,7 +70,8 @@ class PackageRulesTest {
             "client/FrameHide.java", "inbox/HideSet.java", "client/menu/QuestionAnswers.java",
             "client/PanelLayout.java", "wait/PromptPanels.java", "client/PressStages.java", "client/QueueChoice.java",
             "client/TooltipCapture.java", "integration/baubles/BaubleEquipCalls.java",
-            "command/BuiltInTolerance.java", "wait/ClientWaitDecision.java", "inbox/ClientWaitOptions.java"};
+            "command/BuiltInTolerance.java", "wait/ClientWaitDecision.java", "inbox/ClientWaitOptions.java",
+            "client/ChatHistory.java"};
 
     /**
      * The roots a source file may import from. Another loader's or mod's classes are reached by

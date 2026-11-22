@@ -156,4 +156,26 @@ class ReportAndNoticeMessagesTest {
         assertTrue(ToolkitChannel.atLeast("1.10.0", ToolkitChannel.VERSION_1_10_0));
         assertFalse(ToolkitChannel.atLeast("1.9.0", ToolkitChannel.VERSION_1_10_0));
     }
+
+    @Test
+    @DisplayName("a failure line becomes a valid ten-second notice, cut to fit and free of control characters")
+    void failureNotice() {
+        ToolkitNotice plain = ToolkitNotice.failure("[DevToolkit] Inbox request 'client' failed: devtool.client.notAllowed");
+        assertTrue(plain.isValid());
+        assertEquals(200, plain.getTicks());
+        assertEquals("[DevToolkit] Inbox request 'client' failed: devtool.client.notAllowed", plain.getText());
+
+        StringBuilder longLine = new StringBuilder();
+        for (int i = 0; i < 400; i++) {
+            longLine.append('x');
+        }
+        ToolkitNotice cut = ToolkitNotice.failure(longLine.toString());
+        assertTrue(cut.isValid(), "a long line is cut, not dropped by the client");
+        assertEquals(ToolkitNotice.MAX_TEXT, cut.getText().length());
+
+        ToolkitNotice cleaned = ToolkitNotice.failure("bad\nline");
+        assertTrue(cleaned.isValid());
+        assertEquals("bad line", cleaned.getText());
+        assertTrue(ToolkitNotice.failure(null).isValid(), "even a missing line gives a readable notice");
+    }
 }

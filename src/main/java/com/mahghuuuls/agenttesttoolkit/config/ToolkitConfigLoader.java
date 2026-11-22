@@ -243,6 +243,12 @@ public final class ToolkitConfigLoader {
                             + "Off by default. It does not need applyOnJoin. Saved in options.txt, as the "
                             + "game's own tutorial setting, and kept if you turn this off again.");
 
+            boolean hideChatHistory = cfg.getBoolean("hideChatHistory", CATEGORY_CLIENT,
+                    d.isClientHideChatHistory(),
+                    "Whether this client starts with the chat history hidden: no chat lines drawn, the "
+                            + "line you type still shown. Off by default. The 'Toggle chat history' key "
+                            + "(Controls, Agent Test Toolkit, unbound until you set it) turns it off and on.");
+
             boolean openOnLocalJoin = cfg.getBoolean("openOnLocalJoin", CATEGORY_INBOX,
                     d.isInboxOpenOnLocalJoin(),
                     "Whether the command inbox opens by itself, without 'devtool inbox open', when "
@@ -288,6 +294,7 @@ public final class ToolkitConfigLoader {
                     .inboxRejoinWindowSeconds(rejoinWindow)
                     .clientRequestChannel(requestChannel)
                     .clientDismissTutorial(dismissTutorial)
+                    .clientHideChatHistory(hideChatHistory)
                     .inboxOpenOnLocalJoin(openOnLocalJoin)
                     .inboxLocalJoinOperator(localJoinOperator);
             for (ToolkitConfig.Volume volume : ToolkitConfig.Volume.values()) {

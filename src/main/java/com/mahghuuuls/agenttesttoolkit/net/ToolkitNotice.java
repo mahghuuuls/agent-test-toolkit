@@ -30,6 +30,23 @@ public final class ToolkitNotice implements IMessage {
         this.ticks = ticks;
     }
 
+    /** How long a failure line may stay where the client shows it: ten seconds. */
+    public static final int FAILURE_TICKS = 200;
+
+    /**
+     * A failure line the chat also shows, as a notice. Control characters become spaces and a
+     * long line is cut, so a line the server can build is never one the client drops as invalid.
+     */
+    public static ToolkitNotice failure(String line) {
+        StringBuilder out = new StringBuilder();
+        String source = line == null || line.isEmpty() ? "failed" : line;
+        for (int i = 0; i < source.length() && out.length() < MAX_TEXT; i++) {
+            char c = source.charAt(i);
+            out.append(Character.isISOControl(c) ? ' ' : c);
+        }
+        return new ToolkitNotice(out.toString(), FAILURE_TICKS);
+    }
+
     /** A short line free of control characters, shown for a bounded time, so it cannot break the screen. */
     public boolean isValid() {
         if (text == null || text.isEmpty() || text.length() > MAX_TEXT || ticks < 1 || ticks > MAX_TICKS) {

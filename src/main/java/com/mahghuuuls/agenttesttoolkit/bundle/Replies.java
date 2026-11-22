@@ -12,8 +12,14 @@ import net.minecraft.util.text.TextComponentString;
  * before. Every reply goes through here, so the rule is in one place rather than at each call.
  * What a command asks to show the person on purpose, such as a checkpoint cue in chat, is not a
  * reply and does not come here.
+ *
+ * <p>The one line that passes the quiet rule, a quiet run's or a quiet request's failure, is
+ * worded by {@link #failureLine} and sent by the command code, never through {@link #send}.
  */
 public final class Replies {
+
+    /** The longest failure detail a failure line shows; a toolkit message can be a sentence. */
+    static final int MAX_FAILURE_DETAIL = 120;
 
     private Replies() {
     }
@@ -38,5 +44,19 @@ public final class Replies {
             return;
         }
         sender.sendMessage(message);
+    }
+
+    /**
+     * The failure line of quiet work: what failed, then its key or message, cut so the line stays
+     * short. The one wording for a quiet run's command and for a single inbox request.
+     *
+     * @param what the failed work as the person reads it, such as {@code Bundle 'b' command 2}
+     */
+    public static String failureLine(String what, String detail) {
+        String shown = detail == null || detail.isEmpty() ? "failed" : detail;
+        if (shown.length() > MAX_FAILURE_DETAIL) {
+            shown = shown.substring(0, MAX_FAILURE_DETAIL) + "...";
+        }
+        return "[DevToolkit] " + what + " failed: " + shown;
     }
 }

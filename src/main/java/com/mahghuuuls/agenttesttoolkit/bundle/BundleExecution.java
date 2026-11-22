@@ -457,9 +457,6 @@ public final class BundleExecution implements QuietScope.Run {
         notifyCompletion(false);
     }
 
-    /** The longest failure detail a failure line shows; a toolkit message can be a sentence. */
-    static final int MAX_FAILURE_DETAIL = 120;
-
     /**
      * In a quiet run, says one failure in one short line the caller sees: every other line of
      * the run was kept out of the chat, and a failure must not be.
@@ -472,11 +469,7 @@ public final class BundleExecution implements QuietScope.Run {
 
     /** The failure line: the bundle, the command's index as its records give it, and the key. */
     static String failureLine(String bundle, int index, String detail) {
-        String shown = detail == null ? "failed" : detail;
-        if (shown.length() > MAX_FAILURE_DETAIL) {
-            shown = shown.substring(0, MAX_FAILURE_DETAIL) + "...";
-        }
-        return "[DevToolkit] Bundle '" + bundle + "' command " + index + " failed: " + shown;
+        return Replies.failureLine("Bundle '" + bundle + "' command " + index, detail);
     }
 
     private void noteFailure(String detail) {

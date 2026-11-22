@@ -117,6 +117,12 @@ public class AgentTestToolkitMod {
                         }
                     }
                 });
+        // A client step a single inbox request sent answers after the request did; its failure
+        // still gets the request's one chat line. Its marks go when the player leaves.
+        com.mahghuuuls.agenttesttoolkit.command.InboxClientFailures clientFailures =
+                new com.mahghuuuls.agenttesttoolkit.command.InboxClientFailures();
+        com.mahghuuuls.agenttesttoolkit.net.ClientCapabilities.addReportListener(clientFailures);
+        MinecraftForge.EVENT_BUS.register(clientFailures);
         // Bundle steps that wait on a client's answer read it from here; a player's tokens go when
         // they leave, so a client that comes back never answers one from before.
         com.mahghuuuls.agenttesttoolkit.wait.ClientReports.install();

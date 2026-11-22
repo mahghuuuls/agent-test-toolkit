@@ -30,6 +30,8 @@ class ToolkitConfigTest {
         assertEquals(8192, d.getMaxNbtOutputLength(), "default NBT limit");
         assertFalse(d.isJoinExecutionEnabled(), "join execution is off by default");
         assertTrue(d.hasArenaCeiling(), "arenas have a ceiling by default");
+        assertFalse(d.isClientHideChatHistory(), "the chat history is shown by default");
+        assertTrue(ToolkitConfig.builder().clientHideChatHistory(true).build().isClientHideChatHistory());
     }
 
     @Test

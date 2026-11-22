@@ -2,6 +2,8 @@ package com.mahghuuuls.agenttesttoolkit.command;
 
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleExecution;
 import com.mahghuuuls.agenttesttoolkit.bundle.CommandOutcome;
+import com.mahghuuuls.agenttesttoolkit.bundle.QuietScope;
+import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.bundle.RunOrigin;
 import com.mahghuuuls.agenttesttoolkit.inbox.InboxGate;
 import com.mahghuuuls.agenttesttoolkit.inbox.InboxPoller;
@@ -12,6 +14,7 @@ import com.mahghuuuls.agenttesttoolkit.logging.RecordContext;
 import com.mahghuuuls.agenttesttoolkit.logging.ToolkitLog;
 import com.mahghuuuls.agenttesttoolkit.state.InboxOpening;
 import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 
@@ -29,6 +32,11 @@ import java.io.File;
  * <p>Every request gets one result file. A {@code run} is answered when its bundle ends,
  * through a completion listener the run takes as it is submitted; any other verb is answered
  * in the same tick.
+ *
+ * <p>Any other verb also runs quietly: its replies stay out of the chat, as an inbox-started
+ * run's do, because the agent reads the answer file and the person watching the screen does
+ * not need the chatter. A failure still shows as one red line. A {@code run} decides its own
+ * quietness when it starts.
  */
 public final class InboxDispatch implements InboxRequestHandler {
 
@@ -67,15 +75,17 @@ public final class InboxDispatch implements InboxRequestHandler {
         }
 
         final CommandRunner runner = new CommandRunner(server);
+        final RunChannel.Action<CommandOutcome> dispatch = new RunChannel.Action<CommandOutcome>() {
+            @Override
+            public CommandOutcome run() {
+                return runner.run(player, line);
+            }
+        };
         CommandOutcome outcome;
         boolean started = false;
         try {
-            outcome = RunChannel.during(RunOrigin.INBOX, request.getId(), new RunChannel.Action<CommandOutcome>() {
-                @Override
-                public CommandOutcome run() {
-                    return runner.run(player, line);
-                }
-            });
+            outcome = RunChannel.during(RunOrigin.INBOX, request.getId(), forRequest(isRun, player,
+                    requestName(request.getVerb(), request.getCommandLine()), dispatch));
         } catch (CommandException e) {
             outcome = CommandOutcome.failure(e.getMessage());
         } finally {
@@ -110,6 +120,68 @@ public final class InboxDispatch implements InboxRequestHandler {
         } else {
             InboxResult.done(request).writeTo(directory);
         }
+    }
+
+    /**
+     * What a request runs as: a {@code run} as it is, deciding its own quietness when it starts;
+     * any other verb quietly, through {@link #runQuietly}.
+     */
+    static RunChannel.Action<CommandOutcome> forRequest(boolean isRun, final ICommandSender sender,
+                                                         final String name, final RunChannel.Action<CommandOutcome> dispatch) {
+        if (isRun) {
+            return dispatch;
+        }
+        return new RunChannel.Action<CommandOutcome>() {
+            @Override
+            public CommandOutcome run() {
+                return runQuietly(sender, name, dispatch);
+            }
+        };
+    }
+
+    /**
+     * Runs one request with its replies kept out of the chat, then says a failure in one line
+     * the sender sees. Success and failure are the command's own outcome, never read from the
+     * text of a reply, so a reply that merely sounds like an error is dropped like any other.
+     */
+    static CommandOutcome runQuietly(ICommandSender sender, String name, RunChannel.Action<CommandOutcome> action) {
+        CommandOutcome outcome;
+        QuietScope.enter(QuietScope.REQUEST);
+        try {
+            outcome = action.run();
+        } catch (CommandException e) {
+            outcome = CommandOutcome.failure(e.getMessage());
+        } finally {
+            QuietScope.exit();
+        }
+        if (!outcome.succeeded()) {
+            FailureLine.announce(sender, failureLine(name, outcome.getDetail()));
+        }
+        return outcome;
+    }
+
+    /**
+     * The request as its failure lines name it: the verb, and for {@code client} also its step,
+     * such as {@code client close}, the same name the step's late failure line uses.
+     *
+     * @param commandLine the request's command line, such as {@code devtool client close}
+     */
+    static String requestName(String verb, String commandLine) {
+        if (!"client".equals(verb) || commandLine == null) {
+            return verb;
+        }
+        String[] words = commandLine.trim().split("\\s+");
+        for (int i = 0; i + 1 < words.length; i++) {
+            if ("client".equals(words[i])) {
+                return "client " + words[i + 1];
+            }
+        }
+        return verb;
+    }
+
+    /** The failure line of a quiet request, worded as a quiet run's. */
+    static String failureLine(String name, String detail) {
+        return Replies.failureLine("Inbox request '" + name + "'", detail);
     }
 
     /**

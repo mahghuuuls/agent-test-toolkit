@@ -100,11 +100,8 @@ public final class ServerCommandDispatcher implements CommandDispatcher {
         if (current == null) {
             return;
         }
-        net.minecraft.util.text.TextComponentString text =
-                new net.minecraft.util.text.TextComponentString(line);
-        text.getStyle().setColor(net.minecraft.util.text.TextFormatting.RED);
-        // Sent directly, not through Replies: a quiet run still shows its failures.
-        current.sendMessage(text);
+        // Past the quiet rule that drops every other reply: a quiet run still shows its failures.
+        FailureLine.announce(current, line);
     }
 
     @Override

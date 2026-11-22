@@ -2,6 +2,7 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleExecution;
 import com.mahghuuuls.agenttesttoolkit.bundle.Bundles;
+import com.mahghuuuls.agenttesttoolkit.bundle.QuietScope;
 import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
@@ -123,7 +124,7 @@ public final class CheckpointSubCommand implements SubCommand {
                 : () -> server.getPlayerList().getPlayerByUUID(targetId) != null;
 
         long worldTick = RecordContext.worldTick(sender);
-        OperatorCheckpoints.Armed armed = OperatorCheckpoints.arm(label, worldTick, present);
+        OperatorCheckpoints.Armed armed = OperatorCheckpoints.arm(label, worldTick, present, QuietScope.isQuiet());
         if (armed == null) {
             // Recorded as well as refused, so the log shows the second arm the way it shows
             // every other failure, rather than only as a chat line nobody kept.
@@ -189,7 +190,7 @@ public final class CheckpointSubCommand implements SubCommand {
         }
 
         long worldTick = RecordContext.worldTick(sender);
-        OperatorCheckpoints.cued(label, worldTick);
+        OperatorCheckpoints.cued(label, worldTick, QuietScope.isQuiet());
 
         EntityPlayerMP target = cueTarget(server, sender);
         String form = formFor(asked, ClientCapabilities.helloVersion(target), OLDER_CUE_FORM);
@@ -233,13 +234,26 @@ public final class CheckpointSubCommand implements SubCommand {
         record.add("ackTick", answered.ackTick);
         record.add("latencyTicks", answered.latencyTicks());
         record.add("answered", answered.answeredArm ? "arm" : "cue");
+        record.add("quiet", answered.allQuiet);
         ToolkitLog.write(record);
         // An acknowledgement answers the armed checkpoint and the last cue together, so nothing is
         // left to answer and every panel goes, whichever player it was shown to.
         PromptPanels.hideAll();
 
-        Replies.send(sender, "[DevToolkit] Acknowledged '" + answered.label
-                + "' after " + answered.latencyTicks() + " ticks.");
+        if (repliesToAck(answered)) {
+            Replies.send(sender, "[DevToolkit] Acknowledged '" + answered.label
+                    + "' after " + answered.latencyTicks() + " ticks.");
+        }
+    }
+
+    /**
+     * Whether an acknowledgement is answered in the chat. Not when everything it answered was
+     * asked by a run that keeps its chat to itself: the person typed it to let such a
+     * run go on, and the panel closing is their confirmation. A refused acknowledgement is an
+     * error, shown as one either way.
+     */
+    static boolean repliesToAck(OperatorCheckpoints.Ack answered) {
+        return !answered.allQuiet;
     }
 
     /** The bound operator when online, else the calling player, else nobody. */

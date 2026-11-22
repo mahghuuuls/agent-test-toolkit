@@ -217,4 +217,24 @@ class DocumentationCoverageTest {
                 "a longer reason does not document a shorter one");
         assertEquals(new ArrayList<String>(), undocumented(one, "`INBOX action=opened reason=localJoin`"));
     }
+
+    @Test
+    @DisplayName("the chat history option, its key binding and its record are documented, and the key has its names")
+    void chatHistoryDocumented() throws IOException {
+        String agents = read(new File("AGENTS.md"));
+        String commands = read(new File("docs/commands.md"));
+        String logging = read(new File("docs/logging.md"));
+        for (String needed : new String[] {"`client.hideChatHistory`", "Toggle chat history",
+                "`CLIENT_OPTION option=hideChatHistory"}) {
+            assertTrue(agents.contains(needed), "AGENTS.md names " + needed);
+        }
+        assertTrue(commands.contains("`hideChatHistory`") && commands.contains("Toggle chat history"),
+                "docs/commands.md describes the option and its key");
+        assertTrue(logging.contains("`CLIENT_OPTION`") && logging.contains("by=key"), "docs/logging.md");
+        String lang = read(new File("src/main/resources/assets/agenttesttoolkit/lang/en_us.lang"));
+        // Without these the Controls screen shows the raw names of the binding and its category.
+        assertTrue(lang.contains("\nkey.agenttesttoolkit.toggleChatHistory=Toggle chat history"), "the binding's name");
+        assertTrue(lang.contains("\nkey.categories.agenttesttoolkit=Agent Test Toolkit"), "the category's name");
+        assertTrue(agents.contains("Quiet mode keeps out of the chat"), "AGENTS.md says what quiet mode covers");
+    }
 }

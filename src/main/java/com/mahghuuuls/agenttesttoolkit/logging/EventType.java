@@ -168,6 +168,13 @@ public enum EventType {
     /** After {@code SCREEN_INFO}: one slot of an open container, with its number, index, place and item. From 1.9.0. */
     SCREEN_SLOT,
 
+    /**
+     * A client option changed, {@code side=CLIENT}: {@code option}, its new {@code value}, and
+     * {@code by} ({@code config} at game start, {@code key} for the key binding). From 1.10.0,
+     * for {@code hideChatHistory}.
+     */
+    CLIENT_OPTION,
+
     /** {@code devtool baubles}: a slot set (or refused) or slots cleared, with the player and slot. */
     BAUBLES,
 

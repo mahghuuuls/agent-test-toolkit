@@ -29,6 +29,22 @@ public final class QuietScope {
         void noteSuppressed(int lines);
     }
 
+    /**
+     * A single request an agent sent through the command inbox, outside any bundle run: quiet
+     * like an inbox-started run, since its result already goes to its answer file and the log.
+     * Nobody counts what it kept back; the caller says its failure in one line of its own.
+     */
+    public static final Run REQUEST = new Run() {
+        @Override
+        public boolean isQuiet() {
+            return true;
+        }
+
+        @Override
+        public void noteSuppressed(int lines) {
+        }
+    };
+
     private static final ThreadLocal<Deque<Run>> RUNS = new ThreadLocal<Deque<Run>>() {
         @Override
         protected Deque<Run> initialValue() {
@@ -75,6 +91,11 @@ public final class QuietScope {
     /** How many runs are entered on this thread. */
     public static int depth() {
         return RUNS.get().size();
+    }
+
+    /** Whether the work being done now is a single inbox request, not a bundle run. */
+    public static boolean isRequest() {
+        return RUNS.get().peek() == REQUEST;
     }
 
     /** Whether the run being worked on keeps its chat to itself. */

@@ -3,6 +3,7 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 import com.mahghuuuls.agenttesttoolkit.bundle.BundleExecution;
 import com.mahghuuuls.agenttesttoolkit.bundle.Bundles;
 import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
+import com.mahghuuuls.agenttesttoolkit.command.InboxClientFailures;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.inbox.ClientWaitOptions;
 import com.mahghuuuls.agenttesttoolkit.inbox.InboxGate;
@@ -189,6 +190,8 @@ public final class ClientSubCommand implements SubCommand {
         } else {
             ClientCapabilities.expect(player, step, requestTick);
         }
+        // A lifecycle step's reports carry no token, so it is marked without one.
+        InboxClientFailures.markIfRequest(player.getUniqueID(), step, requestTick, "");
         if (ClientActionRequest.RECONNECT.equals(step) && InboxGate.isOperator(player.getUniqueID())) {
             // The inbox operator is about to leave on the toolkit's request: their next logout
             // suspends the inbox instead of closing it, until this token comes back (ARC-023).
@@ -249,6 +252,7 @@ public final class ClientSubCommand implements SubCommand {
         ToolkitLog.write(record);
 
         ClientCapabilities.expectAction(player, step, requestTick, token);
+        InboxClientFailures.markIfRequest(player.getUniqueID(), step, requestTick, token);
         ToolkitChannel.send(new PlayerActionRequest(action, token, requestTick), player);
         keepAndWait(run, player, route, step, token, requestTick, expectUuid);
         Replies.send(sender, asked(step, route));
@@ -420,6 +424,7 @@ public final class ClientSubCommand implements SubCommand {
         }
         ToolkitLog.write(record);
         ClientCapabilities.expectAction(player, step, requestTick, token);
+        InboxClientFailures.markIfRequest(player.getUniqueID(), step, requestTick, token);
         keepAndWait(run, player, route, step, token, requestTick, expectUuid);
         Replies.send(sender, asked(step, route));
     }

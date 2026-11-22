@@ -33,7 +33,7 @@ class OperatorCheckpointsTest {
     @Test
     @DisplayName("an armed checkpoint is pending until acknowledged, then satisfied with latency")
     void armThenAck() {
-        OperatorCheckpoints.Armed armed = OperatorCheckpoints.arm("PRESS_H", 1000L, () -> true);
+        OperatorCheckpoints.Armed armed = OperatorCheckpoints.arm("PRESS_H", 1000L, () -> true, false);
         assertNotNull(armed);
         assertEquals(WaitCondition.Status.PENDING, armed.poll(0).getStatus());
         assertFalse(armed.isAcknowledged());
@@ -57,19 +57,19 @@ class OperatorCheckpointsTest {
     @Test
     @DisplayName("a second arm is refused while one is armed, and allowed once it is answered")
     void oneAtATime() {
-        assertNotNull(OperatorCheckpoints.arm("A", 1L, null));
-        assertNull(OperatorCheckpoints.arm("B", 2L, null));
+        assertNotNull(OperatorCheckpoints.arm("A", 1L, null, false));
+        assertNull(OperatorCheckpoints.arm("B", 2L, null, false));
         assertEquals("A", OperatorCheckpoints.getArmed().getLabel());
         OperatorCheckpoints.ack(5L);
         assertNull(OperatorCheckpoints.getArmed());
-        assertNotNull(OperatorCheckpoints.arm("B", 6L, null));
+        assertNotNull(OperatorCheckpoints.arm("B", 6L, null, false));
     }
 
     @Test
     @DisplayName("a cue after arming moves the ask, so latency counts from the cue")
     void cueMovesTheAsk() {
-        OperatorCheckpoints.arm("GO", 100L, null);
-        OperatorCheckpoints.cued("GO", 160L);
+        OperatorCheckpoints.arm("GO", 100L, null, false);
+        OperatorCheckpoints.cued("GO", 160L, false);
         OperatorCheckpoints.Ack ack = OperatorCheckpoints.ack(170L);
         assertEquals(160L, ack.askedTick);
         assertEquals(10L, ack.latencyTicks());
@@ -81,7 +81,7 @@ class OperatorCheckpointsTest {
     @Test
     @DisplayName("with nothing armed, an ack answers the last cue once and then nothing")
     void ackAnswersCue() {
-        OperatorCheckpoints.cued("PRESS_H_NOW", 500L);
+        OperatorCheckpoints.cued("PRESS_H_NOW", 500L, false);
         OperatorCheckpoints.Ack ack = OperatorCheckpoints.ack(587L);
         assertNotNull(ack);
         assertFalse(ack.answeredArm);
@@ -100,7 +100,7 @@ class OperatorCheckpointsTest {
     @DisplayName("the operator leaving cancels an armed checkpoint")
     void operatorLeavingCancels() {
         final boolean[] present = {true};
-        OperatorCheckpoints.Armed armed = OperatorCheckpoints.arm("X", 1L, () -> present[0]);
+        OperatorCheckpoints.Armed armed = OperatorCheckpoints.arm("X", 1L, () -> present[0], false);
         assertEquals(WaitCondition.Status.PENDING, armed.poll(1).getStatus());
         present[0] = false;
         WaitCondition.Poll poll = armed.poll(2);
@@ -111,7 +111,7 @@ class OperatorCheckpointsTest {
     @Test
     @DisplayName("a session stop cancels the armed checkpoint instead of leaving it to time out")
     void sessionStopCancels() {
-        OperatorCheckpoints.Armed armed = OperatorCheckpoints.arm("LEFTOVER", 1L, () -> true);
+        OperatorCheckpoints.Armed armed = OperatorCheckpoints.arm("LEFTOVER", 1L, () -> true, false);
         assertEquals(WaitCondition.Status.PENDING, armed.poll(1).getStatus());
         OperatorCheckpoints.reset();
         WaitCondition.Poll poll = armed.poll(2);
@@ -123,9 +123,9 @@ class OperatorCheckpointsTest {
     @Test
     @DisplayName("disarming forgets only the checkpoint it is given")
     void disarmIsSpecific() {
-        OperatorCheckpoints.Armed first = OperatorCheckpoints.arm("first", 1L, null);
+        OperatorCheckpoints.Armed first = OperatorCheckpoints.arm("first", 1L, null, false);
         OperatorCheckpoints.ack(2L);
-        OperatorCheckpoints.Armed second = OperatorCheckpoints.arm("second", 3L, null);
+        OperatorCheckpoints.Armed second = OperatorCheckpoints.arm("second", 3L, null, false);
         OperatorCheckpoints.disarm(first);
         assertEquals(second, OperatorCheckpoints.getArmed());
         OperatorCheckpoints.disarm(second);

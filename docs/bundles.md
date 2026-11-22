@@ -247,6 +247,12 @@ In a quiet run, vanilla command feedback goes to no chat: not the sender's, not 
 
 Not stopped: chat a command sends by itself rather than as feedback, such as `list`, `help`, `say`, `tellraw`, `msg` or a `gamerule` query, messages from other mods, the failure message of a command run inside `/execute`, which vanilla sends to the sender directly (with the `commandBlockOutput` rule on), titles and the action bar, and a checkpoint cue asked for in `chat`. `quiet` does not change the bundle's `hash`.
 
+### What quiet mode keeps out of the chat (1.10.0)
+
+Kept out: in a quiet run, vanilla command feedback and the toolkit's replies; for every command inbox request other than `run`, its replies and feedback too ("Reloaded", "Asked your client to close"), since the result file and the log carry its result; and the reply to `devtool checkpoint ack` when everything it answers was armed or cued by a quiet run. The panel closing is then the confirmation, and the `CHECKPOINT action=ack` record says `quiet=true`.
+
+Not kept out: the one red failure line (`[DevToolkit] Bundle '<name>' command <index> failed: <key>` for a run, `[DevToolkit] Inbox request '<verb>' failed: <key>` for a single request, a `client` request named with its step, as `'client close'`), a refused acknowledgement's error, the lines listed above, vanilla's and other mods' own messages, and your own typed commands and their replies other than the acknowledgement. A `client` step that its client reports refused or failed after the request was answered, such as `client close` with nothing open, shows the same kind of line, `[DevToolkit] Inbox request 'client close' failed: noScreen`, when the report arrives; a step a bundle sent follows the bundle's rules.
+
 ## What bundles deliberately are not
 
 No variables, no conditionals, no loops, no arithmetic. The four placeholder forms above are lookups the toolkit fills in; they are the whole list, and anything else inside `${...}` refuses the file at reload rather than reaching the game. Every other character of a command string reaches the game unchanged.

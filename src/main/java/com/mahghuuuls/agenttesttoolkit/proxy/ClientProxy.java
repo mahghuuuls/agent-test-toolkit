@@ -41,9 +41,12 @@ public class ClientProxy extends CommonProxy {
         // screenshot taker reads before it reports a picture. Registered after the taker, as before.
         com.mahghuuuls.agenttesttoolkit.client.ClientActionExecutor executor =
                 new com.mahghuuuls.agenttesttoolkit.client.ClientActionExecutor();
+        // Whether the person keeps the chat history hidden. Made before the screenshot taker, whose
+        // chat handler leaves the chat out of every frame while it is.
+        com.mahghuuuls.agenttesttoolkit.client.ChatHistory history = new com.mahghuuuls.agenttesttoolkit.client.ChatHistory();
         // The client-only handlers besides this class (rule 12): screenshots on request.
         com.mahghuuuls.agenttesttoolkit.client.ScreenshotTaker taker =
-                new com.mahghuuuls.agenttesttoolkit.client.ScreenshotTaker(executor);
+                new com.mahghuuuls.agenttesttoolkit.client.ScreenshotTaker(executor, history);
         com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setClientReceiver(taker);
         MinecraftForge.EVENT_BUS.register(taker);
         // And the lifecycle steps of ARC-022, the same way.
@@ -73,6 +76,13 @@ public class ClientProxy extends CommonProxy {
         com.mahghuuuls.agenttesttoolkit.client.PromptPanel panel = new com.mahghuuuls.agenttesttoolkit.client.PromptPanel();
         com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setPanelReceiver(panel);
         MinecraftForge.EVENT_BUS.register(panel);
+        // And the hidden chat history: its key, the plain chat screen's swap, and the failure
+        // notices it shows in the panel. Its state comes from the configuration loaded before this.
+        com.mahghuuuls.agenttesttoolkit.client.ChatHistoryListener historyListener =
+                new com.mahghuuuls.agenttesttoolkit.client.ChatHistoryListener(history, panel);
+        historyListener.start(ToolkitConfigLoader.get().isClientHideChatHistory());
+        com.mahghuuuls.agenttesttoolkit.net.ToolkitChannel.setNoticeReceiver(historyListener);
+        MinecraftForge.EVENT_BUS.register(historyListener);
     }
 
     @SubscribeEvent

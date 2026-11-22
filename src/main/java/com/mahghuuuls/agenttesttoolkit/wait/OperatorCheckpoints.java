@@ -29,13 +29,16 @@ public final class OperatorCheckpoints {
         private final String label;
         private final long armedTick;
         private final BooleanSupplier operatorPresent;
+        /** Armed by a run that keeps its chat to itself. */
+        private final boolean quiet;
         private long ackTick = -1L;
         private String cancelledReason;
 
-        Armed(String label, long armedTick, BooleanSupplier operatorPresent) {
+        Armed(String label, long armedTick, BooleanSupplier operatorPresent, boolean quiet) {
             this.label = label;
             this.armedTick = armedTick;
             this.operatorPresent = operatorPresent;
+            this.quiet = quiet;
         }
 
         public String getLabel() {
@@ -99,12 +102,19 @@ public final class OperatorCheckpoints {
         public final long askedTick;
         public final long ackTick;
         public final boolean answeredArm;
+        /**
+         * Whether every checkpoint this acknowledgement answered, the arm and any cue it also
+         * answered, was asked by a run that keeps its chat to itself. The person then
+         * sees the panel close as the confirmation, and needs no chat line.
+         */
+        public final boolean allQuiet;
 
-        Ack(String label, long askedTick, long ackTick, boolean answeredArm) {
+        Ack(String label, long askedTick, long ackTick, boolean answeredArm, boolean allQuiet) {
             this.label = label;
             this.askedTick = askedTick;
             this.ackTick = ackTick;
             this.answeredArm = answeredArm;
+            this.allQuiet = allQuiet;
         }
 
         public long latencyTicks() {
@@ -115,6 +125,7 @@ public final class OperatorCheckpoints {
     private static volatile Armed armed;
     private static volatile String lastCueLabel;
     private static volatile long lastCueTick = -1L;
+    private static volatile boolean lastCueQuiet;
 
     private OperatorCheckpoints() {
     }
@@ -122,22 +133,27 @@ public final class OperatorCheckpoints {
     /**
      * Arms a checkpoint.
      *
+     * @param quiet whether a run that keeps its chat to itself asked for it
      * @return the armed checkpoint, to be registered as a wait, or null when one is already
      *         armed, which the caller reports as a failure
      */
-    public static Armed arm(String label, long worldTick, BooleanSupplier operatorPresent) {
+    public static Armed arm(String label, long worldTick, BooleanSupplier operatorPresent, boolean quiet) {
         if (armed != null && !armed.isAcknowledged()) {
             return null;
         }
-        Armed next = new Armed(label, worldTick, operatorPresent);
+        Armed next = new Armed(label, worldTick, operatorPresent, quiet);
         armed = next;
         return next;
     }
 
-    /** Records a cue, so a later acknowledgement can be measured from it. */
-    public static void cued(String label, long worldTick) {
+    /**
+     * Records a cue, so a later acknowledgement can be measured from it, and whether a run that
+     * keeps its chat to itself asked for it.
+     */
+    public static void cued(String label, long worldTick, boolean quiet) {
         lastCueLabel = label;
         lastCueTick = worldTick;
+        lastCueQuiet = quiet;
     }
 
     /**
@@ -154,13 +170,16 @@ public final class OperatorCheckpoints {
         if (current != null && !current.isAcknowledged()) {
             current.ackTick = worldTick;
             long asked = Math.max(current.armedTick, lastCueTick);
+            // A cue still waiting is answered by this ack too, so it counts towards whether the
+            // whole answer may stay out of the chat.
+            boolean allQuiet = current.quiet && (lastCueTick < 0L || lastCueQuiet);
             // A cue that moved the ask is answered by this ack too; it must not answer twice.
             lastCueLabel = null;
             lastCueTick = -1L;
-            return new Ack(current.label, asked, worldTick, true);
+            return new Ack(current.label, asked, worldTick, true, allQuiet);
         }
         if (lastCueTick >= 0L) {
-            Ack answered = new Ack(lastCueLabel, lastCueTick, worldTick, false);
+            Ack answered = new Ack(lastCueLabel, lastCueTick, worldTick, false, lastCueQuiet);
             // A cue is answered once. A second ack with nothing new to answer is an error,
             // not a second measurement of the same moment.
             lastCueLabel = null;
@@ -202,6 +221,7 @@ public final class OperatorCheckpoints {
         armed = null;
         lastCueLabel = null;
         lastCueTick = -1L;
+        lastCueQuiet = false;
         PromptPanels.hideAll();
     }
 }

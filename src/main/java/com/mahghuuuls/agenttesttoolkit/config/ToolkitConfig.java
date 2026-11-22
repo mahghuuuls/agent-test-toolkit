@@ -55,6 +55,7 @@ public final class ToolkitConfig {
     private final boolean clientAllowActions;
     private final boolean clientRequestChannel;
     private final boolean clientDismissTutorial;
+    private final boolean clientHideChatHistory;
     private final boolean inboxEnabled;
     private final boolean inboxOpenOnLocalJoin;
     private final boolean inboxLocalJoinOperator;
@@ -92,6 +93,7 @@ public final class ToolkitConfig {
         private boolean allowActions;
         private boolean requestChannel;
         private boolean dismissTutorial;
+        private boolean hideChatHistory;
         private boolean inbox;
         private boolean openOnLocalJoin;
         private boolean localJoinOperator;
@@ -192,6 +194,12 @@ public final class ToolkitConfig {
             return this;
         }
 
+        /** Whether the client starts with the chat history hidden. Off by default. */
+        public Builder clientHideChatHistory(boolean value) {
+            this.hideChatHistory = value;
+            return this;
+        }
+
         public Builder inboxOpenOnLocalJoin(boolean value) {
             this.openOnLocalJoin = value;
             return this;
@@ -217,7 +225,8 @@ public final class ToolkitConfig {
             return new ToolkitConfig(width, height, length, block, ceiling, maxDimension,
                     nbtLimit, joinEnabled, spawnItems, setsRespawn, joinBundle,
                     clientDefaults, brightness, musicVolume, volumes, noPauseOnLostFocus, allowActions,
-                    inbox, rejoinWindowSeconds, requestChannel, openOnLocalJoin, localJoinOperator, dismissTutorial);
+                    inbox, rejoinWindowSeconds, requestChannel, openOnLocalJoin, localJoinOperator, dismissTutorial,
+                    hideChatHistory);
         }
     }
 
@@ -247,8 +256,10 @@ public final class ToolkitConfig {
                   boolean clientRequestChannel,
                   boolean inboxOpenOnLocalJoin,
                   boolean inboxLocalJoinOperator,
-                  boolean clientDismissTutorial) {
+                  boolean clientDismissTutorial,
+                  boolean clientHideChatHistory) {
         this.clientDismissTutorial = clientDismissTutorial;
+        this.clientHideChatHistory = clientHideChatHistory;
         this.inboxLocalJoinOperator = inboxLocalJoinOperator;
         this.inboxEnabled = inboxEnabled;
         this.clientRequestChannel = clientRequestChannel;
@@ -506,6 +517,15 @@ public final class ToolkitConfig {
      */
     public boolean isClientDismissTutorial() {
         return clientDismissTutorial;
+    }
+
+    /**
+     * Whether the client starts with the chat history hidden: no chat lines drawn, the line being
+     * typed still shown. Read once at game start; the toolkit's key binding changes it until the
+     * game closes. Off by default: the chat is the player's own screen.
+     */
+    public boolean isClientHideChatHistory() {
+        return clientHideChatHistory;
     }
 
     /**
