@@ -1,0 +1,1008 @@
+{
+  "v48_scene": {
+    "description": "CYCLE-011 single-player scene, any overworld, fixed coordinates, rerunnable (a fill or setblock that changes nothing is tolerated). Stone floor at y 100, x 30 to 46, z 30 to 50, air above to y 108, noon with the daylight cycle and mob spawning off; the caller in creative at 38.5 101 34.5 facing south (yaw 0) with an empty inventory and no effects. Every v48 fixture is tagged v48_fx and removed first. Expect AWAIT condition=chunks outcome=satisfied, BUNDLE_END failed=0 and V48_SCENE_READY. Run after v42_world_prepare in each new world.",
+    "stopOnFailure": true,
+    "commands": [
+      "gamemode creative",
+      "tp @s 38.5 102 34.5 0 0",
+      "devtool await chunks 28 28 48 52 300",
+      "gamerule doDaylightCycle false",
+      "gamerule doMobSpawning false",
+      "time set 6000",
+      "kill @e[tag=v48_fx]",
+      {
+        "command": "fill 30 101 30 46 108 50 minecraft:air",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      {
+        "command": "fill 30 100 30 46 100 50 minecraft:stone",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      "tp @s 38.5 101 34.5 0 0",
+      "clear @s",
+      "effect @s clear",
+      "devtool mark V48_SCENE_READY"
+    ]
+  },
+  "v48_smoke_sp": {
+    "description": "Smoke facts on a single-player runtime, after v48_scene: SCREEN_INFO screen=none (no screen open), PLAYER_INSPECT at 38.5 101 34.5, KEY_BINDING for key.agenttesttoolkit.toggleChatHistory (category key.categories.agenttesttoolkit; keyCode 37 where options.txt binds it, else 0), a waited sneak hold (AWAIT condition=client outcome=satisfied mode=done released=done heldTicks=10), a picture v48_smoke_sp with hide=chat saved and waited for (SCREENSHOT side=SERVER action=saved, AWAIT condition=screenshot outcome=satisfied). Expect BUNDLE_END failed=0 and V48_SMOKE_SP.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool client screen wait=done",
+      "devtool inspect player",
+      "devtool client keys key.agenttesttoolkit",
+      "devtool client key key.sneak hold 10 wait=done waitTicks=100",
+      {
+        "command": "devtool screenshot v48_smoke_sp 5 hide=chat",
+        "delayTicks": 5
+      },
+      "devtool await screenshot v48_smoke_sp",
+      "devtool mark V48_SMOKE_SP"
+    ]
+  },
+  "v48_smoke_t2": {
+    "description": "Smoke facts only the development client needs, after v48_smoke_sp, with client.hideChatHistory=true: the command key opens the chat screen with its slash (KEY client record done; SCREEN_INFO screen=com.mahghuuuls.agenttesttoolkit.client.HistoryHiddenChat with width, height and scale; no ERROR saying the opening text cannot be read), the screen is closed, then a panel cue pictured (v48_smoke_panel: the panel on the right with V48_SMOKE_PANEL) and acknowledged. Expect BUNDLE_END failed=0 and V48_SMOKE_T2.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "commands": [
+      "devtool client key key.command press wait=done",
+      {
+        "command": "devtool client screen wait=done",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool screenshot v48_smoke_chat 5",
+        "delayTicks": 5
+      },
+      "devtool await screenshot v48_smoke_chat",
+      "devtool client close",
+      {
+        "command": "devtool checkpoint cue V48_SMOKE_PANEL panel",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool screenshot v48_smoke_panel 0 hide=toasts",
+        "delayTicks": 20
+      },
+      "devtool await screenshot v48_smoke_panel",
+      "devtool checkpoint ack",
+      "devtool mark V48_SMOKE_T2"
+    ]
+  },
+  "v48_cleanup": {
+    "description": "Neutral state at the end of a v48 single-player session: logging off, no open screen, every v48_fx fixture, item and orb in the scene removed, effects cleared, creative, back at the scene start with an empty inventory. Every step may find nothing. Expect V48_CLEANED.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool log all off",
+      "devtool client close",
+      "kill @e[tag=v48_fx]",
+      {
+        "command": "kill @e[type=minecraft:item,x=28,y=90,z=28,dx=20,dy=25,dz=24]",
+        "delayTicks": 5
+      },
+      "kill @e[type=minecraft:xp_orb,x=28,y=90,z=28,dx=20,dy=25,dz=24]",
+      "effect @s clear",
+      "gamemode creative",
+      "tp @s 38.5 101 34.5 0 0",
+      "clear @s",
+      "devtool mark V48_CLEANED"
+    ]
+  },
+  "v48_tol_testfor": {
+    "description": "REQ-274 c1. A check that matches nothing stops the bundle: testfor @e[tag=nothing_here] with stopOnFailure. Expect an ERROR with commands.generic.selector.notFound, no TOLERATED record, no V48_TESTFOR_NOT_REACHED mark, BUNDLE_END executed=1 failed=1 total=2 stoppedEarly=true, inbox answer failed bundleFailed with firstFailure=commands.generic.selector.notFound.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "testfor @e[tag=nothing_here]",
+      "devtool mark V48_TESTFOR_NOT_REACHED"
+    ]
+  },
+  "v48_tol_seed": {
+    "description": "Precondition for v48_tol_builtin: gives Speed and clears it, so the player has no active effect. Both commands succeed. Expect BUNDLE_END failed=0 tolerated=0 and V48_TOL_SEEDED.",
+    "stopOnFailure": true,
+    "commands": [
+      "effect @s minecraft:speed 5 0 true",
+      "effect @s clear",
+      "devtool mark V48_TOL_SEEDED"
+    ]
+  },
+  "v48_tol_builtin": {
+    "description": "REQ-274 c2. kill @e[tag=nothing_here] and effect @s clear with no active effect (run v48_tol_seed first): both are tolerated without a declaration. Expect two TOLERATED records with source=builtIn (keys commands.generic.selector.notFound and commands.effect.failure.notActive.all), BUNDLE_END executed=3 failed=0 tolerated=2 toleratedBuiltIn=2 toleratedDeclared=0, the same counters in the result file and the inbox answer, and V48_TOL_BUILTIN.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "kill @e[tag=nothing_here]",
+      "effect @s clear",
+      "devtool mark V48_TOL_BUILTIN"
+    ]
+  },
+  "v48_tol_tp_declared": {
+    "description": "REQ-274 c3, declared half. tp @e[tag=nothing_here] 0 64 0 declaring commands.generic.selector.notFound is tolerated as declared. Expect one TOLERATED source=declared key=commands.generic.selector.notFound, BUNDLE_END executed=2 failed=0 tolerated=1 toleratedBuiltIn=0 toleratedDeclared=1, and V48_TOL_TP_DECLARED.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      {
+        "command": "tp @e[tag=nothing_here] 0 64 0",
+        "toleratedFailures": [
+          "commands.generic.selector.notFound"
+        ]
+      },
+      "devtool mark V48_TOL_TP_DECLARED"
+    ]
+  },
+  "v48_tol_tp_undeclared": {
+    "description": "REQ-274 c3, undeclared half. The same tp without the declaration fails. Expect an ERROR with commands.generic.selector.notFound, no TOLERATED record, no V48_TOL_TP_NOT_REACHED mark, BUNDLE_END executed=1 failed=1 total=2 stoppedEarly=true, inbox answer failed bundleFailed firstFailure=commands.generic.selector.notFound.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "tp @e[tag=nothing_here] 0 64 0",
+      "devtool mark V48_TOL_TP_NOT_REACHED"
+    ]
+  },
+  "v48_tol_execute": {
+    "description": "REQ-274 c4. execute @e[tag=nothing_here] ~ ~ ~ say hi fails. Expect an ERROR with commands.generic.selector.notFound, no TOLERATED record, no chat line hi, no V48_TOL_EXECUTE_NOT_REACHED mark, BUNDLE_END executed=1 failed=1 total=2 stoppedEarly=true, inbox answer failed bundleFailed firstFailure=commands.generic.selector.notFound.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "execute @e[tag=nothing_here] ~ ~ ~ say hi",
+      "devtool mark V48_TOL_EXECUTE_NOT_REACHED"
+    ]
+  },
+  "v48_target_scene": {
+    "description": "Fixtures for REQ-276 and REQ-277, after v48_scene, in session v48_targets with the caller as operator. Cows without AI: v48cowA at 38.5 101 37.5 (3 blocks south of the start), v48cowB at 40.5 101 37.5; zombie v48zomb without AI, unbreakable helmet, at 36.5 101 37.5. Claimed as fixtures cowA, cowB, zomb. Expect three FIXTURE action=claim records, ASSERT pass for 2 cows and 1 zombie within 16, and V48_TARGET_SCENE.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool session start v48_targets",
+      "devtool session operator @s",
+      "kill @e[tag=v48_fx]",
+      "tp @s 38.5 101 34.5 0 0",
+      "summon minecraft:cow 38.5 101 37.5 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v48_fx\",\"v48cowA\"]}",
+      "summon minecraft:cow 40.5 101 37.5 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v48_fx\",\"v48cowB\"]}",
+      "summon minecraft:zombie 36.5 101 37.5 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v48_fx\",\"v48zomb\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+      {
+        "command": "devtool fixture claim cowA @e[tag=v48cowA,c=1]",
+        "delayTicks": 2
+      },
+      "devtool fixture claim cowB @e[tag=v48cowB,c=1]",
+      "devtool fixture claim zomb @e[tag=v48zomb,c=1]",
+      "devtool assert entities count 2 within 16 type minecraft:cow",
+      "devtool assert entities count 1 within 16 type minecraft:zombie",
+      "devtool mark V48_TARGET_SCENE"
+    ]
+  },
+  "v48_target_refusals": {
+    "description": "REQ-276 refusals at once (requirement text). expect= naming nothing is refused devtool.client.noTarget; expect=@e[type=minecraft:cow] with the two cows of v48_target_scene is refused devtool.client.ambiguousTarget. Nothing is sent to the client. Expect CLIENT_ACTION action=refused reason=noTarget and reason=ambiguousTarget with matched, two TOLERATED source=declared, BUNDLE_END failed=0 tolerated=2 toleratedDeclared=2, no CLIENT_ACTION side=CLIENT step=attack, and V48_TARGET_REFUSALS.",
+    "stopOnFailure": true,
+    "commands": [
+      {
+        "command": "devtool client attack expect=@e[tag=nothing_here]",
+        "toleratedFailures": [
+          "devtool.client.noTarget"
+        ]
+      },
+      {
+        "command": "devtool client attack expect=@e[type=minecraft:cow]",
+        "toleratedFailures": [
+          "devtool.client.ambiguousTarget"
+        ]
+      },
+      "devtool mark V48_TARGET_REFUSALS"
+    ]
+  },
+  "v48_target_wrong": {
+    "description": "REQ-276 c2. The crosshair on the first cow (client face cowA, waited), then client attack expect=<cowB uuid>. The face waits 21 ticks after the teleport (on-ground rule). Expect CLIENT_ACTION action=requested step=attack with expectUuid=<cowB> expectType=minecraft:cow; the client attack record target=entity entityUuid=<cowA> entityType=minecraft:cow alive=true health=10.00; AWAIT condition=client outcome=failed key=devtool.client.wrongTarget expectUuid=<cowB> entityUuid=<cowA>; TOLERATED source=declared key=devtool.client.wrongTarget; BUNDLE_END failed=0 tolerated=1; V48_TARGET_WRONG.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 38.5 101 34.5 0 0",
+      {
+        "command": "devtool client face ${fixture.cowA.uuid} wait=done",
+        "delayTicks": 21
+      },
+      {
+        "command": "devtool client attack expect=${fixture.cowB.uuid}",
+        "toleratedFailures": [
+          "devtool.client.wrongTarget"
+        ]
+      },
+      {
+        "command": "devtool mark V48_TARGET_WRONG",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v48_target_zombie": {
+    "description": "REQ-276 c3. One zombie under the crosshair (client face zomb, waited) and client attack expect=@e[type=minecraft:zombie,c=1]. Expect CLIENT_ACTION action=requested with expectUuid=<zomb> expectType=minecraft:zombie; the client attack record target=entity entityUuid=<zomb> alive=true health=20.00 (the health the client saw before the hit); AWAIT condition=client outcome=satisfied mode=done result=done expectUuid=entityUuid=<zomb> alive=true; BUNDLE_END failed=0 tolerated=0; V48_TARGET_ZOMBIE.",
+    "stopOnFailure": true,
+    "commands": [
+      {
+        "command": "devtool client face ${fixture.zomb.uuid} wait=done",
+        "delayTicks": 5
+      },
+      "devtool client attack expect=@e[type=minecraft:zombie,c=1]",
+      {
+        "command": "devtool mark V48_TARGET_ZOMBIE",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v48_target_dead": {
+    "description": "REQ-276 c1. The crosshair on cowA (client face, waited), cowA killed, and one tick later client attack expect=<cowA uuid> route=queue while the dying cow is still under the crosshair (a dying mob stays pickable for its 20-tick death animation and is found by its UUID). Expect CLIENT_ACTION action=requested expectUuid=<cowA>; the client attack record route=queue target=entity entityUuid=<cowA> alive=false; AWAIT condition=client outcome=failed key=devtool.client.targetDead entityUuid=<cowA> alive=false; TOLERATED source=declared key=devtool.client.targetDead; BUNDLE_END failed=0 tolerated=1; then the cow gone and its drops removed; V48_TARGET_DEAD.",
+    "stopOnFailure": true,
+    "commands": [
+      {
+        "command": "devtool client face ${fixture.cowA.uuid} wait=done",
+        "delayTicks": 5
+      },
+      "kill ${fixture.cowA.uuid}",
+      {
+        "command": "devtool client attack expect=${fixture.cowA.uuid} route=queue",
+        "delayTicks": 1,
+        "toleratedFailures": [
+          "devtool.client.targetDead"
+        ]
+      },
+      {
+        "command": "kill @e[type=minecraft:item,x=28,y=90,z=28,dx=20,dy=25,dz=24]",
+        "delayTicks": 30
+      },
+      "devtool mark V48_TARGET_DEAD"
+    ]
+  },
+  "v48_health": {
+    "description": "REQ-277. A new cow v48cowC (no AI) at 38.5 101 37.5, claimed as cowC; assert entity <uuid> health 10 passes (a cow has 10). A stick giving +2 attack damage (base 1, so 3 at full cooldown; ASSERT generic.attackDamage value 3) is selected, the crosshair put on the cow, and one attack made 25 ticks later (full cooldown, on the ground, no crit). Expect ASSERT predicate=entity.health expected=10.00 observed=10.00 outcome=pass; the attack AWAIT outcome=satisfied entityUuid=<cowC>; ASSERT expected=7.00 observed=7.00 pass; ASSERT expected=10.00 observed=7.00 outcome=fail with TOLERATED source=declared key=devtool.assert.failed; BUNDLE_END failed=0 tolerated=1; V48_HEALTH_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 38.5 101 34.5 0 0",
+      "summon minecraft:cow 38.5 101 37.5 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v48_fx\",\"v48cowC\"]}",
+      {
+        "command": "devtool fixture claim cowC @e[tag=v48cowC,c=1]",
+        "delayTicks": 2
+      },
+      "devtool assert entity ${fixture.cowC.uuid} health 10",
+      "replaceitem entity @s slot.hotbar.0 minecraft:stick 1 0 {AttributeModifiers:[{AttributeName:\"generic.attackDamage\",Name:\"v48dmg\",Amount:2.0d,Operation:0,UUIDMost:4848L,UUIDLeast:1L,Slot:\"mainhand\"}]}",
+      "devtool client select 0 wait=done",
+      {
+        "command": "devtool client face ${fixture.cowC.uuid} wait=done",
+        "delayTicks": 21
+      },
+      {
+        "command": "devtool assert attribute @s generic.attackDamage value 3",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client attack expect=${fixture.cowC.uuid}",
+        "delayTicks": 25
+      },
+      {
+        "command": "devtool assert entity ${fixture.cowC.uuid} health 7",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool assert entity ${fixture.cowC.uuid} health 10",
+        "toleratedFailures": [
+          "devtool.assert.failed"
+        ]
+      },
+      "devtool mark V48_HEALTH_END"
+    ]
+  },
+  "v48_shot_wait": {
+    "description": "REQ-278. screenshot shot_a 20, then await screenshot shot_a, then mark AFTER_SHOT. Expect SCREENSHOT action=requested label=shot_a, the client SCREENSHOT side=CLIENT action=saved file=screenshots/shot_a-<requestTick>.png, the server SCREENSHOT side=SERVER action=saved label=shot_a requestTick file frameClientTick, then AWAIT condition=screenshot outcome=satisfied saved=true, then MARK label=AFTER_SHOT, in that order; the file on disk; BUNDLE_END failed=0.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool screenshot shot_a 20",
+      "devtool await screenshot shot_a",
+      "devtool mark AFTER_SHOT"
+    ]
+  },
+  "v48_nbt": {
+    "description": "REQ-281 c1 to c4, and a quoted path through a bundle. A diamond sword with damage 5 and Sharpness V in hotbar slot 1, selected (waited): nbt held path=Damage writes NBT_VALUE found=true type=short value=5; path=tag.ench[0].lvl type=short value=5; the quoted path \"tag\".\"ench\"[0].\"lvl\" the same; assert nbt held Damage 5 passes; assert nbt held Damage 6 fails (TOLERATED declared devtool.assert.failed, ASSERT observed=5). A zombie v48nbtz (no AI, helmet) claimed as nbtz: assert nbt entity <uuid> Health 20 passes (stored 20.0, compared as numbers). A chest at 41 101 40 with stone in slot 0: nbt block 41 101 40 path=Items[0].id writes type=string value=minecraft:stone. assert nbt held No.Such.Path 1 fails with observed=missing (TOLERATED declared). Expect BUNDLE_END failed=0 tolerated=2 and V48_NBT_END.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool session start v48_nbt",
+      "devtool session operator @s",
+      "tp @s 38.5 101 34.5 0 0",
+      "replaceitem entity @s slot.hotbar.1 minecraft:diamond_sword 1 5 {ench:[{id:16s,lvl:5s}]}",
+      "devtool client select 1 wait=done",
+      "devtool nbt held path=Damage",
+      "devtool nbt held path=tag.ench[0].lvl",
+      "devtool nbt held path=\"tag\".\"ench\"[0].\"lvl\"",
+      "devtool assert nbt held Damage 5",
+      {
+        "command": "devtool assert nbt held Damage 6",
+        "toleratedFailures": [
+          "devtool.assert.failed"
+        ]
+      },
+      "kill @e[tag=v48nbtz]",
+      "summon minecraft:zombie 36.5 101 40.5 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v48_fx\",\"v48nbtz\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+      {
+        "command": "devtool fixture claim nbtz @e[tag=v48nbtz,c=1]",
+        "delayTicks": 2
+      },
+      "devtool assert nbt entity ${fixture.nbtz.uuid} Health 20",
+      {
+        "command": "setblock 41 101 40 minecraft:air",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      "setblock 41 101 40 minecraft:chest 2 replace {Items:[{Slot:0b,id:\"minecraft:stone\",Count:1b}]}",
+      "devtool nbt block 41 101 40 path=Items[0].id",
+      {
+        "command": "devtool assert nbt held No.Such.Path 1",
+        "toleratedFailures": [
+          "devtool.assert.failed"
+        ]
+      },
+      "devtool mark V48_NBT_END"
+    ]
+  },
+  "v48_nbt_outcomes": {
+    "description": "REQ-281 runtime outcomes after v48_nbt. nbt block 41 100 40 path=id (the stone floor) writes NBT_VALUE hasTileEntity=false found=false; with hotbar slot 8 emptied and selected (waited), nbt held path=id writes empty=true found=false; nbt block 20000 64 20000 path=id (not loaded) fails devtool.inspect.notLoaded (TOLERATED declared); assert nbt block 20000 64 20000 id minecraft:chest gives ASSERT outcome=unloaded regionLoaded=false (TOLERATED declared devtool.assert.unloaded). Expect BUNDLE_END failed=0 tolerated=2 and V48_NBT_OUTCOMES.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool nbt block 41 100 40 path=id",
+      "replaceitem entity @s slot.hotbar.8 minecraft:air",
+      "devtool client select 8 wait=done",
+      "devtool nbt held path=id",
+      {
+        "command": "devtool nbt block 20000 64 20000 path=id",
+        "toleratedFailures": [
+          "devtool.inspect.notLoaded"
+        ]
+      },
+      {
+        "command": "devtool assert nbt block 20000 64 20000 id minecraft:chest",
+        "toleratedFailures": [
+          "devtool.assert.unloaded"
+        ]
+      },
+      "devtool mark V48_NBT_OUTCOMES"
+    ]
+  },
+  "v48_follow_on": {
+    "description": "REQ-282 with follow. Logging reset, the caller at 38.5 101 38.5, then log entity_damage on radius 16 follow. Expect LOG_CONFIG records, the log status LOG_CONFIG naming radius=16.0 follow player=<caller>, and V48_FOLLOW_ON.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool log all off",
+      "tp @s 38.5 101 38.5 0 0",
+      "devtool log entity_damage on radius 16 follow",
+      "devtool log status",
+      "devtool mark V48_FOLLOW_ON"
+    ]
+  },
+  "v48_far_hurt": {
+    "description": "REQ-282. A teleport of about 3000 blocks to 3000.5 101 3000.5 (chunks waited for, a small stone floor at y 100), a zombie v48far (no AI, helmet) 2 blocks away, hurt by instant_health between V48_FAR_BEFORE and V48_FAR_AFTER (an instant effect hurts at the target next update, so 5 ticks are left), then removed and the caller back at 38.5 101 38.5. With the follow filter on, expect one ENTITY_DAMAGE target=minecraft:zombie dimension=0 between the two marks; with the plain radius 16 filter centred at the scene, none. Expect BUNDLE_END failed=0.",
+    "stopOnFailure": true,
+    "commands": [
+      "kill @e[tag=v48far]",
+      "tp @s 3000.5 102 3000.5 0 0",
+      "devtool await chunks 2990 2990 3010 3010 600",
+      {
+        "command": "fill 2996 100 2996 3004 100 3004 minecraft:stone",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      "tp @s 3000.5 101 3000.5 0 0",
+      {
+        "command": "summon minecraft:zombie 3002.5 101 3000.5 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v48_fx\",\"v48far\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool mark V48_FAR_BEFORE",
+        "delayTicks": 5
+      },
+      "effect @e[tag=v48far] minecraft:instant_health 1 0",
+      {
+        "command": "devtool mark V48_FAR_AFTER",
+        "delayTicks": 5
+      },
+      "kill @e[tag=v48far]",
+      "tp @s 38.5 101 38.5 0 0"
+    ]
+  },
+  "v48_nofollow_on": {
+    "description": "REQ-282 without follow. Logging reset, the caller at 38.5 101 38.5, then log entity_damage on radius 16 (the centre stays here). Expect LOG_CONFIG with the radius filter and no follow in log status, and V48_NOFOLLOW_ON.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool log all off",
+      "tp @s 38.5 101 38.5 0 0",
+      "devtool log entity_damage on radius 16",
+      "devtool log status",
+      "devtool mark V48_NOFOLLOW_ON"
+    ]
+  },
+  "v48_near_hurt": {
+    "description": "Positive control for the plain radius filter: a zombie v48near (no AI, helmet) at 40.5 101 40.5, inside the radius, hurt by instant_health between V48_NEAR_BEFORE and V48_NEAR_AFTER. Expect one ENTITY_DAMAGE target=minecraft:zombie between the marks; then the zombie removed and logging off. Expect BUNDLE_END failed=0.",
+    "stopOnFailure": true,
+    "commands": [
+      "kill @e[tag=v48near]",
+      {
+        "command": "summon minecraft:zombie 40.5 101 40.5 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v48_fx\",\"v48near\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool mark V48_NEAR_BEFORE",
+        "delayTicks": 5
+      },
+      "effect @e[tag=v48near] minecraft:instant_health 1 0",
+      {
+        "command": "devtool mark V48_NEAR_AFTER",
+        "delayTicks": 5
+      },
+      "kill @e[tag=v48near]",
+      "devtool log all off"
+    ]
+  },
+  "v48_srv_platform": {
+    "description": "Dedicated-server scene, run by the joined player through the inbox (also on a 1.9.0 server: vanilla commands, await chunks and mark only). The isolated flat world spawns the player far from 0 0, so the player is moved first and the chunks waited for. The world spawn is set to 0 101 0, so these chunks stay loaded while the player is away. Stone floor at y 100, x -6 to 6, z -4 to 16; a chest facing north at 2 101 4 holding one stone; zombie v48away (no AI, helmet) at -4.5 101 12.5; noon, no daylight cycle, no mob spawning; the player in creative at 2.5 101 0.5 facing south with an empty inventory. Expect AWAIT outcome=satisfied, BUNDLE_END failed=0 and V48_SRV_PLATFORM.",
+    "stopOnFailure": true,
+    "commands": [
+      "gamemode creative",
+      "tp @s 0.5 102 0.5 0 0",
+      "devtool await chunks -8 -6 8 18 300",
+      "setworldspawn 0 101 0",
+      "gamerule doMobSpawning false",
+      "gamerule doDaylightCycle false",
+      "time set 6000",
+      "kill @e[tag=v48_fx]",
+      {
+        "command": "fill -6 101 -4 6 108 16 minecraft:air",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      {
+        "command": "fill -6 100 -4 6 100 16 minecraft:stone",
+        "toleratedFailures": [
+          "commands.fill.failed"
+        ]
+      },
+      {
+        "command": "setblock 2 101 4 minecraft:air",
+        "toleratedFailures": [
+          "commands.setblock.noChange"
+        ]
+      },
+      "setblock 2 101 4 minecraft:chest 2 replace {Items:[{Slot:0b,id:\"minecraft:stone\",Count:1b}]}",
+      {
+        "command": "summon minecraft:zombie -4.5 101 12.5 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v48_fx\",\"v48away\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+        "delayTicks": 2
+      },
+      "tp @s 2.5 101 0.5 0 0",
+      "clear @s",
+      "devtool mark V48_SRV_PLATFORM"
+    ]
+  },
+  "v48_smoke_book": {
+    "description": "Smoke on the isolated dedicated server: the acknowledgement book (a written book whose page text runs /devtool checkpoint ack on a click) in hotbar slot 0, selected and used looking straight up; SCREEN_INFO screen=net.minecraft.client.gui.GuiScreenBook with width, height and scale (expected 480 by 270, scale 2, on the 960 by 540 window); a picture v48_smoke_book; then client click at 190 38 on the page text, which sends the command as the player chat does: with nothing armed it is refused (an ERROR record \"Checkpoint ack with nothing armed or cued\" on the server, its red error line in the client chat), and the book closes. Expect BUNDLE_END failed=0 and V48_SMOKE_BOOK.",
+    "stopOnFailure": true,
+    "commands": [
+      "replaceitem entity @s slot.hotbar.0 minecraft:written_book 1 0 {title:\"v48 ack\",author:\"agent\",resolved:1b,pages:[\"{\\\"text\\\":\\\"ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE\\\",\\\"clickEvent\\\":{\\\"action\\\":\\\"run_command\\\",\\\"value\\\":\\\"/devtool checkpoint ack\\\"}}\"]}",
+      "tp @s 2.5 101 0.5 0 -90",
+      {
+        "command": "devtool client select 0 wait=done",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client use wait=done",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client screen wait=done",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool screenshot v48_smoke_book 5 hide=chat",
+        "delayTicks": 5
+      },
+      "devtool await screenshot v48_smoke_book",
+      "devtool client click at 190 38 wait=done",
+      {
+        "command": "devtool client screen wait=done",
+        "delayTicks": 10
+      },
+      "devtool mark V48_SMOKE_BOOK"
+    ]
+  },
+  "v48_loud_controls": {
+    "description": "REQ-280 positive control, run with quiet=false through the inbox: devtool reload, client inventory, client close. A run that is not quiet sends their replies to the chat. Expect in the client chat log [DevToolkit] Reloaded. bundles=..., [DevToolkit] Asked your client to inventory. and [DevToolkit] Asked your client to close.; BUNDLE_START quiet=false; BUNDLE_END failed=0 chatSuppressed=0; V48_LOUD_DONE.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool reload",
+      {
+        "command": "devtool client inventory",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client close",
+        "delayTicks": 20
+      },
+      {
+        "command": "devtool mark V48_LOUD_DONE",
+        "delayTicks": 10
+      }
+    ]
+  },
+  "v48_ack_arm": {
+    "description": "REQ-280 c1, the acknowledgement. Started at the server console with devtool run v48_ack_arm; quiet true in the file (a console run is otherwise not quiet). Starts session v48_ack, binds the one player (@p) as operator, gives the acknowledgement book in hotbar slot 0, turns the player to look straight up, and arms checkpoint v48ackq for up to 1200 ticks. The bundle waits there until the operator sends devtool checkpoint ack (the card runs v48_srv_book_click, whose page click sends it from the player client as typed chat), then marks V48_ACK_RELEASED. Expect BUNDLE_START channel=console quiet=true; CHECKPOINT action=arm label=v48ackq form=panel operator=RuntimeTester; CHECKPOINT action=ack answered=arm quiet=true; AWAIT condition=checkpoint outcome=satisfied; no [DevToolkit] Acknowledged line in the client chat; BUNDLE_END failed=0.",
+    "stopOnFailure": true,
+    "quiet": true,
+    "result": true,
+    "commands": [
+      "devtool session start v48_ack",
+      "devtool session operator @p",
+      "replaceitem entity @p slot.hotbar.0 minecraft:written_book 1 0 {title:\"v48 ack\",author:\"agent\",resolved:1b,pages:[\"{\\\"text\\\":\\\"ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE ACKNOWLEDGE\\\",\\\"clickEvent\\\":{\\\"action\\\":\\\"run_command\\\",\\\"value\\\":\\\"/devtool checkpoint ack\\\"}}\"]}",
+      "tp @p 2.5 101 0.5 0 -90",
+      "devtool checkpoint arm v48ackq 1200",
+      "devtool mark V48_ACK_RELEASED"
+    ]
+  },
+  "v48_ack_loud_cue": {
+    "description": "REQ-280 positive control for the acknowledgement. Started at the server console (not quiet): checkpoint cue v48ackl panel, then a mark. The card then runs v48_srv_book_click again, and the acknowledgement of a cue from a run that is not quiet is answered in the chat. Expect CHECKPOINT action=cue label=v48ackl form=panel, then after the click CHECKPOINT action=ack answered=cue quiet=false and the client chat line [DevToolkit] Acknowledged 'v48ackl' after <n> ticks.; BUNDLE_END failed=0 and V48_LOUD_CUED.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool checkpoint cue v48ackl panel",
+      "devtool mark V48_LOUD_CUED"
+    ]
+  },
+  "v48_srv_chest_open": {
+    "description": "REQ-280 c1 setup, through the inbox (quiet): the chest at 2 101 4 faced and used, each step waited, then client screen 10 ticks after the use. Expect the use record result=done and SCREEN_INFO screen=net.minecraft.client.gui.inventory.GuiChest (the session waits for that line before its client close request). Expect BUNDLE_END failed=0 and V48_CHEST_OPEN.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 2.5 101 0.5 0 0",
+      {
+        "command": "devtool client face block 2 101 4 wait=done",
+        "delayTicks": 5
+      },
+      "devtool client use wait=done",
+      {
+        "command": "devtool client screen wait=done",
+        "delayTicks": 10
+      },
+      "devtool mark V48_CHEST_OPEN"
+    ]
+  },
+  "v48_srv_book_click": {
+    "description": "REQ-280 c1 acknowledgement, through the inbox (quiet), rerunnable for each click. Hotbar slot 0 (the acknowledgement book given by v48_ack_arm) selected and used looking straight up, each step waited; 10 ticks later client click at 190 38 expect=net.minecraft.client.gui.GuiScreenBook, waited: the click lands on the page text only when the book is the open screen (otherwise refused screenChanged and this run fails, nothing is sent). The page click sends /devtool checkpoint ack from the player client as typed chat and closes the book. Expect the click record result=done screen=net.minecraft.client.gui.GuiScreenBook, BUNDLE_END failed=0 and V48_BOOK_CLICKED.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 2.5 101 0.5 0 -90",
+      {
+        "command": "devtool client select 0 wait=done",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client use wait=done",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client click at 190 38 expect=net.minecraft.client.gui.GuiScreenBook wait=done",
+        "delayTicks": 10
+      },
+      "devtool mark V48_BOOK_CLICKED"
+    ]
+  },
+  "v48_smoke_away": {
+    "description": "Smoke on the isolated dedicated server, started at the console while the player is away on a reconnect: whether the platform chunks stay loaded with no player after setworldspawn 0 101 0. testfor @e[tag=v48away] succeeds (no TOLERATED record) when the zombie at -4.5 101 12.5 is loaded; a TOLERATED commands.generic.selector.notFound means the chunks unloaded and C12 must change before its run. Expect BUNDLE_END failed=0 and V48_SMOKE_AWAY_END.",
+    "stopOnFailure": false,
+    "result": true,
+    "commands": [
+      "devtool mark V48_SMOKE_AWAY_BEGIN",
+      {
+        "command": "testfor @e[tag=v48away]",
+        "toleratedFailures": [
+          "commands.generic.selector.notFound"
+        ]
+      },
+      "devtool mark V48_SMOKE_AWAY_END"
+    ]
+  },
+  "v48_follow_server": {
+    "description": "REQ-282 pause on a dedicated server, and a waited client step on a real connection. Logging reset, then log entity_damage on radius 16 follow for the joined player and log status (LOG_CONFIG radius=16.0 follow player=RuntimeTester); client select 0 wait=done (AWAIT condition=client outcome=satisfied, CLIENT_ACTION requested and reported with playerUuid and connection). Expect BUNDLE_END failed=0 and V48_SRV_FOLLOW_ON.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool log all off",
+      "devtool log entity_damage on radius 16 follow",
+      "devtool log status",
+      "devtool client select 0 wait=done",
+      "devtool mark V48_SRV_FOLLOW_ON"
+    ]
+  },
+  "v48_console_hurt_away": {
+    "description": "REQ-282 pause, started at the server console while the player who turned the follow filter on is away on a reconnect. Hurts v48away (in the spawn chunks, kept loaded) with instant_health between V48_AWAY_BEFORE and V48_AWAY_AFTER. Expect one LOGGING filter=paused reason=playerGone category=entity_damage player=RuntimeTester playerUuid between the marks and no ENTITY_DAMAGE there. A TOLERATED commands.generic.selector.notFound means the zombie was not loaded and the card did not reach its event: a deviation, not a pass. Expect BUNDLE_END failed=0.",
+    "stopOnFailure": false,
+    "result": true,
+    "commands": [
+      "devtool mark V48_AWAY_BEFORE",
+      {
+        "command": "effect @e[tag=v48away] minecraft:instant_health 1 0",
+        "toleratedFailures": [
+          "commands.generic.selector.notFound"
+        ]
+      },
+      {
+        "command": "devtool mark V48_AWAY_AFTER",
+        "delayTicks": 10
+      }
+    ]
+  },
+  "v48_srv_near_hurt": {
+    "description": "REQ-282 after the return: a zombie v48near (no AI, helmet) at 4.5 101 2.5 beside the returned player, hurt by instant_health between V48_SRV_NEAR_BEFORE and V48_SRV_NEAR_AFTER. Expect one ENTITY_DAMAGE target=minecraft:zombie between the marks (the follow filter admits again); then the zombie removed and logging off. Expect BUNDLE_END failed=0.",
+    "stopOnFailure": true,
+    "commands": [
+      "kill @e[tag=v48near]",
+      {
+        "command": "summon minecraft:zombie 4.5 101 2.5 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v48_fx\",\"v48near\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool mark V48_SRV_NEAR_BEFORE",
+        "delayTicks": 5
+      },
+      "effect @e[tag=v48near] minecraft:instant_health 1 0",
+      {
+        "command": "devtool mark V48_SRV_NEAR_AFTER",
+        "delayTicks": 5
+      },
+      "kill @e[tag=v48near]",
+      "devtool log all off"
+    ]
+  },
+  "v48_srv_cleanup": {
+    "description": "Neutral state at the end of a dedicated-server session: logging off, no open screen, v48 fixtures, items and orbs on the platform removed, empty inventory, session stopped. Every step may find nothing. Expect V48_SRV_CLEANED.",
+    "stopOnFailure": false,
+    "commands": [
+      "devtool log all off",
+      "devtool client close",
+      "kill @e[tag=v48_fx]",
+      {
+        "command": "kill @e[type=minecraft:item,x=-8,y=90,z=-6,dx=16,dy=25,dz=24]",
+        "delayTicks": 5
+      },
+      "kill @e[type=minecraft:xp_orb,x=-8,y=90,z=-6,dx=16,dy=25,dz=24]",
+      "clear @s",
+      "devtool session stop",
+      "devtool mark V48_SRV_CLEANED"
+    ]
+  },
+  "v48_old_waits": {
+    "description": "REQ-284 with the 1.9.0 client on the 1.10.0 server, after v48_srv_platform. client key key.forward hold 40 wait=done passes (AWAIT condition=client outcome=satisfied mode=done result=done released=done heldTicks=40). Stealthworks case 3 on the old client: sneak hold 100 keepHold, forward hold 60 keepHold wait=done (heldTicks=60 released=done), client await key.sneak (heldTicks=100 released=done). Then a zombie v48oz 3 blocks south, faced, and client attack expect=@e[tag=v48oz,c=1] passes (AWAIT outcome=satisfied entityUuid=<zombie>, no alive in it; the 1.9.0 client record and the server action=reported record carry no alive and no health). client face ... expect=... is refused at once with devtool.client.expectNeedsNewClient (TOLERATED declared; ERROR naming version 1.9.0). Expect BUNDLE_END failed=0 tolerated=1 and V48_OLD_WAITS.",
+    "stopOnFailure": true,
+    "commands": [
+      "kill @e[tag=v48oz]",
+      "tp @s 2.5 101 0.5 0 0",
+      {
+        "command": "devtool client key key.forward hold 40 wait=done waitTicks=120",
+        "delayTicks": 21
+      },
+      "tp @s 2.5 101 0.5 0 0",
+      {
+        "command": "devtool client key key.sneak hold 100 keepHold=true",
+        "delayTicks": 21
+      },
+      "devtool client key key.forward hold 60 keepHold=true wait=done waitTicks=200",
+      "devtool client await key.sneak 200",
+      "tp @s 2.5 101 0.5 0 0",
+      {
+        "command": "summon minecraft:zombie 2.5 101 3.5 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v48_fx\",\"v48oz\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool client face @e[tag=v48oz,c=1] wait=done",
+        "delayTicks": 21
+      },
+      "devtool client attack expect=@e[tag=v48oz,c=1]",
+      {
+        "command": "devtool client face @e[tag=v48oz,c=1] expect=@e[tag=v48oz,c=1]",
+        "toleratedFailures": [
+          "devtool.client.expectNeedsNewClient"
+        ]
+      },
+      "kill @e[tag=v48oz]",
+      "devtool mark V48_OLD_WAITS"
+    ]
+  },
+  "v48_old_sw_refusal": {
+    "description": "Stealthworks case 1 on the 1.9.0 client: the chat screen opened by client key key.chat press (waited; SCREEN_INFO from client screen names net.minecraft.client.gui.GuiChat), then client key key.sneak hold 215 wait=started is refused by the client (result=refused reason=screenOpen) and fails devtool.client.actionFailed; the forward hold never runs (no CLIENT_ACTION requested for key.forward). Expect BUNDLE_END executed=3 failed=1 total=5 stoppedEarly=true and inbox answer failed bundleFailed firstFailure=devtool.client.actionFailed. Close the chat afterwards with a client close request.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool client key key.chat press wait=done",
+      {
+        "command": "devtool client screen wait=done",
+        "delayTicks": 5
+      },
+      "devtool client key key.sneak hold 215 wait=started",
+      "devtool client key key.forward hold 60",
+      "devtool mark V48_OLD_SW1_NOT_REACHED"
+    ]
+  },
+  "v48_old_sw_focus": {
+    "description": "Stealthworks case 2 on the 1.9.0 client. client key key.sneak hold 215 wait=done waitTicks=300, started as a session plan request; while the bundle waits, the agent sends client focus lost to this server inbox from outside the session (scripts/send-on-log.ps1, released by the server line of the started report after this run began). Expect the server CLIENT_ACTION action=reported step=key binding=key.sneak result=started, then result=done released=focusLost heldTicks below 215 from the 1.9.0 client; AWAIT condition=client outcome=failed key=devtool.client.releasedEarly; no V48_OLD_SW2_NOT_REACHED; inbox answer failed bundleFailed firstFailure=devtool.client.releasedEarly.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 2.5 101 0.5 0 0",
+      {
+        "command": "devtool client key key.sneak hold 215 wait=done waitTicks=300",
+        "delayTicks": 5
+      },
+      "devtool mark V48_OLD_SW2_NOT_REACHED"
+    ]
+  },
+  "v48_old_shot": {
+    "description": "REQ-284 with the 1.9.0 client: a picture is asked, then await screenshot is refused at once with devtool.screenshot.noReport, since a 1.9.0 client never reports a picture. Expect ERROR with devtool.screenshot.noReport, no AWAIT condition=screenshot satisfied, no V48_OLD_SHOT_NOT_REACHED, BUNDLE_END executed=2 failed=1 total=3 stoppedEarly=true, inbox answer failed bundleFailed firstFailure=devtool.screenshot.noReport; the 1.9.0 client still saves screenshots/v48_old_shot-<tick>.png (its SCREENSHOT side=CLIENT action=saved) and no SCREENSHOT side=SERVER action=saved appears.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool screenshot v48_old_shot 0",
+      "devtool await screenshot v48_old_shot",
+      "devtool mark V48_OLD_SHOT_NOT_REACHED"
+    ]
+  },
+  "v48_os_actions": {
+    "description": "The 1.10.0 client on a 1.9.0 server, after v48_srv_platform; 1.9.0 commands only. A zombie v48osz 3 blocks south, faced, attacked once 15 ticks after the face (the face is not waited on a 1.9.0 server) (no expect: a 1.9.0 server has none), and a picture v48_os_shot. Expect the client CLIENT_ACTION side=CLIENT step=attack target=entity entityUuid alive=true health=20.00, the 1.9.0 server CLIENT_ACTION action=reported step=attack without alive and health; the client SCREENSHOT side=CLIENT action=saved for v48_os_shot and no picture report sent (no server error, the connection kept); BUNDLE_END failed=0 and V48_OS_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "kill @e[tag=v48osz]",
+      "tp @s 2.5 101 0.5 0 0",
+      {
+        "command": "summon minecraft:zombie 2.5 101 3.5 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Tags:[\"v48_fx\",\"v48osz\"],ArmorItems:[{},{},{},{id:\"minecraft:leather_helmet\",Count:1b,tag:{Unbreakable:1b}}]}",
+        "delayTicks": 2
+      },
+      {
+        "command": "devtool client face @e[tag=v48osz,c=1]",
+        "delayTicks": 21
+      },
+      {
+        "command": "devtool client attack",
+        "delayTicks": 15
+      },
+      {
+        "command": "devtool screenshot v48_os_shot 5",
+        "delayTicks": 10
+      },
+      {
+        "command": "kill @e[tag=v48osz]",
+        "delayTicks": 40
+      },
+      "devtool mark V48_OS_END"
+    ]
+  },
+  "v48_bb_ring": {
+    "description": "REQ-273 c1 and c2, set half, with Quality Tools on official Baubles 1.5.2 or Bubbles 2.4.10, after v48_scene. baubles clear all, baubles set 1 qualitytools:emerald_ring 1 0, inspect inventory, and inspect attributes 20 ticks later. Expect BAUBLES action=set slot=1 slotType=ring item=qualitytools:emerald_ring outcome=set; INVENTORY_INSPECT section=baubles area=baubles slot=1 slotType=ring item=qualitytools:emerald_ring; an ATTRIBUTE_MODIFIER with name qualitytools on the player; no [DevToolkit][ERROR] record, no devtool.baubles.unsupported and no NoSuchMethodError in the console; BUNDLE_END failed=0; V48_BB_RING_SET.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool baubles clear all",
+      "devtool baubles set 1 qualitytools:emerald_ring 1 0",
+      "devtool inspect inventory",
+      {
+        "command": "devtool inspect attributes",
+        "delayTicks": 20
+      },
+      "devtool mark V48_BB_RING_SET"
+    ]
+  },
+  "v48_bb_caps": {
+    "description": "REQ-281 capability path and a quoted path through a bundle, with the ring of v48_bb_ring in bauble slot 1 and nothing else in the bauble slots: nbt entity @s path=ForgeCaps.\"baubles:container\".Items[0].id and .Slot. On official Baubles 1.5.2 expect NBT_VALUE found=true type=string value=qualitytools:emerald_ring and type=int value=1 (Baubles saves its container as an item handler, only occupied slots). On Bubbles the layout is read as a diagnostic only. Expect BUNDLE_END failed=0 and V48_BB_CAPS.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool nbt entity @s path=ForgeCaps.\"baubles:container\".Items[0].id",
+      "devtool nbt entity @s path=ForgeCaps.\"baubles:container\".Items[0].Slot",
+      "devtool mark V48_BB_CAPS"
+    ]
+  },
+  "v48_bb_ring_clear": {
+    "description": "REQ-273 c1 and c2, clear half: baubles clear 1, inspect inventory, inspect attributes 20 ticks later. Expect BAUBLES action=clear slots=1 cleared=1 outcome=cleared; no INVENTORY_INSPECT record with section=baubles; no ATTRIBUTE_MODIFIER named qualitytools; BUNDLE_END failed=0; V48_BB_RING_CLEARED.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool baubles clear 1",
+      "devtool inspect inventory",
+      {
+        "command": "devtool inspect attributes",
+        "delayTicks": 20
+      },
+      "devtool mark V48_BB_RING_CLEARED"
+    ]
+  },
+  "v48_bb_amulet": {
+    "description": "REQ-273 equip-call adapter, with Ancient Spellcraft 1.8.3 on the runtime: its Amulet of Celerity adds the modifier c8b6c8a8-4a4a-4b8b-8b8b-8b8b8b8b8b8b (Amulet of Celerity Speed, amount 0.1, operation 1) to generic.movementSpeed in onEquipped only (server side; onWornTick is empty) and removes it in onUnequipped. Each assert runs in the same tick as the bauble command, so the modifier comes from the toolkit equip call, not from a tick handler. Expect BAUBLES set slot=0 slotType=amulet outcome=set and ASSERT outcome=pass amount 0.10; the same set again (an equal stack: BAUBLES replaced=ancientspellcraft:amulet_celerity, no equip call) and ASSERT pass; baubles clear 0 and ASSERT outcome=fail (TOLERATED declared devtool.assert.failed; the modifier gone); BUNDLE_END failed=0 tolerated=1; V48_BB_AMULET.",
+    "stopOnFailure": true,
+    "result": true,
+    "commands": [
+      "devtool baubles set 0 ancientspellcraft:amulet_celerity 1 0",
+      "devtool assert attribute @s generic.movementSpeed modifier c8b6c8a8-4a4a-4b8b-8b8b-8b8b8b8b8b8b amount 0.1",
+      "devtool baubles set 0 ancientspellcraft:amulet_celerity 1 0",
+      "devtool assert attribute @s generic.movementSpeed modifier c8b6c8a8-4a4a-4b8b-8b8b-8b8b8b8b8b8b amount 0.1",
+      "devtool baubles clear 0",
+      {
+        "command": "devtool assert attribute @s generic.movementSpeed modifier c8b6c8a8-4a4a-4b8b-8b8b-8b8b8b8b8b8b",
+        "toleratedFailures": [
+          "devtool.assert.failed"
+        ]
+      },
+      "devtool inspect attributes",
+      "devtool mark V48_BB_AMULET"
+    ]
+  },
+  "v48_gn_chat": {
+    "description": "REQ-279 c3 on the isolated Cleanroom runtime with Gnetum 1.4.3 and Universal Tweaks 1.21.0 (which carries its own chat-screen and chat-line code), started with client.hideChatHistory=true (written into the runtime devtool.cfg after prepare: CLIENT_OPTION option=hideChatHistory value=true by=config at game start) and the toggle key bound to K in options.txt. Ten chat lines (v48 gn 01 to 10, each a [CHAT] line in the console), a picture v48_gn_hidden without hide (expect no chat line; a drawn line is the Gnetum or Universal Tweaks limit to record), the chat screen opened by the chat key (SCREEN_INFO names the open screen: com.mahghuuuls.agenttesttoolkit.client.HistoryHiddenChat unless another mod replaced the plain chat screen first, which is then a finding) and pictured v48_gn_chat without hide (expect the empty input box only), closed, then the toggle key pressed once (CLIENT_OPTION value=false by=key) and the control picture v48_gn_shown (hide=toasts; expect the latest chat lines bottom left, the v48 gn lines among them, under the two Saved screenshot lines the earlier pictures printed). All three pictures fall within about 80 ticks of the lines, inside the 200 ticks a line stays drawn in play. Expect BUNDLE_END failed=0 and V48_GN_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 38.5 101 34.5 0 0",
+      "tellraw @s {\"text\":\"v48 gn 01\"}",
+      "tellraw @s {\"text\":\"v48 gn 02\"}",
+      "tellraw @s {\"text\":\"v48 gn 03\"}",
+      "tellraw @s {\"text\":\"v48 gn 04\"}",
+      "tellraw @s {\"text\":\"v48 gn 05\"}",
+      "tellraw @s {\"text\":\"v48 gn 06\"}",
+      "tellraw @s {\"text\":\"v48 gn 07\"}",
+      "tellraw @s {\"text\":\"v48 gn 08\"}",
+      "tellraw @s {\"text\":\"v48 gn 09\"}",
+      "tellraw @s {\"text\":\"v48 gn 10\"}",
+      {
+        "command": "devtool screenshot v48_gn_hidden 5",
+        "delayTicks": 5
+      },
+      "devtool await screenshot v48_gn_hidden",
+      "devtool client key key.chat press wait=done",
+      {
+        "command": "devtool client screen wait=done",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool screenshot v48_gn_chat 5",
+        "delayTicks": 2
+      },
+      "devtool await screenshot v48_gn_chat",
+      "devtool client close",
+      {
+        "command": "devtool client key key.agenttesttoolkit.toggleChatHistory press wait=done",
+        "delayTicks": 10
+      },
+      {
+        "command": "devtool screenshot v48_gn_shown 5 hide=toasts",
+        "delayTicks": 2
+      },
+      "devtool await screenshot v48_gn_shown",
+      {
+        "command": "devtool mark V48_GN_END",
+        "delayTicks": 5
+      }
+    ]
+  },
+  "v48_t2_hidden_lines": {
+    "description": "REQ-279 c1 on the development client with client.hideChatHistory=true (CLIENT_OPTION value=true by=config at game start). Ten chat lines (v48 hidden 01 to 10; each also in latest.log as a [CHAT] line), a picture v48_t2_hidden without hide (expect no chat line at all), the chat screen opened by the command key (SCREEN_INFO screen=com.mahghuuuls.agenttesttoolkit.client.HistoryHiddenChat) and pictured v48_t2_chat_cmd without hide (expect only the input box holding the slash, no history line), then closed. Expect BUNDLE_END failed=0 and V48_T2_HIDDEN_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 38.5 101 34.5 0 0",
+      "tellraw @s {\"text\":\"v48 hidden 01\"}",
+      "tellraw @s {\"text\":\"v48 hidden 02\"}",
+      "tellraw @s {\"text\":\"v48 hidden 03\"}",
+      "tellraw @s {\"text\":\"v48 hidden 04\"}",
+      "tellraw @s {\"text\":\"v48 hidden 05\"}",
+      "tellraw @s {\"text\":\"v48 hidden 06\"}",
+      "tellraw @s {\"text\":\"v48 hidden 07\"}",
+      "tellraw @s {\"text\":\"v48 hidden 08\"}",
+      "tellraw @s {\"text\":\"v48 hidden 09\"}",
+      "tellraw @s {\"text\":\"v48 hidden 10\"}",
+      {
+        "command": "devtool screenshot v48_t2_hidden 5",
+        "delayTicks": 5
+      },
+      "devtool await screenshot v48_t2_hidden",
+      "devtool client key key.command press wait=done",
+      {
+        "command": "devtool client screen wait=done",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool screenshot v48_t2_chat_cmd 5",
+        "delayTicks": 2
+      },
+      "devtool await screenshot v48_t2_chat_cmd",
+      "devtool client close",
+      {
+        "command": "devtool mark V48_T2_HIDDEN_END",
+        "delayTicks": 10
+      }
+    ]
+  },
+  "v48_t2_panel_fail": {
+    "description": "REQ-279 c4: a quiet run (started through the inbox) failing while the history is hidden, stopOnFailure false so the picture follows. testfor @e[tag=nothing_here] fails (commands.generic.selector.notFound; also REQ-274), its red line [DevToolkit] Bundle 'v48_t2_panel_fail' command 0 failed: commands.generic.selector.notFound goes to the chat (hidden; in latest.log) and, as a notice, to the prompt panel for 10 seconds; picture v48_t2_panel_fail 20 ticks later (expect that red line in the panel on the right, no chat line bottom left). Expect inbox answer failed bundleFailed executed=4 failed=1 stoppedEarly=false and V48_T2_PANEL_END.",
+    "stopOnFailure": false,
+    "commands": [
+      "testfor @e[tag=nothing_here]",
+      {
+        "command": "devtool screenshot v48_t2_panel_fail 0",
+        "delayTicks": 20
+      },
+      "devtool await screenshot v48_t2_panel_fail",
+      "devtool mark V48_T2_PANEL_END"
+    ]
+  },
+  "v48_t2_key_shows": {
+    "description": "REQ-279 c2 with the toggle key bound to K in options.txt (key_key.agenttesttoolkit.toggleChatHistory:37) and the history hidden: client keys key.agenttesttoolkit (KEY_BINDING binding=key.agenttesttoolkit.toggleChatHistory category=key.categories.agenttesttoolkit keyCode=37), ten chat lines received while hidden (v48 shown 01 to 10), the key pressed once through the keyboard queue (client record route=queue keyCode=37 done; CLIENT_OPTION value=false by=key), picture v48_t2_shown (hide=toasts, so no Saved screenshot line: expect the ten lines bottom left), the key pressed again (CLIENT_OPTION value=true by=key) and picture v48_t2_rehidden (expect no chat line). Expect BUNDLE_END failed=0 and V48_T2_KEY_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool client keys key.agenttesttoolkit",
+      "tellraw @s {\"text\":\"v48 shown 01\"}",
+      "tellraw @s {\"text\":\"v48 shown 02\"}",
+      "tellraw @s {\"text\":\"v48 shown 03\"}",
+      "tellraw @s {\"text\":\"v48 shown 04\"}",
+      "tellraw @s {\"text\":\"v48 shown 05\"}",
+      "tellraw @s {\"text\":\"v48 shown 06\"}",
+      "tellraw @s {\"text\":\"v48 shown 07\"}",
+      "tellraw @s {\"text\":\"v48 shown 08\"}",
+      "tellraw @s {\"text\":\"v48 shown 09\"}",
+      "tellraw @s {\"text\":\"v48 shown 10\"}",
+      {
+        "command": "devtool client key key.agenttesttoolkit.toggleChatHistory press route=queue wait=done",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool screenshot v48_t2_shown 5 hide=toasts",
+        "delayTicks": 2
+      },
+      "devtool await screenshot v48_t2_shown",
+      "devtool client key key.agenttesttoolkit.toggleChatHistory press route=queue wait=done",
+      {
+        "command": "devtool screenshot v48_t2_rehidden 5 hide=toasts",
+        "delayTicks": 2
+      },
+      "devtool await screenshot v48_t2_rehidden",
+      "devtool mark V48_T2_KEY_END"
+    ]
+  },
+  "v48_sw_chat_refusal": {
+    "description": "REQ-275 c1 (Stealthworks case 1). The chat screen opened by client key key.chat press (waited; client screen then names the open chat screen), then client key key.sneak hold 215 wait=started: the client refuses (result=refused reason=screenOpen) and the step fails devtool.client.actionFailed with reason=screenOpen in its detail (AWAIT condition=client outcome=failed); stopOnFailure stops the bundle, so client key key.forward hold 60 never runs (no CLIENT_ACTION action=requested for key.forward) and no V48_SW1_NOT_REACHED. Expect BUNDLE_END executed=4 failed=1 total=6 stoppedEarly=true and the inbox answer failed bundleFailed firstFailure=devtool.client.actionFailed. Close the chat afterwards with a client close request.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 38.5 101 34.5 0 0",
+      {
+        "command": "devtool client key key.chat press wait=done",
+        "delayTicks": 5
+      },
+      {
+        "command": "devtool client screen wait=done",
+        "delayTicks": 5
+      },
+      "devtool client key key.sneak hold 215 wait=started",
+      "devtool client key key.forward hold 60",
+      "devtool mark V48_SW1_NOT_REACHED"
+    ]
+  },
+  "v48_sw_two_holds": {
+    "description": "REQ-275 c3 (Stealthworks case 3), no screen open. client key key.sneak hold 100 keepHold=true, client key key.forward hold 60 keepHold=true wait=done, client await key.sneak. Expect the forward step AWAIT condition=client outcome=satisfied mode=done result=done released=done heldTicks=60, then AWAIT condition=client input=key.sneak outcome=satisfied released=done heldTicks=100; the sneak hold client record done heldTicks=100 released=done (not nextAction); BUNDLE_END failed=0; V48_SW3_END.",
+    "stopOnFailure": true,
+    "commands": [
+      "tp @s 38.5 101 34.5 0 0",
+      {
+        "command": "devtool client key key.sneak hold 100 keepHold=true",
+        "delayTicks": 21
+      },
+      "devtool client key key.forward hold 60 keepHold=true wait=done waitTicks=200",
+      "devtool client await key.sneak 200",
+      "devtool mark V48_SW3_END"
+    ]
+  },
+  "v48_sw_focus": {
+    "description": "REQ-275 c2 (Stealthworks case 2). client key key.sneak hold 215 wait=done waitTicks=300; the card sends a separate inbox request client focus lost a few ticks after the hold started (the bundle is waiting then). Expect the hold started, then released=focusLost with heldTicks below 215; the step fails devtool.client.releasedEarly (AWAIT condition=client outcome=failed released=focusLost heldTicks=<n>); no V48_SW2_NOT_REACHED; inbox answer failed bundleFailed firstFailure=devtool.client.releasedEarly.",
+    "stopOnFailure": true,
+    "commands": [
+      "devtool client key key.sneak hold 215 wait=done waitTicks=300",
+      "devtool mark V48_SW2_NOT_REACHED"
+    ]
+  }
+}
