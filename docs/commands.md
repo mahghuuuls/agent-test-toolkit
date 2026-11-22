@@ -327,6 +327,7 @@ In a bundle, a client step can pause the bundle until its client reports, and fa
 | `client await <use\|attack\|binding> [waitTicks]` | Waits for the latest hold of that input started in this bundle to end, as `wait=done` |
 
 - Outside a bundle these, and `await screenshot`, are refused with `devtool.client.waitOutsideBundle`, before anything is sent. A step without them behaves as in 1.9.0.
+- `wait=done` means the client reported the action done, not that the server already sees its effect: after `client select 1 wait=done`, the new held slot reaches the server in the following ticks, so a server read in the same tick (`nbt held`, `inspect inventory`) can still see the old item; give it `delayTicks` of a few ticks.
 - `CLIENT_ACTION action=requested` carries `wait` and `waitTicks`, and with `expect` the resolved `expectUuid` and `expectType`. The client's records of an entity target add `alive` and, for a living one, `health` (two decimals).
 - The wait ends with `AWAIT condition=client` with `step`, `requestTick`, `mode`, `input` (for `client await`), `result`, `released`, `heldTicks`, and with `expect` `expectUuid`, `entityUuid`, `alive`; a failure is `outcome=failed` with `key` and `detail`.
 

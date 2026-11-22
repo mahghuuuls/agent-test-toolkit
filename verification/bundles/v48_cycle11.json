@@ -310,7 +310,7 @@
       "tp @s 38.5 101 34.5 0 0",
       "replaceitem entity @s slot.hotbar.1 minecraft:diamond_sword 1 5 {ench:[{id:16s,lvl:5s}]}",
       "devtool client select 1 wait=done",
-      "devtool nbt held path=Damage",
+      { "command": "devtool nbt held path=Damage", "delayTicks": 5 },
       "devtool nbt held path=tag.ench[0].lvl",
       "devtool nbt held path=\"tag\".\"ench\"[0].\"lvl\"",
       "devtool assert nbt held Damage 5",
@@ -352,7 +352,7 @@
       "devtool nbt block 41 100 40 path=id",
       "replaceitem entity @s slot.hotbar.8 minecraft:air",
       "devtool client select 8 wait=done",
-      "devtool nbt held path=id",
+      { "command": "devtool nbt held path=id", "delayTicks": 5 },
       {
         "command": "devtool nbt block 20000 64 20000 path=id",
         "toleratedFailures": [
