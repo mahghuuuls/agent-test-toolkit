@@ -193,6 +193,11 @@ public enum EventType {
     BLOCK_SEARCH,
     INVENTORY_INSPECT,
     NBT,
+    /**
+     * {@code nbt ... path=}: one value read by path, with the lookup fields of {@code NBT},
+     * {@code path}, {@code found}, and {@code type} and {@code value} or {@code missingAt}. From 1.10.0.
+     */
+    NBT_VALUE,
     ENTITY_LIST,
 
     ENVIRONMENT,
@@ -207,6 +212,18 @@ public enum EventType {
      * reader of a log file cannot see it.
      */
     LOG_CONFIG,
+
+    /**
+     * The toolkit's own note that a category's filter is admitting nothing for now, though nobody
+     * changed it: {@code filter=paused reason=playerGone} when the player a following radius
+     * filter follows is not online. From 1.10.0.
+     *
+     * <p>Not a near-synonym of {@code LOG_CONFIG}: that record is a change someone made to what is
+     * logged (a command enabled, disabled or narrowed a category), and the enabled set and filters
+     * it states stay true. This one changes no setting; it explains why a category that is on and
+     * unchanged records nothing for a while.
+     */
+    LOGGING,
 
     STARTUP,
     ERROR

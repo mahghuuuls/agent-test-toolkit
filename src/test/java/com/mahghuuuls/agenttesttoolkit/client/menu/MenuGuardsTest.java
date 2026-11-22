@@ -168,4 +168,19 @@ class MenuGuardsTest {
         assertNull(MenuChannel.splitHostPort("host:"));
         assertNull(MenuChannel.splitHostPort("[::1"));
     }
+
+    @Test
+    @DisplayName("a failed connect names the Disconnected screen's title and message and the wait, leaving out what was unreadable")
+    void disconnectFields() {
+        java.util.Map<String, String> both = MenuChannel.disconnectFields("Failed to connect to the server",
+                "Connection refused: no further information", 1234L);
+        assertEquals(Arrays.asList("disconnectTitle", "disconnectMessage", "waitedMs"),
+                new java.util.ArrayList<String>(both.keySet()));
+        assertEquals("Failed to connect to the server", both.get("disconnectTitle"));
+        assertEquals("Connection refused: no further information", both.get("disconnectMessage"));
+        assertEquals("1234", both.get("waitedMs"));
+        java.util.Map<String, String> unreadable = MenuChannel.disconnectFields(null, "", 50L);
+        assertEquals(Collections.singletonList("waitedMs"), new java.util.ArrayList<String>(unreadable.keySet()),
+                "an unreadable or empty text is left out, never a placeholder");
+    }
 }

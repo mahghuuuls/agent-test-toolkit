@@ -30,12 +30,14 @@ import net.minecraft.world.storage.WorldSummary;
 import net.minecraftforge.client.event.GuiOpenEvent;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.client.FMLClientHandler;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
@@ -74,6 +76,13 @@ public final class MenuChannel {
     /** A step not finished by its deadline. */
     static final String REASON_TIMEOUT = "timeout";
     private static final Charset UTF8 = Charset.forName("UTF-8");
+    /** The Disconnected screen's title, in the obfuscated game; the helper maps it in a development game. */
+    private static final String DISCONNECT_TITLE = "field_146306_a";
+    /** The Disconnected screen's message, likewise. */
+    private static final String DISCONNECT_MESSAGE = "field_146304_f";
+    private static Field disconnectTitle;
+    private static Field disconnectMessage;
+    private static boolean disconnectFieldsResolved;
 
     private final ClientActionExecutor actions;
     private final ScreenshotTaker screenshots;
@@ -621,7 +630,9 @@ public final class MenuChannel {
         }
         boolean worldLoading = s.folder != null && mc.getIntegratedServer() != null;
         if (mc.currentScreen instanceof GuiDisconnected) {
-            finish(s, "failed", s.folder == null ? "connectFailed" : "loadFailed", null);
+            GuiDisconnected screen = (GuiDisconnected) mc.currentScreen;
+            finish(s, "failed", s.folder == null ? "connectFailed" : "loadFailed",
+                    disconnectFields(readText(screen, true), readText(screen, false), elapsed));
         } else if (mc.world == null && isAtMenu(mc) && ++s.idleTicks >= LOAD_ABORT_TICKS) {
             // Back at a menu with nothing starting: the world never started, a Forge question
             // was answered with cancel, or the connection was cancelled.
@@ -630,6 +641,59 @@ public final class MenuChannel {
             // Said; a world or a connection still under way may yet finish, so the agent reads
             // the client's state before the next step.
             finish(s, "failed", REASON_TIMEOUT, null);
+        }
+    }
+
+    /**
+     * What the Disconnected screen said and how long the step waited for it, for the record and
+     * the result file: {@code disconnectTitle}, {@code disconnectMessage} and {@code waitedMs}.
+     * A text that could not be read, or is empty, is left out rather than guessed.
+     */
+    static Map<String, String> disconnectFields(String title, String message, long waitedMs) {
+        Map<String, String> fields = new LinkedHashMap<String, String>();
+        if (title != null && !title.isEmpty()) {
+            fields.put("disconnectTitle", title);
+        }
+        if (message != null && !message.isEmpty()) {
+            fields.put("disconnectMessage", message);
+        }
+        fields.put("waitedMs", Long.toString(waitedMs));
+        return fields;
+    }
+
+    /**
+     * The Disconnected screen's title or message as shown, without colour codes; null when this
+     * game's screen does not have the field or it cannot be read. The screen keeps both private
+     * and offers no getter, so they are read by name, once looked up.
+     */
+    private static String readText(GuiDisconnected screen, boolean title) {
+        synchronized (MenuChannel.class) {
+            if (!disconnectFieldsResolved) {
+                disconnectFieldsResolved = true;
+                disconnectTitle = findField(DISCONNECT_TITLE);
+                disconnectMessage = findField(DISCONNECT_MESSAGE);
+            }
+        }
+        Field field = title ? disconnectTitle : disconnectMessage;
+        if (field == null) {
+            return null;
+        }
+        try {
+            Object value = field.get(screen);
+            if (value instanceof net.minecraft.util.text.ITextComponent) {
+                return ((net.minecraft.util.text.ITextComponent) value).getUnformattedText();
+            }
+            return value instanceof String ? (String) value : null;
+        } catch (IllegalAccessException | RuntimeException unreadable) {
+            return null;
+        }
+    }
+
+    private static Field findField(String name) {
+        try {
+            return ObfuscationReflectionHelper.findField(GuiDisconnected.class, name);
+        } catch (RuntimeException notFound) {
+            return null;
         }
     }
 

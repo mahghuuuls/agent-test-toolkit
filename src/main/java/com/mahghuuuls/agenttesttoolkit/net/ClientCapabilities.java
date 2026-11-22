@@ -244,10 +244,15 @@ public final class ClientCapabilities {
                 || com.mahghuuuls.agenttesttoolkit.inbox.ScreenOptions.isStep(step);
     }
 
-    /** The leave happened; an outstanding reconnect now waits for the return. */
+    /**
+     * The leave happened; an outstanding reconnect now waits for the return. A respawn, close or
+     * quit asked before the leave is forgotten: only the connection it was sent on could answer
+     * it, so a later answer with the same step and request tick belongs to another request.
+     */
     static void loggedOut(UUID player) {
         LEAVING.remove(player);
         RECONNECT_RETURNED.remove(player);
+        OUTSTANDING.remove(player);
     }
 
     /** Back after a leave: an outstanding reconnect's report should follow at once. */
@@ -267,9 +272,31 @@ public final class ClientCapabilities {
     }
 
     static void hello(EntityPlayerMP player, String version, boolean allowActions) {
-        CONNECTION.put(player.getUniqueID(), Integer.valueOf(CONNECTIONS.incrementAndGet()));
+        connected(player.getUniqueID());
         VERSION.put(player.getUniqueID(), version);
         ALLOW.put(player.getUniqueID(), Boolean.valueOf(allowActions));
+    }
+
+    /**
+     * Adds {@code playerUuid} and {@code connection} to a {@code CLIENT_ACTION} record, so the
+     * requests and reports of two clients, or of one client before and after a rejoin, are told
+     * apart by more than a name. {@code connection} is left out before this player's first hello.
+     */
+    public static void addIdentity(LogRecord record, EntityPlayerMP player) {
+        addIdentity(record, player.getUniqueID());
+    }
+
+    static void addIdentity(LogRecord record, UUID player) {
+        record.add("playerUuid", player.toString());
+        Integer connection = CONNECTION.get(player);
+        if (connection != null) {
+            record.add("connection", connection.intValue());
+        }
+    }
+
+    /** Numbers a new connection of this player, at its hello. */
+    static void connected(UUID player) {
+        CONNECTION.put(player, Integer.valueOf(CONNECTIONS.incrementAndGet()));
     }
 
     static void report(EntityPlayerMP player, ClientActionReport report) {
@@ -280,6 +307,7 @@ public final class ClientCapabilities {
         SessionStamp.apply(record);
         record.add("action", "reported");
         record.add("player", player.getName());
+        addIdentity(record, player);
         record.add("step", report.getStep());
         record.add("result", report.getResult());
         record.add("reason", report.getReason());

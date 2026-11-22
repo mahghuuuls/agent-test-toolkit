@@ -25,7 +25,8 @@ An unknown subcommand fails and, in the chat reply, names the closest real one w
 | --- | --- |
 | `devtool log <category> on` | Enable a category |
 | `devtool log <category> on arena` | Enable, restricted to this dimension's arena |
-| `devtool log <category> on radius <n>` | Enable, restricted to within n blocks of where you stand |
+| `devtool log <category> on radius <n>` | Enable, restricted to within n blocks of where you stand now. The centre stays there when you move |
+| `devtool log <category> on radius <n> follow` | From 1.10.0: within n blocks of you wherever you are at each event, in your current dimension. Status names it `radius=<n> follow player=<name>`; while you are offline nothing is recorded, and the first event that finds you gone writes one `LOGGING filter=paused reason=playerGone` record; it is written again only after an event of the category has found you back |
 | `devtool log <category> off` | Disable a category |
 | `devtool log all off` | Disable everything and clear all filters |
 | `devtool log status` | Every enabled category and its filter |
@@ -65,6 +66,7 @@ A session belongs to one world save. Leaving to the title screen and reopening t
 | `devtool assert entity <selector\|uuid> health <n>` | From 1.10.0: the current health of exactly one loaded living entity, at two decimals (`predicate=entity.health`). A dying one is compared with `dead=true`; none, several or a non-living one is refused as `assert attribute` refuses it; a fixture's UUID whose last place is not loaded is `unloaded` |
 | `devtool assert player <name> dimension <d>`, `gamemode <mode>` and `health <n>` | Where a player is, how they play, and from 1.8.0 their current health, compared at two decimals: after 3.5 damage from 20, `health 16.5` passes and `health 20` fails |
 | `devtool assert attribute <target> <attribute> value <n>` | An attribute's final value, compared at two decimals. `<target>` is a selector or UUID matching exactly one living entity; `<attribute>` is the registry name, such as `generic.armor` |
+| `devtool assert nbt entity <selector\|uuid\|entityId> <path> <value>`, `assert nbt block <x> <y> <z> <path> <value>`, `assert nbt held <path> <value>` | From 1.10.0: one NBT value by path (see [One NBT value by path](#one-nbt-value-by-path)) against the declared value: at two decimals when the tag is a number and the value reads as one (`Health 20` matches a stored `20.0`), otherwise as exact text. The path ends at the first space outside quotes and the rest of the line is the value. A mismatch, or a path that finds nothing (`observed=missing`), fails with `devtool.assert.failed`; an unloaded block or fixture is `unloaded` |
 | `devtool assert attribute <target> <attribute> modifier <uuid\|name> [amount <n>]` | Whether the attribute has that modifier, and with `amount` its amount. A name may hold spaces: every word up to `amount` is the name. A name that matches several modifiers fails with `devtool.assert.ambiguous` rather than choosing one. Vanilla gives all four armour pieces the name `Armor modifier`, so assert those by UUID. A target that matches nothing, several entities, or a non-living entity fails before any comparison and writes no `ASSERT` record |
 | `devtool fixture claim <handle> <selector\|uuid\|entityId>` | Mark exactly one non-player entity as this session's fixture under a handle, by adding the tag `devtool.fx.<session>.<handle>`. A handle is letters, digits, `_` and `-`, with no dot; in the tag, every other character of the session name, a `.` or a space included, becomes `_`. Claiming, under a handle the session does not hold yet, an entity that already carries this session's tag for that handle adopts it (`adopted=true`), as after a `session stop`. Refused: a handle the session already holds, even for the same entity (so after a `fixture list` has refilled the handles, a `claim` of the same fixture fails), a handle another entity holds, an entity that is already this session's fixture under another handle, and a handle whose cached fixture is unloaded while a loaded entity carries the tag. The refusals name the other side and have no key. From then on `${fixture.<handle>.uuid}` names it |
 | `devtool fixture list` | Each fixture of the session as `loaded`, `unloaded`, `absent`, `removing` (dying or being removed), `untagged` (found, but its tag is gone) or `duplicate` (two living entities carry the tag, listed as `carriers`), judged at its last known place. A server never unloads its spawn chunks, so a fixture standing there is always `loaded` |
@@ -130,7 +132,8 @@ Arena commands place blocks without emptying containers first. A loot chest insi
 | `devtool entities nearby <radius>` | Every entity within the radius, one record each |
 | `devtool nbt entity <selector|uuid|entityId>` | Raw NBT for an entity. A UUID or an entity ID finds a loaded entity in any dimension without the selector engine; the record says which dimension, and a miss writes an `ERROR` with the `dimensionIds` that were searched, so an entity left in a dimension that has since unloaded reads as exactly that. When a selector matches nothing, the `ERROR` record carries `selectorPermission`, `dimensionCount`, `dimensionIds`, `senderDimension` and `liveEntities` |
 | `devtool nbt block <x> <y> <z>` | Raw NBT for a tile entity |
-| `devtool nbt held` | Raw NBT for the held item |
+| `devtool nbt held` | Raw NBT for the held item: the stack's `tag` only. From 1.10.0 raw `nbt` refuses any word after its target other than `path=...`, inbox requests included; 1.9.0 ignored them |
+| `devtool nbt entity <target> path=<path>`, `nbt block <x> <y> <z> path=<path>`, `nbt held path=<path>` | From 1.10.0: one value by path, as an `NBT_VALUE` record. See [One NBT value by path](#one-nbt-value-by-path) |
 
 A selector matching more than one entity is an error, not an invitation to pick one. Name your fixtures and select on the name.
 
@@ -176,6 +179,24 @@ One useful consequence: a container whose loot table has not yet rolled writes a
 `inspect container` gives the same answer without rolling the loot. Reading any slot of such a container would make vanilla fill it, so the slots are not read. The command writes one record with `lootRolled=false` and `lootTable=<id>`, and no `occupiedSlots`, so it never reads as an empty container. A container with no pending loot table is reported as before.
 
 NBT output is truncated at `maxNbtOutputLength`, and truncation is always reported with the original length, so a large container may need that limit raised.
+
+### One NBT value by path
+
+From 1.10.0, `path=<path>` after any `nbt` target writes one value instead of the whole compound, as an `NBT_VALUE` record with `path`, `found`, and `type` and `value`, or `missingAt` (the steps up to the first that found nothing). A path is keys separated by dots and list indexes in brackets, counted from 0. An index counts saved entries, not slots: vanilla saves only occupied slots, so `Items[0]` is the first saved item and `Items[0].Slot` says which slot it is in:
+
+```
+devtool nbt held path=Damage
+devtool nbt held path=tag.ench[0].lvl
+devtool nbt block 10 64 -3 path=Items[0].id
+devtool nbt entity @p path=ForgeCaps."jawms:player_mana".currentMana
+devtool assert nbt held Damage 5
+```
+
+A key with a dot, a bracket, a double quote or a space goes in double quotes, with `\"` and `\\` inside them for a quote and a backslash. A colon needs no quotes, so `ForgeCaps.jawms:player_mana.currentMana` is the same path as the last one. Forge saves capabilities under `ForgeCaps.<capability id>` for entities, block entities and item stacks, so a mod's capability value can be read when the mod saves it there.
+
+For the held item a path reads the whole saved stack: `id`, `Count`, `Damage`, `tag` and `ForgeCaps`. Plain `nbt held` still writes only `tag`.
+
+`value` is a number as the game stores it, without NBT's type letter (damage 5 is `5`, a health of 20 is `20.0`, a true/false flag saved as a byte `1` or `0`; `assert nbt ... Damage 5s` compares as text and fails), a string's text without quotes, or, for a compound, a list or an array, its NBT text cut to `maxNbtOutputLength` with `truncated`. `type` is `byte`, `short`, `int`, `long`, `float`, `double`, `string`, `list`, `compound`, `byteArray`, `intArray` or `longArray`.
 
 ### Finding a block
 
@@ -236,7 +257,7 @@ The client refuses what only it can know. The command itself has already succeed
 | `reconnect` | `noWorld`, `realms`, `openToLan` (stopping a world open to LAN would throw every other player out), `noServerData`. `busy` while a close or respawn is still pending |
 | `quit` | `noWorld`. `busy` while a reconnect, close or respawn is still pending. A world open to LAN is not refused: the game closes, and every other player is thrown out with it |
 
-The server writes `CLIENT_ACTION action=requested` before sending. The client writes `CLIENT_ACTION side=CLIENT` with `step`, `result` (`done`, `refused`, `failed`, or `left` for a reconnect or a quit leaving), `reason`, `screen` and `showing`, and sends the same as a report, which the server writes as `CLIENT_ACTION action=reported`, together with `player`, `step` and `requestTick`. A report nobody asked for is dropped without a record. See [logging.md](logging.md).
+The server writes `CLIENT_ACTION action=requested` before sending. The client writes `CLIENT_ACTION side=CLIENT` with `step`, `result` (`done`, `refused`, `failed`, or `left` for a reconnect or a quit leaving), `reason`, `screen` and `showing`, and sends the same as a report, which the server writes as `CLIENT_ACTION action=reported`, together with `player`, `step` and `requestTick`. From 1.10.0 both server records also carry `playerUuid` and `connection`, the number of that client's connection, so a rejoin shows a new number. A logout forgets a close, respawn or quit its client had not answered, so no answer is taken from an earlier connection. A report nobody asked for is dropped without a record. See [logging.md](logging.md).
 
 **Put `client reconnect` and `client quit` last in a bundle.** The client leaves about a second after the request, and the bundle's later steps are lost with it: on a dedicated server they end with `senderLost`, and in single player the run is discarded when the integrated server stops. Do the work after the return in a second bundle or request.
 
@@ -522,7 +543,7 @@ Refusal reasons: `verbNotAllowed` (not one of the steps), `badArguments`, `malfo
 
 A step that started is `done` once you are in the expected world: the save of that folder, or the server it connected to. Otherwise it is `failed` with one of:
 
-- `connectFailed` or `loadFailed`: the "Disconnected" screen appeared.
+- `connectFailed` or `loadFailed`: the "Disconnected" screen appeared. From 1.10.0 the record and the result file carry the screen's `disconnectTitle` and `disconnectMessage` (each left out when it cannot be read) and `waitedMs`, how long the step waited.
 - `connectAborted` or `loadAborted`: back at a menu for 40 ticks with nothing starting. The connection was cancelled, the world never started, or a Forge startup question was answered with cancel.
 - `joinedElsewhere`: a different world was joined.
 - `question` (from 1.9.0): an `open` met a question under `onQuestion=report`, with `question` and `text`.

@@ -219,6 +219,29 @@ class DocumentationCoverageTest {
     }
 
     @Test
+    @DisplayName("NBT paths, the following radius filter, the connect failure's text and the client identity fields are documented")
+    void valuesFollowAndIdentityDocumented() throws IOException {
+        String agents = read(new File("AGENTS.md"));
+        String commands = read(new File("docs/commands.md"));
+        String logging = read(new File("docs/logging.md"));
+        for (String needed : new String[] {"path=<path>", "`NBT_VALUE`", "ForgeCaps.\"jawms:player_mana\".currentMana",
+                "`missingAt`", "assert nbt held <path> <value>", "`comparedAs`", "radius <n> follow",
+                "radius=<n> follow player=<name>", "LOGGING filter=paused reason=playerGone", "`disconnectTitle`",
+                "`disconnectMessage`", "`waitedMs`", "`playerUuid`", "`connection`"}) {
+            assertTrue(agents.contains(needed), "AGENTS.md names " + needed);
+        }
+        for (String needed : new String[] {"path=<path>", "ForgeCaps.\"jawms:player_mana\".currentMana",
+                "assert nbt held Damage 5", "radius <n> follow", "The centre stays there when you move",
+                "`disconnectMessage`", "`waitedMs`", "`playerUuid`"}) {
+            assertTrue(commands.contains(needed), "docs/commands.md names " + needed);
+        }
+        for (String needed : new String[] {"`NBT_VALUE`", "`LOGGING`", "reason=playerGone", "radius 16 follow",
+                "`disconnectMessage`", "`playerUuid`"}) {
+            assertTrue(logging.contains(needed), "docs/logging.md names " + needed);
+        }
+    }
+
+    @Test
     @DisplayName("the chat history option, its key binding and its record are documented, and the key has its names")
     void chatHistoryDocumented() throws IOException {
         String agents = read(new File("AGENTS.md"));

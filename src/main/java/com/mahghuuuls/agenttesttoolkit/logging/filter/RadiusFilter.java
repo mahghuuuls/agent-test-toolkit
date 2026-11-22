@@ -6,7 +6,8 @@ package com.mahghuuuls.agenttesttoolkit.logging.filter;
  * <p>The radius is anchored to the player who applied the filter, captured once rather than
  * following them. Following the player would mean the filtered region moved during the test,
  * so an event could be recorded or not depending on where the operator happened to be standing
- * when it fired. A fixed anchor is reproducible; a moving one is not.
+ * when it fired. A fixed anchor is reproducible; a moving one is not. A test that needs the
+ * region to travel with the player asks for it by name, with {@link FollowRadiusFilter}.
  *
  * <p>The containment rule matches {@code inspect.RadiusFilter}: spherical, inclusive at the
  * boundary, compared as squared distances. The arithmetic is deliberately restated here rather

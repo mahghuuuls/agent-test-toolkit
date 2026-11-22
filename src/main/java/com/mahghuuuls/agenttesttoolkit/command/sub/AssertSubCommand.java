@@ -3,9 +3,12 @@ package com.mahghuuuls.agenttesttoolkit.command.sub;
 import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
+import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader;
 import com.mahghuuuls.agenttesttoolkit.inspect.Assertions;
 import com.mahghuuuls.agenttesttoolkit.inspect.Attributes;
 import com.mahghuuuls.agenttesttoolkit.inspect.EntityTarget;
+import com.mahghuuuls.agenttesttoolkit.inspect.NbtLookup;
+import com.mahghuuuls.agenttesttoolkit.inspect.NbtPath;
 import com.mahghuuuls.agenttesttoolkit.inspect.RadiusFilter;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
@@ -53,6 +56,9 @@ import java.util.UUID;
  * assert player &lt;name&gt; gamemode &lt;mode&gt;
  * assert attribute &lt;target&gt; &lt;attribute&gt; value &lt;n&gt;
  * assert attribute &lt;target&gt; &lt;attribute&gt; modifier &lt;uuid|name&gt; [amount &lt;n&gt;]
+ * assert nbt entity &lt;selector|uuid|entityId&gt; &lt;path&gt; &lt;value&gt;
+ * assert nbt block &lt;x&gt; &lt;y&gt; &lt;z&gt; &lt;path&gt; &lt;value&gt;
+ * assert nbt held &lt;path&gt; &lt;value&gt;
  * </pre>
  *
  * <p>An attribute target that matches nothing, several entities, or a non-living one fails
@@ -61,7 +67,7 @@ import java.util.UUID;
  */
 public final class AssertSubCommand implements SubCommand {
 
-    private static final List<String> SUBJECTS = Arrays.asList("entities", "entity", "player", "attribute");
+    private static final List<String> SUBJECTS = Arrays.asList("entities", "entity", "player", "attribute", "nbt");
     private static final double MAX_RADIUS = 256.0D;
 
     @Override
@@ -80,7 +86,8 @@ public final class AssertSubCommand implements SubCommand {
                 + " | entity <uuid> <present|absent [at <x> <y> <z>] | dimension <d> | within <r> of <x> <y> <z>>"
                 + " | entity <selector|uuid> health <n>"
                 + " | player <name> <dimension <d> | gamemode <mode> | health <n>>"
-                + " | attribute <target> <attribute> <value <n> | modifier <uuid|name> [amount <n>]>>";
+                + " | attribute <target> <attribute> <value <n> | modifier <uuid|name> [amount <n>]>"
+                + " | nbt <entity <target> | block <x> <y> <z> | held> <path> <value>>";
     }
 
     @Override
@@ -107,6 +114,8 @@ public final class AssertSubCommand implements SubCommand {
             result = player(server, args, record);
         } else if ("attribute".equals(subject)) {
             result = attribute(server, sender, args, record);
+        } else if ("nbt".equals(subject)) {
+            result = nbt(server, sender, args, record);
         } else {
             throw new WrongUsageException("/devtool " + getUsage());
         }
@@ -336,15 +345,10 @@ public final class AssertSubCommand implements SubCommand {
         record.add("predicate", "entity.health");
         if (EntityTarget.classify(args[1]) == EntityTarget.Form.UUID) {
             String uuid = UUID.fromString(args[1]).toString();
-            ToolkitState.FixturePlace last = ToolkitState.getFixturePlace(uuid);
-            boolean lastPlaceLoaded = false;
-            if (last != null) {
-                WorldServer world = net.minecraftforge.common.DimensionManager.getWorld(last.dimension);
-                lastPlaceLoaded = world != null && world.isBlockLoaded(new BlockPos(last.x, last.y, last.z));
-            }
+            int[] last = lastFixturePlace(uuid);
             Assertions.Result unloaded = unloadedHealth(expected, uuid,
-                    server.getEntityFromUuid(UUID.fromString(uuid)) != null,
-                    last == null ? null : new int[] {last.dimension, last.x, last.y, last.z}, lastPlaceLoaded, record);
+                    server.getEntityFromUuid(UUID.fromString(uuid)) != null, last,
+                    last != null && placeLoaded(last), record);
             if (unloaded != null) {
                 return unloaded;
             }
@@ -367,14 +371,116 @@ public final class AssertSubCommand implements SubCommand {
      */
     static Assertions.Result unloadedHealth(double expected, String uuid, boolean entityLoaded, int[] lastPlace,
                                             boolean lastPlaceLoaded, LogRecord record) {
+        return recordUnloaded(uuid, entityLoaded, lastPlace, lastPlaceLoaded, record)
+                ? Assertions.healthUnloaded(expected) : null;
+    }
+
+    /**
+     * True, with the place on the record, when a UUID names no loaded entity and the claimed
+     * fixture it names was last seen in a place that is not loaded now: the reading assertions
+     * answer {@code unloaded} then, since absence is never inferred from a place nobody can see.
+     */
+    static boolean recordUnloaded(String uuid, boolean entityLoaded, int[] lastPlace, boolean lastPlaceLoaded,
+                                  LogRecord record) {
         if (entityLoaded || lastPlace == null || lastPlaceLoaded) {
-            return null;
+            return false;
         }
         record.add("uuid", uuid);
         record.addBlockPos("at", lastPlace[1], lastPlace[2], lastPlace[3]);
         record.add("dimension", lastPlace[0]);
         record.add("regionLoaded", false);
-        return Assertions.healthUnloaded(expected);
+        return true;
+    }
+
+    /** The place a claimed fixture was last seen, as dimension, x, y, z; null when none is known. */
+    private static int[] lastFixturePlace(String uuid) {
+        ToolkitState.FixturePlace last = ToolkitState.getFixturePlace(uuid);
+        return last == null ? null : new int[] {last.dimension, last.x, last.y, last.z};
+    }
+
+    /** Whether a place, as dimension, x, y, z, is loaded now; never loads it. */
+    private static boolean placeLoaded(int[] place) {
+        WorldServer world = net.minecraftforge.common.DimensionManager.getWorld(place[0]);
+        return world != null && world.isBlockLoaded(new BlockPos(place[1], place[2], place[3]));
+    }
+
+    private static final String NBT_USAGE = "/devtool assert nbt <entity <selector|uuid|entityId> | block <x> <y> <z> | held>"
+            + " <path> <value>";
+
+    /**
+     * {@code nbt entity|block|held ... <path> <value>}: one NBT value, read as {@code nbt ... path=}
+     * reads it, against the declared value. The path ends at the first space outside double
+     * quotes; everything after that space is the value, spaces included. A block whose chunk is
+     * not loaded, and a fixture last seen in a place not loaded, are {@code unloaded}.
+     */
+    private Assertions.Result nbt(MinecraftServer server, ICommandSender sender, String[] args, LogRecord record)
+            throws CommandException {
+        String[] target = Arrays.copyOfRange(args, 1, args.length);
+        String kind = target[0].toLowerCase(Locale.ROOT);
+        int next = NbtTargets.words(kind);
+        if (next < 0 || target.length <= next) {
+            throw new WrongUsageException(NBT_USAGE);
+        }
+        String[] split = splitPathAndValue(NbtTargets.joinFrom(target, next));
+        if (split == null) {
+            throw new WrongUsageException(NBT_USAGE);
+        }
+        NbtPath path = NbtTargets.parsePath(split[0]);
+        String expected = split[1];
+        record.add("predicate", "nbt." + kind);
+        record.add("target", kind);
+
+        NbtTargets.Read read;
+        if ("entity".equals(kind)) {
+            if (EntityTarget.classify(target[1]) == EntityTarget.Form.UUID) {
+                String uuid = UUID.fromString(target[1]).toString();
+                int[] last = lastFixturePlace(uuid);
+                if (recordUnloaded(uuid, server.getEntityFromUuid(UUID.fromString(uuid)) != null, last,
+                        last != null && placeLoaded(last), record)) {
+                    record.add("path", path.toString());
+                    return Assertions.nbtUnloaded(expected);
+                }
+            }
+            read = NbtTargets.entity(server, sender, target, record);
+        } else if ("block".equals(kind)) {
+            read = NbtTargets.block(sender, target, record, false);
+        } else {
+            read = NbtTargets.held(sender, record, true);
+        }
+        record.add("path", path.toString());
+        if (read.unloaded) {
+            return Assertions.nbtUnloaded(expected);
+        }
+        NbtLookup.Result found = read.tag == null ? null
+                : NbtLookup.resolve(read.tag, path, ToolkitConfigLoader.get().getMaxNbtOutputLength());
+        return compareNbt(expected, found, record);
+    }
+
+    /**
+     * The path and the value from the words after the target: the path ends at the first space
+     * outside double quotes, and the value is everything after that space. Null when either is
+     * empty.
+     */
+    static String[] splitPathAndValue(String rest) {
+        int end = NbtPath.end(rest);
+        if (end == 0 || end >= rest.length() - 1) {
+            return null;
+        }
+        return new String[] {rest.substring(0, end), rest.substring(end + 1)};
+    }
+
+    /**
+     * The comparison and the value's fields, from a lookup already made; null when there was
+     * nothing to read the path from (no tile entity, an empty hand), which is missing.
+     */
+    static Assertions.Result compareNbt(String expected, NbtLookup.Result found, LogRecord record) {
+        NbtTargets.addValue(record, found);
+        if (found == null || !found.isFound()) {
+            return Assertions.nbtValue(expected, false, null, false);
+        }
+        record.add("comparedAs", Assertions.nbtComparesAsNumbers(expected, found.getValue(), found.isNumber())
+                ? "number" : "text");
+        return Assertions.nbtValue(expected, true, found.getValue(), found.isNumber());
     }
 
     /**

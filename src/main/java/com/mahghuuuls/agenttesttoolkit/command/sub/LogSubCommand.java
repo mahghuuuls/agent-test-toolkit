@@ -5,6 +5,7 @@ import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.logging.filter.ArenaFilter;
 import com.mahghuuuls.agenttesttoolkit.logging.filter.Filter;
+import com.mahghuuuls.agenttesttoolkit.logging.filter.FollowRadiusFilter;
 import com.mahghuuuls.agenttesttoolkit.logging.filter.RadiusFilter;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
@@ -52,7 +53,7 @@ public final class LogSubCommand implements SubCommand {
 
     @Override
     public String getUsage() {
-        return "log <<category> on|off | all off | status>";
+        return "log <<category> on [arena | radius <n> [follow]] | <category> off | all off | status>";
     }
 
     @Override
@@ -111,7 +112,7 @@ public final class LogSubCommand implements SubCommand {
             // filter state, and enabling first would also half-apply the operator's intent.
             Filter filter;
             try {
-                filter = parseFilter(server, sender, args);
+                filter = parseFilter(server, sender, args, category);
             } catch (FilterRejected rejected) {
                 ToolkitLog.error("Filter not applied", rejected.getMessage());
                 // Nothing changed, so this must not read as success. A bundle narrowing a
@@ -217,8 +218,8 @@ public final class LogSubCommand implements SubCommand {
      *
      * @return the new filter, or null when none was given
      */
-    private Filter parseFilter(MinecraftServer server, ICommandSender sender, String[] args)
-            throws FilterRejected {
+    private Filter parseFilter(MinecraftServer server, ICommandSender sender, String[] args,
+                               LoggingCategory category) throws FilterRejected {
         if (args.length <= 2) {
             return null;
         }
@@ -250,12 +251,26 @@ public final class LogSubCommand implements SubCommand {
             if (radius < 0) {
                 throw new FilterRejected("radius must not be negative.");
             }
+            boolean follow = args.length > 4 && "follow".equals(args[4].toLowerCase(Locale.ROOT));
+            if (args.length > (follow ? 5 : 4)) {
+                // A mistyped "follow" must not leave a fixed centre that looks like what was asked.
+                throw new FilterRejected("Unexpected '" + args[follow ? 5 : 4]
+                        + "' after the radius. Expected nothing, or follow.");
+            }
             net.minecraft.entity.Entity anchor = sender.getCommandSenderEntity();
             if (anchor == null) {
                 // The radius anchors to the applying player; the console has no position and
                 // defaulting to the world origin would filter somewhere nobody asked about.
                 throw new FilterRejected("radius filter requires a player sender.");
             }
+            if (follow) {
+                if (!(anchor instanceof net.minecraft.entity.player.EntityPlayerMP)) {
+                    throw new FilterRejected("radius follow requires a player sender.");
+                }
+                return new FollowRadiusFilter(category.getCategoryName(), anchor.getUniqueID(), anchor.getName(),
+                        radius, CurrentPlayerPlaces.ofRunningServer());
+            }
+            // Without follow the centre stays where the sender stood now, wherever they go.
             return new RadiusFilter(dimension, anchor.posX, anchor.posY, anchor.posZ, radius);
         }
 

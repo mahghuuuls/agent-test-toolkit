@@ -71,7 +71,7 @@ class PackageRulesTest {
             "client/PanelLayout.java", "wait/PromptPanels.java", "client/PressStages.java", "client/QueueChoice.java",
             "client/TooltipCapture.java", "integration/baubles/BaubleEquipCalls.java",
             "command/BuiltInTolerance.java", "wait/ClientWaitDecision.java", "inbox/ClientWaitOptions.java",
-            "client/ChatHistory.java"};
+            "client/ChatHistory.java", "inspect/NbtPath.java"};
 
     /**
      * The roots a source file may import from. Another loader's or mod's classes are reached by
@@ -201,7 +201,7 @@ class PackageRulesTest {
         assertEquals(new ArrayList<String>(), found);
         // The paths were read as the rules name them, so the rules were applied at all.
         assertTrue(clientFiles >= 5, "client files reached: " + clientFiles);
-        assertTrue(pureFiles >= 35, "pure files reached: " + pureFiles);
+        assertTrue(pureFiles >= 37, "pure files reached: " + pureFiles);
         assertTrue(new File(MAIN, "inbox/PlayerActionOptions.java").isFile(), "a pure class the list names exists");
     }
 
@@ -289,6 +289,8 @@ class PackageRulesTest {
                 "com.mahghuuuls.agenttesttoolkit.bundle.Bundles.scheduler()").isEmpty(), "client to bundle");
         assertFalse(violations("wait/ClientWaitDecision.java", "import net.minecraft.entity.Entity;").isEmpty(),
                 "the wait outcomes stay pure");
+        assertFalse(violations("inspect/NbtPath.java", "import net.minecraft.nbt.NBTTagCompound;").isEmpty(),
+                "the path grammar stays pure");
         assertTrue(violations("wait/ClientReports.java",
                 "import com.mahghuuuls.agenttesttoolkit.net.ClientCapabilities;").isEmpty(),
                 "the waits listen to the client reports");

@@ -1,11 +1,10 @@
 package com.mahghuuuls.agenttesttoolkit.command.sub;
 
 import com.mahghuuuls.agenttesttoolkit.bundle.Replies;
-import com.mahghuuuls.agenttesttoolkit.command.Senders;
 import com.mahghuuuls.agenttesttoolkit.command.SubCommand;
 import com.mahghuuuls.agenttesttoolkit.config.ToolkitConfigLoader;
-import com.mahghuuuls.agenttesttoolkit.inspect.EntityTarget;
-import com.mahghuuuls.agenttesttoolkit.inspect.LoadedPositions;
+import com.mahghuuuls.agenttesttoolkit.inspect.NbtLookup;
+import com.mahghuuuls.agenttesttoolkit.inspect.NbtPath;
 import com.mahghuuuls.agenttesttoolkit.inspect.Truncation;
 import com.mahghuuuls.agenttesttoolkit.logging.EventType;
 import com.mahghuuuls.agenttesttoolkit.logging.LogRecord;
@@ -16,13 +15,8 @@ import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.math.BlockPos;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -32,17 +26,26 @@ import java.util.Locale;
 /**
  * Writes raw NBT to the log, literally and without interpretation.
  *
- * <p>NBT is never compared, diffed or judged, and that is an identity decision rather
- * than a simplification: the toolkit reports facts, and deciding whether a tag is "correct"
- * requires knowing what the mod under test intended.
+ * <p>NBT is never diffed or judged here, and that is an identity decision rather than a
+ * simplification: the toolkit reports facts, and deciding whether a tag is "correct" requires
+ * knowing what the mod under test intended. Only {@code assert nbt} compares, and only one value
+ * against the value a bundle declared.
  *
  * <p>Output goes to the log, never to chat. A shulker box or a written book carries enough NBT
  * to flood a chat window and push everything useful out of scroll history; chat gets a one line
  * confirmation with the lengths, which is what tells the operator where to look.
+ *
+ * <p>With {@code path=} it writes one value instead, as an {@code NBT_VALUE} record: the path's
+ * grammar is {@link NbtPath}'s. A held item's path is read from the whole saved stack, so
+ * {@code Damage} and capabilities are reachable, while raw {@code nbt held} keeps writing only
+ * the stack's {@code tag}, as it always has.
  */
 public final class NbtSubCommand implements SubCommand {
 
     private static final List<String> TARGETS = Arrays.asList("entity", "block", "held");
+    private static final String PATH = "path=";
+    /** A value longer than this is named by its length in chat; the record always has it. */
+    private static final int CHAT_VALUE_LENGTH = 80;
 
     @Override
     public String getName() {
@@ -51,12 +54,12 @@ public final class NbtSubCommand implements SubCommand {
 
     @Override
     public String getDescription() {
-        return "Write raw NBT for an entity, block, or held item to the log";
+        return "Write raw NBT, or one value by path, for an entity, block, or held item to the log";
     }
 
     @Override
     public String getUsage() {
-        return "nbt <entity <selector|uuid|entityId> | block <x> <y> <z> | held>";
+        return "nbt <entity <selector|uuid|entityId> | block <x> <y> <z> | held> [path=<path>]";
     }
 
     @Override
@@ -74,98 +77,69 @@ public final class NbtSubCommand implements SubCommand {
         }
 
         String target = args[0].toLowerCase(Locale.ROOT);
+        int pathAt = pathIndex(target, args);
+        boolean byPath = pathAt > 0;
+        // Read before the target, so a mistyped path fails without a lookup half recorded.
+        NbtPath path = byPath ? NbtTargets.parsePath(NbtTargets.joinFrom(args, pathAt).substring(PATH.length())) : null;
+        LogRecord record = begin(sender, target, byPath ? EventType.NBT_VALUE : EventType.NBT);
+        NbtTargets.Read read;
         if ("entity".equals(target)) {
-            entity(server, sender, args);
+            read = NbtTargets.entity(server, sender, args, record);
         } else if ("block".equals(target)) {
-            block(sender, args);
+            read = NbtTargets.block(sender, args, record, true);
         } else if ("held".equals(target)) {
-            held(sender);
+            read = NbtTargets.held(sender, record, byPath);
         } else {
             throw new WrongUsageException("/devtool " + getUsage());
         }
-    }
 
-    private void entity(MinecraftServer server, ICommandSender sender, String[] args)
-            throws CommandException {
-        if (args.length < 2) {
-            throw new WrongUsageException("/devtool nbt entity <selector|uuid|entityId>");
-        }
-        // A selector matching two entities is an error, not an invitation to pick one.
-        Entity entity = EntityTarget.requireExactlyOne(server, sender, args[1]);
-        NBTTagCompound tag = new NBTTagCompound();
-        entity.writeToNBT(tag);
-
-        LogRecord record = begin(sender, "entity");
-        // How the entity was found. Three lookup forms produce one record shape, and without
-        // this a reader cannot tell a selector hit from a direct handle.
-        record.add("lookup", EntityTarget.classify(args[1]).recordName());
-        record.add("entityId", entity.getEntityId());
-        record.add("uuid", entity.getUniqueID().toString());
-        // An entity ID is only unique within a dimension, so a record found by ID is
-        // ambiguous without this; a UUID lookup gets it for consistency.
-        record.add("dimension", entity.dimension);
-        emit(sender, record, tag);
-    }
-
-    private void block(ICommandSender sender, String[] args) throws CommandException {
-        if (args.length < 4) {
-            throw new WrongUsageException("/devtool nbt block <x> <y> <z>");
-        }
-        BlockPos pos = CommandBase.parseBlockPos(sender, args, 1, false);
-        LoadedPositions.require(sender.getEntityWorld(), pos);
-        TileEntity tile = sender.getEntityWorld().getTileEntity(pos);
-
-        LogRecord record = begin(sender, "block");
-        record.addBlockPos("pos", pos.getX(), pos.getY(), pos.getZ());
-
-        if (tile == null) {
-            // Stated rather than reported as empty NBT. "No tile entity here" and "a tile
-            // entity with no tags" are different facts, and an agent acting on the wrong one
-            // would look for a bug that does not exist.
-            record.add("hasTileEntity", false);
-            SessionStamp.apply(record);
-            ToolkitLog.write(record);
-            Replies.send(sender,
-                    "[DevToolkit] No tile entity at that position. Recorded.");
+        if (byPath) {
+            emitValue(sender, record, read.tag, path);
             return;
         }
-
-        NBTTagCompound tag = new NBTTagCompound();
-        tile.writeToNBT(tag);
-        record.add("hasTileEntity", true);
-        record.add("tileEntityClass", tile.getClass().getName());
-        emit(sender, record, tag);
-    }
-
-    private void held(ICommandSender sender) throws CommandException {
-        EntityPlayer player = Senders.asPlayer(sender);
-        if (player == null) {
-            throw new net.minecraft.command.CommandException(
-                    "This command must be run by a player, or by a bundle a player started.");
+        if (args.length > read.next) {
+            // Raw NBT takes nothing after its target. A mistyped path= would otherwise write the
+            // whole compound and look like an answer.
+            throw new WrongUsageException("/devtool " + getUsage());
         }
-        ItemStack stack = player.getHeldItemMainhand();
-
-        LogRecord record = begin(sender, "held");
-        if (stack == null || stack.isEmpty()) {
-            record.add("empty", true);
+        if (read.tag == null) {
             SessionStamp.apply(record);
             ToolkitLog.write(record);
-            Replies.send(sender,
-                    "[DevToolkit] Main hand is empty. Recorded.");
+            Replies.send(sender, "block".equals(target)
+                    ? "[DevToolkit] No tile entity at that position. Recorded."
+                    : "[DevToolkit] Main hand is empty. Recorded.");
             return;
         }
-
-        record.add("item", net.minecraft.item.Item.REGISTRY
-                .getNameForObject(stack.getItem()).toString());
-        record.add("count", stack.getCount());
-        record.add("meta", stack.getMetadata());
-
-        NBTTagCompound tag = stack.getTagCompound();
-        emit(sender, record, tag == null ? new NBTTagCompound() : tag);
+        emit(sender, record, read.tag);
     }
 
-    private LogRecord begin(ICommandSender sender, String target) {
-        LogRecord record = RecordContext.stamp(LogRecord.of(EventType.NBT), sender);
+    /** Where {@code path=} starts: the argument after the target's words when it begins so, else -1. */
+    private static int pathIndex(String target, String[] args) {
+        int next = NbtTargets.words(target);
+        return next > 0 && args.length > next && args[next].toLowerCase(Locale.ROOT).startsWith(PATH) ? next : -1;
+    }
+
+    /** The {@code NBT_VALUE} record: the lookup fields, the path, and what it found. */
+    private void emitValue(ICommandSender sender, LogRecord record, NBTTagCompound tag, NbtPath path) {
+        SessionStamp.apply(record);
+        record.add("path", path.toString());
+        NbtLookup.Result found = tag == null ? null
+                : NbtLookup.resolve(tag, path, ToolkitConfigLoader.get().getMaxNbtOutputLength());
+        NbtTargets.addValue(record, found);
+        ToolkitLog.write(record);
+        if (found == null) {
+            Replies.send(sender, "[DevToolkit] Nothing to read the path from. Recorded.");
+        } else if (!found.isFound()) {
+            Replies.send(sender, "[DevToolkit] " + path + " not found (stopped at " + found.getMissingAt() + "). Recorded.");
+        } else {
+            String value = found.getValue();
+            Replies.send(sender, "[DevToolkit] " + path + " = " + (value.length() <= CHAT_VALUE_LENGTH ? value
+                    : "(" + value.length() + " chars, in the log)") + " (" + found.getType() + ").");
+        }
+    }
+
+    private LogRecord begin(ICommandSender sender, String target, EventType type) {
+        LogRecord record = RecordContext.stamp(LogRecord.of(type), sender);
         record.add("target", target);
         return record;
     }

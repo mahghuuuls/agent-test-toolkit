@@ -216,6 +216,60 @@ public final class Assertions {
         return new Result(same ? Outcome.PASS : Outcome.FAIL, expected, observed, null);
     }
 
+    /**
+     * One NBT value read by path. When the tag is a number and the declared value reads as one,
+     * the two are equal when they agree to two decimals, as the other numeric assertions are;
+     * otherwise the text must match exactly, case included. A path that found nothing fails
+     * with {@code missing} as the observed value.
+     *
+     * <p>Decimal text is compared exactly rather than through a double, so a long such as half
+     * of a UUID keeps every digit and {@code 2.675} rounds up as written.
+     *
+     * @param found        whether the path found a tag
+     * @param observed     the value text as stored; ignored when not found
+     * @param observedIsNumber whether the tag is one of the number types
+     */
+    public static Result nbtValue(String expected, boolean found, String observed, boolean observedIsNumber) {
+        if (!found) {
+            return new Result(Outcome.FAIL, expected, "missing", null);
+        }
+        java.math.BigDecimal expectedNumber = observedIsNumber ? decimal(expected) : null;
+        java.math.BigDecimal observedNumber = expectedNumber == null ? null : decimal(observed);
+        boolean same;
+        if (expectedNumber != null && observedNumber != null) {
+            same = twoPlaces(expectedNumber).equals(twoPlaces(observedNumber));
+        } else {
+            same = expected != null && expected.equals(observed);
+        }
+        return new Result(same ? Outcome.PASS : Outcome.FAIL, expected, observed, null);
+    }
+
+    /** Whether {@link #nbtValue} compares these two as numbers rather than as text. */
+    public static boolean nbtComparesAsNumbers(String expected, String observed, boolean observedIsNumber) {
+        return observedIsNumber && decimal(expected) != null && decimal(observed) != null;
+    }
+
+    /** An NBT value that could not be read because its target is not loaded: neither pass nor fail. */
+    public static Result nbtUnloaded(String expected) {
+        return new Result(Outcome.UNLOADED, expected, "notFound", "region not loaded");
+    }
+
+    /** The text as an exact decimal; null when it is not one, such as {@code NaN} or a word. */
+    private static java.math.BigDecimal decimal(String text) {
+        if (text == null || text.isEmpty()) {
+            return null;
+        }
+        try {
+            return new java.math.BigDecimal(text);
+        } catch (NumberFormatException notANumber) {
+            return null;
+        }
+    }
+
+    private static String twoPlaces(java.math.BigDecimal value) {
+        return value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+    }
+
     private static String format(double value) {
         return String.format(java.util.Locale.ROOT, "%.2f", value);
     }

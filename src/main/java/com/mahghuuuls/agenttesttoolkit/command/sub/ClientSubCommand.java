@@ -590,6 +590,7 @@ public final class ClientSubCommand implements SubCommand {
         SessionStamp.apply(record);
         record.add("action", "requested");
         record.add("player", player.getName());
+        ClientCapabilities.addIdentity(record, player);
         record.add("step", step);
         return record;
     }
